@@ -1,0 +1,13 @@
+package chem
+
+authors    = "stefan-hoeck"
+version    = 0.1.0
+sourcedir  = "src"
+depends    = base         >= 0.4.0
+           , contrib      >= 0.4.0
+           , elab-util    >= 0.3.0
+
+modules = Chem
+        , Chem.Element
+        , Chem.Isotope
+        , Chem.Types
