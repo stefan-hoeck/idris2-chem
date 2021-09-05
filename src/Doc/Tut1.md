@@ -201,3 +201,121 @@ public export
 isEven : Integer -> Bool
 isEven n = n `mod` 2 == 0
 ```
+
+## Algebraic Data Types
+
+For simple algebraic data types, Idris2 uses the same syntax
+as Haskell. Below is a simple enum type for genders:
+
+```idris
+public export
+data Gender = Male | Female | NonBinary
+```
+
+For data types, `public export` means that the type and data
+constructors will be available from other modules. With
+only `export` the type is abstract: Its constructors will
+not be exported. In moste cases, we therefore use `public export`.
+
+Of course, we can also define constructors that take arguments:
+
+```idris
+public export
+data Error = ReadError String
+           | OutOfMemory
+           | ParseError Int Int String
+```
+
+Finally, data types can be parameterized:
+
+```idris
+public export
+data Option a = Yes a | No
+```
+
+### Records
+
+While the examples above are convenient and familiar
+(for people coming from Haskell), we will only use them
+in the simplest cases. Most of the time, will need
+some more control about our data types.
+
+Whenever we define a data type with only a single
+constructor, we use record syntax.
+
+```idris
+public export
+record Employee where
+  constructor MkEmployee
+  name       : String
+  gender     : Gender
+  age        : Nat
+  salary     : Double
+  supervisor : Maybe Employee
+```  
+
+As can be seen, we use slightly different syntax as in
+Haskell here. The code snippet below shows, how we can
+create `Employee`s, how we can access their fields,
+how we can update their fields, and how we can pattern
+match on them:
+
+```idris
+jane : Employee
+jane = MkEmployee "Jane" Female 55 5678.0 Nothing
+
+john : Employee
+john = MkEmployee "John" Male 23 2500.0 (Just jane)
+
+ageOfJohn : Nat
+ageOfJohn = age john
+
+||| Emily is Jane's twin sister, so we copy most
+||| of her
+emily : Employee
+emily = record { name = "Emily", salary = 6000.0 } jane
+
+||| It's John's birthday, so we increase his age by
+||| one. `S` is the successor constructor for natural
+||| numbers (see `:doc Nat` in the REPL). We could
+||| also have written `(+1)` instead.
+johnPlus1 : Employee
+johnPlus1 = record { age $= S } john
+```
+
+### Newtypes
+
+Haskell has a special construct for single
+constructor data types wrapping just a single value:
+`newtype`s. In Idris2, there is no such thing, however,
+single value wrappers are automatically discarded by
+the backends, so the effect is the same as with
+Haskell's `newtype`s. For instance, in the following
+example, values of type `Celsius` are just plain
+`Double`s at the backends. This is independet of whether
+we define the data type using the `record` or `data`
+keyword:
+
+```idris
+record Celsius where
+  constructor MkCelsius
+  value : Double
+```
+
+### Interfaces
+
+As mentioned above, Idris2 comes with a similar construct
+as Haskell's type classes: Interfaces. We will see later that
+they are actually quite a bit different: They are just
+records that Idris2 will insert automatically as function
+arguments where we need them. But that's for another tutorial.
+
+Let's implement `Eq` for `Gender`:
+
+```idris
+Eq Gender where
+  Male == Male = True
+  Female == Female = True
+  NonBinary == NonBinary = True
+  _ == _ = False
+```
