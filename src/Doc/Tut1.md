@@ -29,10 +29,10 @@ module Doc.Tut1
 Idris2 comes with its own REPL (read eval print loop), which
 is very basic at the moment (no tab-completion and no command history),
 but allows us already to inspect types and holes in detail, which
-can be very useful. In order to get a better REPL experience, it
-is suggested to run it from within the command line utility
-`rlwrap`, which has to be installed separately on your
-operating system.
+can be very useful. In order to get a better REPL experience including
+a command history, it is suggested to run it from within
+the command line utility `rlwrap`, which has to be installed
+separately on your operating system.
 
 To load this literate Idris2 file into the REPL and try some
 of the examples yourself, the following command issued from
@@ -51,7 +51,7 @@ square : Integer -> Integer
 square x = x * x
 ```
 
-The above, is almost exactly like Haskell, the only difference
+The above is almost exactly like Haskell the only difference
 being that Idris2 uses a single colon `:` in type signatures.
 
 Function composition can be done using the dot operator `(.)`:
@@ -61,12 +61,15 @@ shout : String -> String
 shout = pack . map toUpper . unpack
 ```
 
-If you'd like to inspekt the type of a function in the REPL,
-write `:t` followed by the function name:
+If you'd like to inspect the type of a function in the REPL,
+write `:t` followed by the function name. Use `:doc`
+to print the function's docstring:
 
 ```
 > :t unpack
 Prelude.unpack : String -> List Char
+> :doc unpack
+...
 ```
 
 As can be seen, `String` in Idris2 is a primitive data type
@@ -74,8 +77,8 @@ unlike in Haskell, where it is an alias for `[Char]`. Also,
 the type of a list of characters is `List Char`, unlike in
 Haskell, where it is `[Char]`.
 
-Idris2 has a similar constructs to Haskell's type classes. In
-Idris2, they are called 'interfaces'. We use them constrain
+Idris2 has a similar construct to Haskell's type classes. In
+Idris2, they are called 'interfaces'. We use them to constrain
 the types of values accepted by a function:
 
 ```idris
@@ -139,3 +142,62 @@ In the above example, the result type *depended* on one of
 the arguments passed to the functions, and we used the
 *value* (`b`) of that argument, to calculate the return
 type in the type signature! Welcome, to dependent types!
+
+### Holes
+
+One of the main aspekts of programming in Idris2, is to get
+as much help from the type checker as possible. Idris2 can
+tell you all about the types in scope, can automatically
+generate pattern matching clauses for you (if your editor
+supports it), it sometimes can even write whole programs
+for you just from the type declarations.
+
+In this section we look at holes.
+
+```idris
+getNat : Either (String,Bits8,Nat) (Nat,List Bool) -> Nat
+getNat (Left  (x,y,z)) = ?leftClause
+getNat (Right (x,y)) = ?rightClause
+```
+
+If you get lost in a complex function implementation and
+want to have a look at what's going on, just enter a
+hole (also called a meta variable) by prefixing a name
+with a question mark. Load the file in question into
+the REPL, and have a look at the types: `:m` lists
+all meta variables, `:t` can be used to dispaly their
+types:
+
+```
+> :t leftClause
+  x : String
+  y : Bits8
+  z : Nat
+```
+
+### Visibility
+
+In order to make functions visible from other modules,
+we need to export them. There are three types of
+visibilities: `private` (the default: such a function
+is not accessible from other modules), `export` (the
+function's type signature is exported and it can be
+called from other modules), and `public export`
+(the function including its implementation is exported).
+
+`private` functions can only be accessed from the module
+where they are defined plus all child modules. For instance,
+our function `square` would also be accessible from a
+hypothetical module `Doc.Tut1.Extra`, for instance.
+
+`public export` functions are necessary to use a function's
+implementation in typelevel calculations. This will become
+important when we start talking about dependent types.
+
+An example:
+
+```idris
+public export
+isEven : Integer -> Bool
+isEven n = n `mod` 2 == 0
+```
