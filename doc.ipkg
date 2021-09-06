@@ -9,3 +9,4 @@ depends    = base         >= 0.4.0
 
 modules = Doc.Tut1
         , Doc.Tut1.Sol
+        , Doc.Tut2

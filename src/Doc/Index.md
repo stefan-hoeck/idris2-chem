@@ -11,3 +11,4 @@ are very similar.
 ## Table of Contents
 
 1. [Functions, ADTs, and Pattern Matching](Tut1.md)
+2. [Type Families](Tut2.md)
