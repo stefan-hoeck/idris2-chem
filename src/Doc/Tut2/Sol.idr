@@ -41,7 +41,7 @@ FromString (Expr String) where
 --------------------------------------------------------------------------------
 
 data Vect : (n : Nat) -> (a : Type) -> Type where
-  Nil  : Vect 0 a
+  Nil  : Vect Z a
   (::) : (h : a) -> (t : Vect n a) -> Vect (S n) a
 
 drop2 : Vect (S $ S n) a -> Vect n a

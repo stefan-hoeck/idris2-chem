@@ -112,7 +112,7 @@ Just True
 
 Haskell has similar issues and it provides its own language extension
 called 'TypeApplications' to solve this. There is no need for any kind
-of extension in Idris here, and will often make use of this.
+of extension in Idris here, and we will often make use of this.
 
 We are free to chose and only pass certain implicit arguments
 if needed. For instance, try the following:
@@ -127,7 +127,10 @@ Here, Idris complains that there are two functions named `length`
 in scope (Idris supports overloading of names and is usually pretty good
 at disambiguating between them via their types). 
 How to proceed? In case of ambiguous names, we can give a unique suffix
-of the fully qualified name. For instance:
+of the fully qualified name. Here, the possible fully qualified names
+are `Prelude.String.length`, and `Prelude.List.length`, so
+it is sufficient to write `String.length` to disambiguate between
+the two.
 
 ```
 > either String.length cast $ Left "foo"
@@ -140,11 +143,21 @@ implementation of `Cast` to choose. It should be able to
 figure out the `?to` part: `String.length` is a function from
 `String` to `Nat`, so `?to` should be `Nat`. It still needs
 help with the `?from`. What version of `Either String ?` should
-we use. Lets opt for `Integer`:
+we use? Lets opt for `Integer`:
 
 ```
 > either {b = Integer} String.length cast $ Left "foo"
 3
+```
+
+As can be seen, there is no need to also be explicit about `a`
+and `c`: Idris can figure out those by itself. It's also
+not necessary to specify implicit arguments in the correct order,
+as we name them explicitly anyway. For instance:
+
+```
+> either {a = Int32} {b = Bits8} {c = Integer} cast cast (Left 12)
+12
 ```
 
 ### Quantities
@@ -303,7 +316,7 @@ quantities:
   * `1` : The argument *must* be used exactly once. For the time being
     I won't burden you with the details what this exactly
     means and why it is useful.
-  * Arbitrarily often : The default, meaning *I don't know* or *I don't care*.
+  * Arbitrarily often : The default.
 
 If in doubt, always have a look at the full type signatures of
 functions by using `:ti` in the REPL.
@@ -326,7 +339,15 @@ hole1 : Maybe a
 
 You see, together with the type of `hole1`, Idris gives us the
 types and quantities of all other values - implicit and explicit -
-in scope.
+in scope. We can access and use these values if they are not of zero quantity
+(even the implicit ones!). For instance, in the following truly final example,
+we pattern match on an implicitly provided interface implementation:
+
+```idris
+readMayTrulyFinal : (0 a : Type) -> {auto impl : Read a} -> String -> Maybe a
+readMayTrulyFinal a str = case impl of
+  MkRead fun => fun str
+```
 
 ## Generalized Algebraic Data Types
 
@@ -420,7 +441,7 @@ language:
     on natural numbers.
   * Function `IsZero`, operating on a natural number and
     returnning a `Bool`.
-  * Function `And` and `Or`, calculating the logical conjustion
+  * Function `And` and `Or`, calculating the logical conjunction
     and disjunction of two boolean expressions.
 
 The expression language should be well typed: We must not be allowed
@@ -496,7 +517,7 @@ Num (Expr Nat) where
   (*) = Mult
 
 infixr 5 `And`
-infixr 5 `Or`
+infixr 4 `Or`
 
 example3 : Expr Nat
 example3 = 12 + 100 * 30
@@ -543,7 +564,7 @@ enabling the following extensions: `GADTs`, `DataKinds`, and `KindSignatures`.
 
 ```idris
 data Vect : (n : Nat) -> (a : Type) -> Type where
-  Nil  : Vect 0 a
+  Nil  : Vect Z a
   (::) : (h : a) -> (t : Vect n a) -> Vect (S n) a
 
 vectOfLength2 : Vect 2 String
@@ -554,10 +575,11 @@ There is a lot of stuff going on here, so let's break this down a bit:
 `Vect` is a function from `Nat` to `Type` to `Type`: We plan to use
 the `Nat` index (not *parameter*!) to represent the number of elements
 in the `Vect`, and the `Type` parameter (not *index*!) to represent
-the types of values stored.
+the types of values stored. So, this again is a *family of parameterized types*:
+One parameterized type for each possible length.
 
 This is reflected in the two constructors: `Nil` is an empty `Vect` and
-therefore has length `0`, `(::)` (also called *cons*) takes a value
+therefore has length zero (`Z`), `(::)` (also called *cons*) takes a value
 plus a vector of length `n`, and therefore represents a vector of
 length `S n`, which means, that `n` is increased by one (have a look at
 the data constructors of `Nat`: `:doc Nat`!).
@@ -568,22 +590,23 @@ Idris supports name overloading: The constructors of `List` are likewise
 called `Nil` and `(::)`.
 
 In addition, Idris prevents us from making stupid mistakes. The following
-will not work in the REPL:
+will not work at the REPL:
 
 ```
 > the (Vect 2 Bits8) [1,2,3]
 ...
 ```
 
-First, have a look at the full type of `the`, and try to figure out what it
+First, have a look at the full type and docstring of `the`,
+and try to figure out what it
 does and why it is extremly useful. Then, appreciate the complex error message
 we get from running the expression above in the REPL. The issue here is that
 Idris will have several constructors called `Nil` and `(::)` in scope, and
 will try each of them to satisfy the types. None will work, as the length of
-our vector is wron, so Idris will explain for each constructor what it
+our vector is wrong, so Idris will explain for each constructor what it
 tried and why id didn't work.
 
-The following is fine, however:
+The following is fine, however, as the length matches the type:
 
 ```
 > the (Vect 2 Bits8) [1,2]
@@ -603,10 +626,12 @@ document, so Idris accepts the above definition as being provably total.
 Also, see how easy it is to express in the type declaration, that we
 only plan to return the `head` of non-empty vectors, and that therefore
 there is no need to wrap the result in a `Maybe`.
-The `Nil` case is impossible, since `Nil` has type `Vect 0 a`, which
+The `Nil` case is impossible, since `Nil` has type `Vect Z a`, which
 does not agree with the expected type of `head`'s argument. We can be
 explicit about such impossible cases (this is sometimes necessary in order
-to help Idris verify that we covered all cases):
+to help Idris verify that we covered all cases). As shown in the next code
+snippet, I'll insert explicit `impossible` cases most of the time in these
+tutorials. Feel free to try out yourself, when they are actually necessary.
 
 ```idris
 tail : Vect (S n) a -> Vect n a
@@ -614,7 +639,7 @@ tail (_ :: t) = t
 tail Nil impossible
 ```
 
-We can take this (much) further:
+We can take this (much) further. Below are some more interesting functions:
 
 ```idris
 (++) : Vect m a -> Vect n a -> Vect (m + n) a
@@ -632,7 +657,7 @@ Functor (Vect n) where
   map f (h :: t) = f h :: map f t
 ```
 
-Before you now start thinking, that we finally have a programming
+Before you start thinking that we finally have a programming
 language at our hands, which will take us to world dominion,
 please be aware that things are not always so easy.
 For instance, the following is surprisingly difficult to implement:
@@ -646,9 +671,9 @@ For instance, the following is surprisingly difficult to implement:
 If you uncomment the above, Idris will complain that it can't figure
 out that `plus n 1` is the same as `S n`. *We* know this to be true,
 since we know the addition of natural numbers to be commutative.
-However, Idris can't figure out this by itself, so it needs some help.
+However, Idris can't figure this out on its own, so it needs some help.
 This is the moment, where we'd have to write our own proof, but we are not
-ready for this yet. If you are curious:
+ready for this yet. Still, if you are curious:
 The proof is available from `Data.Nat.plusCommutative`,
 and we can use that to implement `reverse`
 
@@ -659,7 +684,7 @@ reverse {n = S k} (h :: t) = rewrite plusCommutative 1 k in reverse t ++ [ h ]
 ```
 
 It is *not* expected that you understand the example above yet. It's just
-there to show you, that we can support Idris in verifying stuff for us,
+there to show you that we can support Idris in verifying stuff for us
 and that it is often necessary to do so.
 
 
@@ -684,19 +709,20 @@ closely related:
     a compound in SMILES or Mol format.
 
 Since we already have `Element` for the first item in the list above,
-we could just go for a an `Isotope` data type for the second item,
-and use `Either Elem Isotope` for the third. While accurate, it would
-require us to use two data constructors (instead of one) to wrap then
+we could just go for an `Isotope` data type for the second item,
+and use `Either Element Isotope` for the third. While accurate, it would
+require us to use two data constructors (instead of one) to wrap the
 information stored in a pure `Isotope`. In addition, `Either` is a data type
 with no additional semantics, which could or could not be an
 issue later on.
 
-Let's therefore go for a family of types, indexed over a flag describing
+Let us therefore go for a family of types, indexed over a flag describing
 its purity.
 
 ```idris
-||| In Idris, a *type alias* is just a function resulting
-||| in a `Type`.
+||| In Idris, a *type alias* is just a function or constant returning
+||| a `Type`. There is therefore no `type` keyword for type aliases as
+||| in Haskell.
 MassNumber : Type
 MassNumber = Nat
 
@@ -768,6 +794,13 @@ take : (n : Nat) -> Vect (n + m) a -> Vect n a
 
 replicate : (n : Nat) -> (v : a) -> Vect n a
 
+||| This should iteratively apply `f` to the initial argument.
+||| For instance:
+|||
+||| ```
+||| > iterate 6 (*2) 1
+||| [1, 2, 4, 8, 16, 32] 
+||| ```
 iterate : (n : Nat) -> (f : a -> a) -> (ini : a) -> Vect n a
 ```
 
