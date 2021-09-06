@@ -161,12 +161,12 @@ What are those zeroes doing there? Idris implements something called
 in our case we are only interested in the two simple cases most of
 the time. A quantity in a type signature describes, how often an
 argument will be used in the function's implementation:
-Quantity `0` means "not at all", and it is a type error to
+Quantity `0` means *not at all*, and it is a type error to
 use it (for instance by pattern matching on it or passing it
 as a non-zero quantity argument to another function). This is
 really great, because it allows Idris to erase all values of
 quantity `0` at runtime, as they are provably never ever used.
-Quantity `1` means "exactly once", and this is the most difficult
+Quantity `1` means *exactly once*, and this is the most difficult
 case. We will rarely use this, and won't go into the details here.
 As a teaser, `IO` is implemented by using quantity `1`.
 The third case is the one we use most of the time: Arbitrarily often.
@@ -227,7 +227,7 @@ The immediate question that arises is of course: If `Read a` in the
 signature above is just another implicit argument, could we also
 provide this manually, that is, can we actually pass values of
 type `Read a` around?
-The answer - and that's a huge difference from Haskell - is "yes"!
+The answer - and that's a huge difference from Haskell - is *yes*!
 To make this easier, we just give the argument a proper name:
 
 ```idris
@@ -280,7 +280,7 @@ Just Female
 
 ### Summary
 
-This section might seem very daunting, but people typically get used
+This section might be quite daunting, but people typically get used
 to this quickly, as there is *nothing more* to type signatures in Idris!
 
 There are three kinds of arguments:
@@ -303,7 +303,7 @@ quantities:
   * `1` : The argument *must* be used exactly once. For the time being
     I won't burden you with the details what this exactly
     means and why it is useful.
-  * Arbitrarily often : The default, meaning "I don't know" or "I don't care".
+  * Arbitrarily often : The default, meaning *I don't know* or *I don't care*.
 
 If in doubt, always have a look at the full type signatures of
 functions by using `:ti` in the REPL.
@@ -336,10 +336,10 @@ and implement a bunch of interesting data types.
 ### More Flexibility in Data Definitions
 
 In the first part of the tutorial, we learned how to define
-new data types using the `data` and `record` keywords. While we
-will often make use of records as described in that part, we
-will typicall use a more powerful syntax for data definitions,
-except for the most simple cases.
+new data types using the `data` and `record` keywords. We will
+use records a lot, as described there, but for sum types we
+will typically use a more powerful syntax except for the
+most simple cases.
 
 Below is again a definition of our binary tree data type, this
 time with the extended syntax:
@@ -353,13 +353,13 @@ data BTree2 : (a : Type) -> Type where
         -> BTree2 a
 ```
 
-This is sometimes referred to as the "GADT syntax" for defining data types,
+This is sometimes referred to as the *GADT syntax* for defining data types,
 as something similar is also available in Haskell after enabling
-the `GADTs` extension ("GADT" being an acronym for "Generalized
-Algebraic Data Types"). With the above declaration, we define
+the `GADTs` extension (*GADT* being an acronym for *Generalized
+Algebraic Data Types*). With the above declaration, we define
 three (yes, three, not two!) new functions: `BTree2`, `Leaf2`, and `Node2`.
 In Haskell `BTree2` is called a *type constructor*: A typelevel function
-of kind `* -> *`. In Idris, there is no such thing as a "kind system",
+of kind `* -> *`. In Idris, there is no such thing as a *kind system*,
 and we don't distinguish between functions that calculate types
 and functions that calculated values (that's because in Idris, types
 *are* values, or can be treated as such). The term *type constructor*
@@ -379,7 +379,7 @@ immediately clear. For instance, it can be hard to figure out the
 kinds of all parameters in the following Haskell data definition:
 
 ```haskell
-data Biff p f a b = MkBiff p (f a) (f b)
+data Biff p f a b = MkBiff (p (f a) (f b))
 ```
 
 Can you figure out the kinds of `p`, `f`, `a`, and `b` immediately?
@@ -410,7 +410,7 @@ necessity. In this section, we'd like to define a
 data type `Expr` to represent a simple language of well typed
 arithmetic and boolean expressions.
 The `Expr` type constructor should take an additional argument
-of type `Type`, to keep track of the type we get, when we
+of type `Type`, to keep track of the type we get when we
 evaluate an expression.
 The following constructs should be part of our small
 language:
@@ -425,7 +425,7 @@ language:
 
 The expression language should be well typed: We must not be allowed
 to write bogus expressions like `Add (IsZero 12) 13`, as the type
-of `IsZero 13` should be `Expr Bool`, and `Add` is supposed to 
+of `IsZero 13` should be `Expr Bool`, and `Add` is supposed to take
 two arguments of `Expr Nat`. Here's how to do this:
 
 ```idris
@@ -517,7 +517,7 @@ False
 ```
 
 With the declaration of `Expr`, we actually defined two new and
-closesly related types: `Expr Nat` and `Expr Bool`. We therefore
+closely related types: `Expr Nat` and `Expr Bool`. We therefore
 speak also of a *family of types*, or a *type family*, and we
 say `Expr` is *indexed* over `Type` instead of *parameterized* over
 `Type`. The difference between a type index and a type parameter
@@ -536,7 +536,7 @@ after enabling the `GADTs` extension.
 
 We now give the "hello world" of dependetly typed programming:
 Lists indexed over natural numbers, representing their length.
-Also I said *dependently typed* above, this actually does not yet
+Although I just said *dependently typed*, this actually does not yet
 involve full fledged dependent types. We could encode something
 similar (but with less syntactic convenience) in Haskell after
 enabling the following extensions: `GADTs`, `DataKinds`, and `KindSignatures`.
