@@ -1,17 +1,17 @@
 # Part 1: Functions, ADTs, and Pattern Matching
 
-Idris2 is in many aspekts very similar to Haskell. In this
+Idris is in many aspekts very similar to Haskell. In this
 first part, we will focus on the similarities, so it will
 be straight forward for users with a Haskell background
-to follow along. This is a literate Idris2 file, and all
-Idris2 code will be wrapped in triple backticks as in
+to follow along. This is a literate Idris file, and all
+Idris code will be wrapped in triple backticks as in
 the following preamble:
 
 ```idris
--- An Idris2 module name must match its file name
+-- An Idris module name must match its file name
 module Doc.Tut1
 
--- Idris2 comes with a totality checker, which can verify
+-- Idris comes with a totality checker, which can verify
 -- that the functions we write are provably total, that is,
 -- they will yield a result of the given type in a finite
 -- amount of time, without throwing an exception or
@@ -19,14 +19,14 @@ module Doc.Tut1
 --
 -- We will say more about totality checking later on,
 -- for now, just consider turning the totality checker on
--- for all functions as a default, by starting each Idris2
+-- for all functions as a default, by starting each Idris
 -- source file with the following pragma:
 %default total
 ```
 
 ## Before we begin
 
-Idris2 comes with its own REPL (read eval print loop), which
+Idris comes with its own REPL (read eval print loop), which
 is very basic at the moment (no tab-completion and no command history),
 but allows us already to inspect types and holes in detail, which
 can be very useful. In order to get a better REPL experience including
@@ -34,7 +34,7 @@ a command history, it is suggested to run it from within
 the command line utility `rlwrap`, which has to be installed
 separately on your operating system.
 
-To load this literate Idris2 file into the REPL and try some
+To load this literate Idris file into the REPL and try some
 of the examples yourself, the following command issued from
 the project's root folder (where the .ipkg files are) should do:
 
@@ -52,7 +52,7 @@ square x = x * x
 ```
 
 The above is almost exactly like Haskell the only difference
-being that Idris2 uses a single colon `:` in type signatures.
+being that Idris uses a single colon `:` in type signatures.
 
 Function composition can be done using the dot operator `(.)`:
 
@@ -72,13 +72,13 @@ Prelude.unpack : String -> List Char
 ...
 ```
 
-As can be seen, `String` in Idris2 is a primitive data type
+As can be seen, `String` in Idris is a primitive data type
 unlike in Haskell, where it is an alias for `[Char]`. Also,
 the type of a list of characters is `List Char`, unlike in
 Haskell, where it is `[Char]`.
 
-Idris2 has a similar construct to Haskell's type classes. In
-Idris2, they are called 'interfaces'. We use them to constrain
+Idris has a similar construct to Haskell's type classes. In
+Idris, they are called 'interfaces'. We use them to constrain
 the types of values accepted by a function:
 
 ```idris
@@ -119,7 +119,7 @@ REPL:
 
 Before we leave this section, here is one last example.
 In the following type signature, we use syntax special
-to Idris2 to give names to the function arguments:
+to Idris to give names to the function arguments:
 
 ```idris
 namedArgs : Show a => (name : String) -> (value : a) -> String
@@ -145,8 +145,8 @@ type in the type signature! Welcome, to dependent types!
 
 ### Holes
 
-One of the main aspects of programming in Idris2, is to get
-as much help from the type checker as possible. Idris2 can
+One of the main aspects of programming in Idris, is to get
+as much help from the type checker as possible. Idris can
 tell you all about the types in scope, can automatically
 generate pattern matching clauses for you (if your editor
 supports it), it sometimes can even write whole programs
@@ -206,7 +206,7 @@ isEven n = n `mod` 2 == 0
 
 ## Algebraic Data Types
 
-For simple algebraic data types, Idris2 uses the same syntax
+For simple algebraic data types, Idris uses the same syntax
 as Haskell. Below is a simple enum type for genders:
 
 ```idris
@@ -291,7 +291,7 @@ employeeReport (MkEmployee nm _ age _ _) =
 
 Haskell has a special construct for single
 constructor data types wrapping just a single value:
-`newtype`s. In Idris2, there is no such thing, however,
+`newtype`s. In Idris, there is no such thing, however,
 single value wrappers are automatically discarded by
 the backends, so the effect is the same as with
 Haskell's `newtype`s. For instance, in the following
@@ -308,10 +308,10 @@ record Celsius where
 
 ### Interfaces
 
-As mentioned above, Idris2 comes with a similar construct
+As mentioned above, Idris comes with a similar construct
 as Haskell's type classes: Interfaces. We will see later that
 they are actually quite a bit different: They are just
-records that Idris2 will insert automatically as function
+records that Idris will insert automatically as function
 arguments where we need them. But that's for another tutorial.
 
 Let's implement `Eq` for `Gender`:
@@ -324,19 +324,19 @@ Eq Gender where
   _         == _         = False
 ```
 
-Unfortunately, Idris2 does not yet provide utilities for
+Unfortunately, Idris does not yet provide utilities for
 deriving interface implementations automatically as is
 possible in Haskell. However, there is
 [idris2-sop](https://github.com/stefan-hoeck/idris2-sop),
 a library based on
 elaborator reflection (a way to programmatically create
-Idris2 code by inspecting existing types and their structure
+Idris code by inspecting existing types and their structure
 at compile time), which can do that.
 
 ### Exercises
 
 Before we continue, it is probably a good idea to quickly
-write some code in Idris2. Solutions to the exercises are
+write some code in Idris. Solutions to the exercises are
 available [here](Tut1/Sol.idr).
 
 #### 1. A Simple Enum Type
@@ -378,7 +378,7 @@ ranging from 0 to 255.
 arbitrary precision integral type, and `Nat` is
 an unsigned arbitrary precision integral type (with a
 lot of magic support from the compiler because it is
-so important for writing proofs in Idris2).
+so important for writing proofs in Idris).
 All of these support the usual arithmetic operations,
 and you can use integer literals like `12` to
 create a value for one of these types.
