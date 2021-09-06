@@ -102,7 +102,7 @@ eitherToNat (Left str) = length str
 eitherToNat (Right n)  = cast n
 ```
 
-Make it your habbit to inspect new functions and types at the
+Make it your habit to inspect new functions and types at the
 REPL:
 
 ```
@@ -126,26 +126,26 @@ namedArgs : Show a => (name : String) -> (value : a) -> String
 namedArgs name value = name ++ ": " ++ show value
 ```
 
-We can give names to arguments as a means of documentation
-but later on, we will see a much more important use for naming
+We can give names to arguments as a means of documentation,
+but later on we will see a much more important use for naming
 arguments: We can refer to them later in the type signature, and
 that's what dependent types are all about! Here's a teaser
 example:
 
 ```idris
 natOrString : (b : Bool) -> if b then Nat else String
-natOrString True = 10
+natOrString True  = 10
 natOrString False = "OK, a String it be!"
 ```
 
-In the above example, the result type *depended* on one of
-the arguments passed to the functions, and we used the
+In the above example, the result type *depends* on one of
+the arguments passed to the function, and we used the
 *value* (`b`) of that argument, to calculate the return
 type in the type signature! Welcome, to dependent types!
 
 ### Holes
 
-One of the main aspekts of programming in Idris2, is to get
+One of the main aspects of programming in Idris2, is to get
 as much help from the type checker as possible. Idris2 can
 tell you all about the types in scope, can automatically
 generate pattern matching clauses for you (if your editor
@@ -157,12 +157,12 @@ In this section we look at holes.
 ```idris
 getNat : Either (String,Bits8,Nat) (Nat,List Bool) -> Nat
 getNat (Left  (x,y,z)) = ?leftClause
-getNat (Right (x,y)) = ?rightClause
+getNat (Right (x,y))   = ?rightClause
 ```
 
 If you get lost in a complex function implementation and
 want to have a look at what's going on, just enter a
-hole (also called a meta variable) by prefixing a name
+hole (also called a meta variable) by prefixing an identifier
 with a question mark. Load the file in question into
 the REPL, and have a look at the types: `:m` lists
 all meta variables, `:t` can be used to dispaly their
@@ -173,6 +173,8 @@ types:
   x : String
   y : Bits8
   z : Nat
+------------------------------
+leftClause : Nat
 ```
 
 ### Visibility
@@ -215,7 +217,7 @@ data Gender = Male | Female | NonBinary
 For data types, `public export` means that the type and data
 constructors will be available from other modules. With
 only `export` the type is abstract: Its constructors will
-not be exported. In moste cases, we therefore use `public export`.
+not be exported. In most cases, we therefore use `public export`.
 
 Of course, we can also define constructors that take arguments:
 
@@ -234,11 +236,6 @@ data Option a = Yes a | No
 ```
 
 ### Records
-
-While the examples above are convenient and familiar
-(for people coming from Haskell), we will only use them
-in the simplest cases. Most of the time, will need
-some more control about our data types.
 
 Whenever we define a data type with only a single
 constructor, we use record syntax.
@@ -281,6 +278,13 @@ emily = record { name = "Emily", salary = 6000.0 } jane
 ||| also have written `(+1)` instead.
 johnPlus1 : Employee
 johnPlus1 = record { age $= S } john
+
+||| Here, we pattern match on a record.
+||| We also use string interpolation to create
+||| the report string.
+employeeReport : Employee -> String
+employeeReport (MkEmployee nm _ age _ _) =
+  #"Employee \#{nm} is \#{show age} years old"#
 ```
 
 ### Newtypes
@@ -322,9 +326,9 @@ Eq Gender where
 
 Unfortunately, Idris2 does not yet provide utilities for
 deriving interface implementations automatically as is
-possible in Haskell. There is, however, a
-[library](https://github.com/stefan-hoeck/idris2-sop)
-based on
+possible in Haskell. However, there is
+[idris2-sop](https://github.com/stefan-hoeck/idris2-sop),
+a library based on
 elaborator reflection (a way to programmatically create
 Idris2 code by inspecting existing types and their structure
 at compile time), which can do that.
@@ -333,7 +337,7 @@ at compile time), which can do that.
 
 Before we continue, it is probably a good idea to quickly
 write some code in Idris2. Solutions to the exercises are
-available [here](Doc/Tut1/Sol.idr).
+available [here](Tut1/Sol.idr).
 
 #### 1. A Simple Enum Type
 
@@ -366,6 +370,18 @@ Provide implementations for interfaces `Eq`, `Ord`, and `Show`
 using `atomicNr` and `symbol` in your implementations.
 Have a look at the type and documentation of function `on`
 from the prelude to help you with this.
+
+Note that `Bits8` is an unsigned integer primitive
+ranging from 0 to 255.
+`Bits64`. There are also the signed counterparts:
+`Int8` up to `Int64`. Finally, `Integer` is a signed
+arbitrary precision integral type, and `Nat` is
+an unsigned arbitrary precision integral type (with a
+lot of magic support from the compiler because it is
+so important for writing proofs in Idris2).
+All of these support the usual arithmetic operations,
+and you can use integer literals like `12` to
+create a value for one of these types.
 
 #### 2. A Binary Tree
 
