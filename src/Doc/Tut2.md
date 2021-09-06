@@ -8,6 +8,7 @@ in earnest. Fasten your seat belt.
 ```idris
 module Doc.Tut2
 
+import Data.Nat
 import Doc.Tut1
 import Doc.Tut1.Sol
 
@@ -284,23 +285,25 @@ to this quickly, as there is *nothing more* to type signatures in Idris!
 
 There are three kinds of arguments:
 
-  * Explicit arguments, which will only have to be provided manually
-    by programmers
+  * Explicit arguments, which will have to be provided manually
+    by programmers.
   * Implicit arguments, which *can* be provided manually, but can
-    typically be figured out by Idris through type inferences
+    typically be figured out by Idris through type inference.
   * Auto implicit arguments, which *can* be provided manually, but
     are otherwise constructed by Idris from the implicit scope,
     where - amongst other things - interface implementations reside.
+    In order to add a toplevel function or value to the implicit
+    scope, use the `%hint` pragma.
 
-In addition, ever function argument is of one of three possible
+In addition, every function argument is of one of three possible
 quantities:
 
   * `0` : The argument will provably never be used in the function
-    implementation, and can therefore be erased at runtime
+    implementation, and can therefore be erased at runtime.
   * `1` : The argument *must* be used exactly once. For the time being
-    I'll won't burden you with the details what this exactly
-    means and why it is useful
-  * Arbitrarily often : The default, meaning "I don't know" or "I don't care"
+    I won't burden you with the details what this exactly
+    means and why it is useful.
+  * Arbitrarily often : The default, meaning "I don't know" or "I don't care".
 
 If in doubt, always have a look at the full type signatures of
 functions by using `:ti` in the REPL.
@@ -324,3 +327,460 @@ hole1 : Maybe a
 You see, together with the type of `hole1`, Idris gives us the
 types and quantities of all other values - implicit and explicit -
 in scope.
+
+## Generalized Algebraic Data Types
+
+Now that we understand how type signatures work in Idris, let's start
+and implement a bunch of interesting data types.
+
+### More Flexibility in Data Definitions
+
+In the first part of the tutorial, we learned how to define
+new data types using the `data` and `record` keywords. While we
+will often make use of records as described in that part, we
+will typicall use a more powerful syntax for data definitions,
+except for the most simple cases.
+
+Below is again a definition of our binary tree data type, this
+time with the extended syntax:
+
+```idris
+data BTree2 : (a : Type) -> Type where
+  Leaf2 : BTree2 a
+  Node2 :  (leftBranch : BTree2 a)
+        -> (value : a)
+        -> (rightBranch : BTree2 a)
+        -> BTree2 a
+```
+
+This is sometimes referred to as the "GADT syntax" for defining data types,
+as something similar is also available in Haskell after enabling
+the `GADTs` extension ("GADT" being an acronym for "Generalized
+Algebraic Data Types"). With the above declaration, we define
+three (yes, three, not two!) new functions: `BTree2`, `Leaf2`, and `Node2`.
+In Haskell `BTree2` is called a *type constructor*: A typelevel function
+of kind `* -> *`. In Idris, there is no such thing as a "kind system",
+and we don't distinguish between functions that calculate types
+and functions that calculated values (that's because in Idris, types
+*are* values, or can be treated as such). The term *type constructor*
+is still used from time to time, but the distinction is a rather
+artificial one.
+
+Before you go on, as a quick exercise, try to predict the full
+type signatures for `BTree2`, `Leaf2` and `Node2`, and check your
+answer in the REPL by using `:ti`.
+
+The good thing with the above syntax is, that it allows us to
+provide explicit types for all new functions created
+(`BTree2`, `Leaf2`, and `Node2`), including the ability to explicitly
+declare and name all arguments together with their quantities, if
+we want or need to do so. It also makes the types of all entities involved
+immediately clear. For instance, it can be hard to figure out the
+kinds of all parameters in the following Haskell data definition:
+
+```haskell
+data Biff p f a b = MkBiff p (f a) (f b)
+```
+
+Can you figure out the kinds of `p`, `f`, `a`, and `b` immediately?
+I still find that to be tricky at times.
+Not so, if we are more explicit about the types:
+
+```idris
+data Biff :  (p : Type -> Type -> Type)
+          -> (f : Type -> Type)
+          -> (a : Type)
+          -> (b : Type)
+          -> Type where
+  MkBiff : (value : p (f a) (f b)) -> Biff p f a b
+
+aBiff : Biff Either Maybe String Bits16
+aBiff = MkBiff . Left $ Just "foo"
+```
+
+Since Haskellers themselves find it useful and at times necessary to
+be explicit about the kinds of their type constructors, there is
+the `KindSignatures` extension, allowing them to annotate their
+code in a similar fashion.
+
+### Well-Typed Expressions
+
+While above we talked about readability, we will now talk about
+necessity. In this section, we'd like to define a
+data type `Expr` to represent a simple language of well typed
+arithmetic and boolean expressions.
+The `Expr` type constructor should take an additional argument
+of type `Type`, to keep track of the type we get, when we
+evaluate an expression.
+The following constructs should be part of our small
+language:
+
+  * Natural number literals.
+  * Functions `Add` and `Mult` for arithmetic operations
+    on natural numbers.
+  * Function `IsZero`, operating on a natural number and
+    returnning a `Bool`.
+  * Function `And` and `Or`, calculating the logical conjustion
+    and disjunction of two boolean expressions.
+
+The expression language should be well typed: We must not be allowed
+to write bogus expressions like `Add (IsZero 12) 13`, as the type
+of `IsZero 13` should be `Expr Bool`, and `Add` is supposed to 
+two arguments of `Expr Nat`. Here's how to do this:
+
+```idris
+data Expr : (t : Type) -> Type where
+  NatLit : (value : Nat)    -> Expr Nat
+  Add    : (lh : Expr Nat)  -> (rh : Expr Nat) -> Expr Nat
+  Mult   : (lh : Expr Nat)  -> (rh : Expr Nat) -> Expr Nat
+  IsZero : (val : Expr Nat) -> Expr Bool
+  And    : (lh : Expr Bool) -> (rh : Expr Bool) -> Expr Bool
+  Or     : (lh : Expr Bool) -> (rh : Expr Bool) -> Expr Bool
+
+example1 : Expr Bool
+example1 = IsZero (NatLit 10) `Or` IsZero (NatLit 0)
+
+example2 : Expr Bool
+example2 = IsZero (Mult (NatLit 1) (Add (NatLit 12) (NatLit 100)))
+```
+
+What's interesting about this example is, that we can learn something
+about the type variable `t` by inspecting the data constructor being
+used: If the constructor is `NatLit`, `Add`, or `Mult`, we - and Idris! - know,
+that `t` must be `Nat`. Likewise, if the constructor is `IsZero`, `And`, or `Or`,
+we - and Idris! - know, that it must be `Bool`.
+
+But with this knowledge we can implement a well-typed and provably total
+(that is terminating in a finite number of steps) evaluator for
+such expressions:
+
+```idris
+eval : Expr t -> t
+```
+
+Before we actually implement `eval`, please take a moment to appreciate
+what this means: If we succeed in implementing `eval`, we can pass it
+a boolean expression and get a boolean in return, or we can pass
+it a `Nat` expression and get a natural number in return.
+
+The implementation of `eval` is almost trivial:
+
+```idris
+eval (NatLit v)   = v
+eval (Add lh rh)  = eval lh + eval rh
+eval (Mult lh rh) = eval lh * eval rh
+eval (IsZero val) = eval val == 0
+eval (And lh rh)  = eval lh && eval rh
+eval (Or lh rh)   = eval lh || eval rh
+```
+
+And in the REPL:
+
+```
+> eval example1
+True
+> eval example2
+False
+```
+
+For the sake of convenience, let's implemnt interface `Num` for `Expr Nat`.
+This will allow us to use integer literals and operators `(+)`, and `(*)`
+to write down arithmetic expressions more conveniently. In addition,
+we specify the fixity of `And` and `Or`, to use them as nested
+infix operators:
+
+```idris
+Num (Expr Nat) where
+  fromInteger = NatLit . fromInteger
+  (+) = Add
+  (*) = Mult
+
+infixr 5 `And`
+infixr 5 `Or`
+
+example3 : Expr Nat
+example3 = 12 + 100 * 30
+
+example4 : Expr Bool
+example4 = IsZero (100 * 31) `Or` IsZero 0 `And` IsZero example3
+```
+
+And in the REPL:
+
+```
+> example3
+Add (NatLit 12) (Mult (NatLit 100) (NatLit 30))
+> eval example3
+3012
+> eval example4
+False
+```
+
+With the declaration of `Expr`, we actually defined two new and
+closesly related types: `Expr Nat` and `Expr Bool`. We therefore
+speak also of a *family of types*, or a *type family*, and we
+say `Expr` is *indexed* over `Type` instead of *parameterized* over
+`Type`. The difference between a type index and a type parameter
+can be explained as follows: If we can learn something about the
+type level argument by looking at the data constructor used,
+we talk about an *index*, otherwise we talk about a *parameter*.
+
+So, `Maybe` and `List` each take a parameter of type `Type`, while
+`Either` takes two parameters of type `Type`. `Monad` takes a parameter
+of type `Type -> Type`, but `Expr` takes an *index* of type `Type`.
+
+Note: `Expr` could be implemented in Haskell almost verbatim as shown above
+after enabling the `GADTs` extension.
+
+### Vectors: Lists of a Fixed Length
+
+We now give the "hello world" of dependetly typed programming:
+Lists indexed over natural numbers, representing their length.
+Also I said *dependently typed* above, this actually does not yet
+involve full fledged dependent types. We could encode something
+similar (but with less syntactic convenience) in Haskell after
+enabling the following extensions: `GADTs`, `DataKinds`, and `KindSignatures`.
+
+```idris
+data Vect : (n : Nat) -> (a : Type) -> Type where
+  Nil  : Vect 0 a
+  (::) : (h : a) -> (t : Vect n a) -> Vect (S n) a
+
+vectOfLength2 : Vect 2 String
+vectOfLength2 = [ "Hello", "World" ]
+```
+
+There is a lot of stuff going on here, so let's break this down a bit:
+`Vect` is a function from `Nat` to `Type` to `Type`: We plan to use
+the `Nat` index (not *parameter*!) to represent the number of elements
+in the `Vect`, and the `Type` parameter (not *index*!) to represent
+the types of values stored.
+
+This is reflected in the two constructors: `Nil` is an empty `Vect` and
+therefore has length `0`, `(::)` (also called *cons*) takes a value
+plus a vector of length `n`, and therefore represents a vector of
+length `S n`, which means, that `n` is increased by one (have a look at
+the data constructors of `Nat`: `:doc Nat`!).
+
+Idris allows us to use convenient bracket syntax as shown above for
+all data types having constructors named `Nil` and `(::)`. Remember,
+Idris supports name overloading: The constructors of `List` are likewise
+called `Nil` and `(::)`.
+
+In addition, Idris prevents us from making stupid mistakes. The following
+will not work in the REPL:
+
+```
+> the (Vect 2 Bits8) [1,2,3]
+...
+```
+
+First, have a look at the full type of `the`, and try to figure out what it
+does and why it is extremly useful. Then, appreciate the complex error message
+we get from running the expression above in the REPL. The issue here is that
+Idris will have several constructors called `Nil` and `(::)` in scope, and
+will try each of them to satisfy the types. None will work, as the length of
+our vector is wron, so Idris will explain for each constructor what it
+tried and why id didn't work.
+
+The following is fine, however:
+
+```
+> the (Vect 2 Bits8) [1,2]
+[1, 2]
+```
+
+Now, let us implement some functions, which make use of this
+new type level power:
+
+```idris
+head : Vect (S n) a -> a
+head (h :: _) = h
+```
+
+Please remember, that we have `%default total` at the beginning of this
+document, so Idris accepts the above definition as being provably total.
+Also, see how easy it is to express in the type declaration, that we
+only plan to return the `head` of non-empty vectors, and that therefore
+there is no need to wrap the result in a `Maybe`.
+The `Nil` case is impossible, since `Nil` has type `Vect 0 a`, which
+does not agree with the expected type of `head`'s argument. We can be
+explicit about such impossible cases (this is sometimes necessary in order
+to help Idris verify that we covered all cases):
+
+```idris
+tail : Vect (S n) a -> Vect n a
+tail (_ :: t) = t
+tail Nil impossible
+```
+
+We can take this (much) further:
+
+```idris
+(++) : Vect m a -> Vect n a -> Vect (m + n) a
+Nil ++ v      = v
+(h :: t) ++ v = h :: (t ++ v)
+
+zipWith : (a -> b -> c) -> Vect n a -> Vect n b -> Vect n c
+zipWith _ Nil Nil = Nil
+zipWith f (h1 :: t1) (h2 :: t2) = f h1 h2 :: zipWith f t1 t2
+zipWith _ Nil (_ :: _) impossible
+zipWith _ (_ :: _) Nil impossible
+
+Functor (Vect n) where
+  map _ Nil      = Nil
+  map f (h :: t) = f h :: map f t
+```
+
+Before you now start thinking, that we finally have a programming
+language at our hands, which will take us to world dominion,
+please be aware that things are not always so easy.
+For instance, the following is surprisingly difficult to implement:
+
+```idris
+-- reverse : Vect n a -> Vect n a
+-- reverse Nil      = Nil
+-- reverse (h :: t) = reverse t ++ [ h ]
+```
+
+If you uncomment the above, Idris will complain that it can't figure
+out that `plus n 1` is the same as `S n`. *We* know this to be true,
+since we know the addition of natural numbers to be commutative.
+However, Idris can't figure out this by itself, so it needs some help.
+This is the moment, where we'd have to write our own proof, but we are not
+ready for this yet. If you are curious:
+The proof is available from `Data.Nat.plusCommutative`,
+and we can use that to implement `reverse`
+
+```idris
+reverse : Vect n a -> Vect n a
+reverse Nil                = Nil
+reverse {n = S k} (h :: t) = rewrite plusCommutative 1 k in reverse t ++ [ h ]
+```
+
+It is *not* expected that you understand the example above yet. It's just
+there to show you, that we can support Idris in verifying stuff for us,
+and that it is often necessary to do so.
+
+
+### Isotopes: A Family of *Pure* and *Maybe Not So Pure*
+
+In cheminformatics, when we describe molecules, we sometimes need to
+distinguish between *elements* (meaning a natural mixture of isotopes)
+and *just a single isotope* in case of an isotopically labelled compound.
+In addition, when we are calculating extact molar masses, we always
+talk about molecular formulae consisting of a set of specific isotopes
+plus their number.
+
+We therefore have (at least) three different entities (types), that are
+closely related:
+
+  * A natural mixture of isotopes, all of the same element. This corresponds
+    to the `Element` type defined in the first part of the tutorial.
+  * A single isotope of explicitly specified atomic number and mass number.
+    These are, for instance, needed in order to talk about a specific 
+    isotopologue of a molcule.
+  * One or the other of the above, which is the default when describing
+    a compound in SMILES or Mol format.
+
+Since we already have `Element` for the first item in the list above,
+we could just go for a an `Isotope` data type for the second item,
+and use `Either Elem Isotope` for the third. While accurate, it would
+require us to use two data constructors (instead of one) to wrap then
+information stored in a pure `Isotope`. In addition, `Either` is a data type
+with no additional semantics, which could or could not be an
+issue later on.
+
+Let's therefore go for a family of types, indexed over a flag describing
+its purity.
+
+```idris
+||| In Idris, a *type alias* is just a function resulting
+||| in a `Type`.
+MassNumber : Type
+MassNumber = Nat
+
+||| Purity of an isotope: `Pure` means the isotope is provably
+||| pure, and we can extract an `Element` and a `MassNumber` from
+||| it. `MixOrPure` means, the isotope might come without an explicit
+||| `MassNumber`, in which case it is to be interpreted as a natural
+||| mixture of isotopes of the given element.
+data Purity = Pure | MixOrPure
+
+||| Perhaps surprisingly, the type of `Mix` is more specific than
+||| the type of `Iso`.
+data Isotope_ : (p : Purity) -> Type where
+  Mix : Element -> Isotope_ MixOrPure
+  Iso : Element -> MassNumber -> Isotope_ p
+
+Isotope : Type
+Isotope = Isotope_ MixOrPure
+
+PureIsotope : Type
+PureIsotope = Isotope_ Pure
+
+element : Isotope_ p -> Element
+element (Iso e _) = e
+element (Mix e)   = e
+
+massNr : PureIsotope -> MassNumber
+massNr (Iso _ mn) = mn
+massNr (Mix _) impossible
+
+refine : Isotope_ p -> Maybe PureIsotope
+refine (Mix _)    = Nothing
+refine (Iso e mn) = Just $ Iso e mn 
+
+||| A molecule (without information about its connectivity)
+||| can be considere to be a mapping from isotopes (either pure or
+||| a natural mixture) to natural numbers
+Molecule : Type
+Molecule = List (Isotope, Nat)
+
+||| An isotopologue (without information about its connectivity)
+||| can be considere to be a mapping from pure isotopes
+||| to natural numbers.
+Isotopologue : Type
+Isotopologue = List (PureIsotope, Nat)
+```
+
+## Exercises
+
+Solutions available [here](Tut2/Sol.idr).
+
+### 1. Enhanced Expressions
+
+Enhance our `Expr` type with string literals of type `Expr String`
+and a constructor `Len`, which calculates the length of a string
+and returns a natural number. Adjust the implementation of `eval`
+accordingly and implement interface `FromString` for `Expr String`.
+
+### 2. More Functions on Vect
+
+Implement the following functions for `Vect`.
+
+```idris
+drop2 : Vect (S $ S n) a -> Vect n a
+
+drop : (n : Nat) -> Vect (n + m) a -> Vect m a
+
+take : (n : Nat) -> Vect (n + m) a -> Vect n a
+
+replicate : (n : Nat) -> (v : a) -> Vect n a
+
+iterate : (n : Nat) -> (f : a -> a) -> (ini : a) -> Vect n a
+```
+
+Try them out in the REPL!
+
+### 3. DNA and RNA
+
+Come up with a type family for representing nucleobases, indexed
+over a suitable data type. The family should include all
+five nucleobases: adenine (A), cytosine (C), guanine (G), thymine (T), and uracil (U),
+but should make it possible to represent strands of RNA and DNA
+in a type safe manner. For instance, using uracil in a DNA strand should
+be a type error.
+
+In addition, implement algorithms for transcribing DNA to RNA and calculate
+complementary sequences of DNA.
