@@ -11,3 +11,4 @@ modules = Doc.Tut1
         , Doc.Tut1.Sol
         , Doc.Tut2
         , Doc.Tut2.Sol
+        , Doc.Tut3

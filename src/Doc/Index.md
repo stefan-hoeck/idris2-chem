@@ -12,3 +12,4 @@ are very similar.
 
 1. [Functions, ADTs, and Pattern Matching](Tut1.md)
 2. [Type Families](Tut2.md)
+3. [Types as Propositions, Values as Proofs](Tut3.md)
