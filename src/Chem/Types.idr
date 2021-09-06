@@ -123,7 +123,7 @@ record MolarMass where
 
 addMolarMass : MolarMass -> MolarMass -> MolarMass
 addMolarMass m1 m2 =
-  let res = m1.value * m2.value
+  let res = m1.value + m2.value
    in fromMaybe 1.0e60 $ refine res
 
 public export %inline
