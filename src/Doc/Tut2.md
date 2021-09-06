@@ -18,7 +18,7 @@ import Doc.Tut1.Sol
 
 Before we start defining more interesting and precise
 data types, we need to have a look at the full glory of
-Idris type signature. Open a REPL and enter `:t either`:
+Idris type signatures. Open a REPL and enter `:t either`:
 
 ```
 > :t either
@@ -27,8 +27,9 @@ Prelude.either : Lazy (a -> c) -> Lazy (b -> c) -> Either a b -> c
 
 That's straight forward to understand: Like the equally named function
 in Haskell, `either` takes two functions to extract a value from
-an `Either a b`. Since Idris has strict semantics, and we at most
-need one of the two functions, they are wrapped in a `Lazy` here.
+an `Either a b`. Since Idris has strict semantics as a default and we at most
+need one of the two functions, they are wrapped in a `Lazy` here, meaning
+they will only be evaluated when needed.
 We will not need lazy evaluation too often, so we won't go into
 more details here.
 
@@ -36,14 +37,14 @@ more details here.
 
 Now, this is not the full type signature as perceived by Idris. 
 In order to have a look at the full type signature, we need to
-use `:ti` (that's 'give me the type including implicit arguments'):
+use `:ti` (that's "give me the type including implicit arguments"):
 
 ```
 > :ti either
 Prelude.either : {0 b : Type} -> {0 c : Type} -> {0 a : Type} -> ...
 ```
 
-In order to understand Idris, we need to be able to digest this.
+In order to truly understand Idris, programmers *must* be able to digest this.
 Arguments in a type signature wrapped in curly braces, are
 called 'implicit' arguments. We can always pass them explicitly,
 as we will see in a moment, but in the general case, we
@@ -75,7 +76,8 @@ Read Bool where
 
 Please ignore the `MkRead` constructor for now. We will make
 us of it later on. (We could also omit it, but it often comes in
-handy to give interfaces their own explicit constructor name).
+handy to give interfaces their own explicit constructor name, hence
+I consider it to be good practice to do so).
 Now, go to the REPL and inspect the full type signature of `readMaybe`:
 
 ```
@@ -83,7 +85,7 @@ Now, go to the REPL and inspect the full type signature of `readMaybe`:
 Doc.Tut2.readMaybe : {0 a : Type} -> Read a => String -> Maybe 
 ```
 
-It again, includes an implicit argument `a` of type `Type`, plus a
+Again, it includes an implicit argument `a` of type `Type`, plus a
 constraint of type `Read a`, where `a` is the same `a` as used
 in the beginning of the type signature. Now, try enter `readMaybe "True"`
 at the REPL:
@@ -100,7 +102,7 @@ So, Idris enters its own hole (`?a`) meaning 'I'll figure out that part
 later', but now it complains that there is no implementation for `Read ?a`.
 
 How can we tell Idris that we mean `a` to be `Bool` here? By passing
-the argument explicitly
+the argument explicitly:
 
 ```
 > readMaybe {a = Bool} "True"
@@ -108,7 +110,8 @@ Just True
 ```
 
 Haskell has similar issues and it provides its own language extension
-called 'TypeApplications' to solve this.
+called 'TypeApplications' to solve this. There is no need for any kind
+of extension in Idris here, and will often make use of this.
 
 We are free to chose and only pass certain implicit arguments
 if needed. For instance, try the following:
@@ -173,8 +176,9 @@ Therefore, whenever we want to make sure that a value makes
 no appearance at runtime, we annotate it with a zero quantity.
 
 For instance, instead of passing an implicit argument to `readMaybe`
-explicitly, it would be convenient be able to pass it explicitly,
-to save us the additional clutter of using curly braces. In Idris,
+explicitly, it would be convenient be have it as an (erased) explicit
+argument in the first place
+to spare us from having to use curly braces. In Idris,
 this is straight forward:
 
 ```idris
@@ -200,9 +204,10 @@ then a `Maybe a`.
 
 Sometimes, we'd like Idris to find and insert a value of a given type for
 us, that it will not be able to determine through type inference alone.
-The most common (for now) use case for this are interface implementations.
+The most common (for now) use case for this is finding
+interface implementations.
 Our type signature for `readMay` is actually syntactic sugar for
-the following type signature:
+the following more exact signature:
 
 ```idris
 readMay2 : (0 a : Type) -> {auto _ : Read a} -> String -> Maybe a
@@ -213,8 +218,8 @@ In plain english this means: There is a second implicit argument
 (without a name, hence the underscore) of type `Read a`, and we'd
 like Idris to try very hard and construct a value of this type
 from the implicit scope (that's what the `auto` stands for: perform
-and automatic search on the given type and insert it for us).
-The implicit scope holds (amonst other things)
+an automatic search on the given type and insert it for us).
+The implicit scope holds (amongst other things)
 all interface implementations.
 
 The immediate question that arises is of course: If `Read a` in the
@@ -250,7 +255,7 @@ Error: Can't find an implementation for Read Int32.
 ...
 ```
 
-Function definitions are to automatically added to the implicit
+Function definitions are not to automatically added to the implicit
 scope. In order to do so, we have to use the `%hint` pragma:
 
 ```idris
@@ -271,3 +276,51 @@ And now, in the REPL:
 > readMay Gender "Female"
 Just Female
 ```
+
+### Summary
+
+This section might seem very daunting, but people typically get used
+to this quickly, as there is *nothing more* to type signatures in Idris!
+
+There are three kinds of arguments:
+
+  * Explicit arguments, which will only have to be provided manually
+    by programmers
+  * Implicit arguments, which *can* be provided manually, but can
+    typically be figured out by Idris through type inferences
+  * Auto implicit arguments, which *can* be provided manually, but
+    are otherwise constructed by Idris from the implicit scope,
+    where - amongst other things - interface implementations reside.
+
+In addition, ever function argument is of one of three possible
+quantities:
+
+  * `0` : The argument will provably never be used in the function
+    implementation, and can therefore be erased at runtime
+  * `1` : The argument *must* be used exactly once. For the time being
+    I'll won't burden you with the details what this exactly
+    means and why it is useful
+  * Arbitrarily often : The default, meaning "I don't know" or "I don't care"
+
+If in doubt, always have a look at the full type signatures of
+functions by using `:ti` in the REPL.
+
+As a final example, have a look at the follwing hole in the REPL:
+
+```idris
+readMayFinal : (0 a : Type) -> {auto impl : Read a} -> String -> Maybe a
+readMayFinal a str = ?hole1
+```
+
+```
+> :t hole1
+   str : String
+ 0 a : Type
+   impl : Read a
+------------------------------
+hole1 : Maybe a
+```
+
+You see, together with the type of `hole1`, Idris gives us the
+types and quantities of all other values - implicit and explicit -
+in scope.
