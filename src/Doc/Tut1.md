@@ -314,8 +314,80 @@ Let's implement `Eq` for `Gender`:
 
 ```idris
 Eq Gender where
-  Male == Male = True
-  Female == Female = True
+  Male      == Male      = True
+  Female    == Female    = True
   NonBinary == NonBinary = True
-  _ == _ = False
+  _         == _         = False
 ```
+
+Unfortunately, Idris2 does not yet provide utilities for
+deriving interface implementations automatically as is
+possible in Haskell. There is, however, a
+[library](https://github.com/stefan-hoeck/idris2-sop)
+based on
+elaborator reflection (a way to programmatically create
+Idris2 code by inspecting existing types and their structure
+at compile time), which can do that.
+
+### Exercises
+
+Before we continue, it is probably a good idea to quickly
+write some code in Idris2. Solutions to the exercises are
+available [here](Doc/Tut1/Sol.idr).
+
+#### 1. A Simple Enum Type
+
+Below is the definition of a simple enum type for a subset of chemical
+elements:
+
+```idris
+public export
+data Element =
+    H                           | He
+  | Li | B  | C  | N  | O  | F  | Ne
+                 | P  | S  | Cl | Ar
+                      | Se | Br | Kr
+```
+
+Implement the following functions for `Element` (`read`
+should convert the symbol back to an `Element`):
+
+```
+atomicNr : Element -> Bits8
+
+fromAtomicNr : Bits8 -> Maybe Element
+
+symbol : Element -> String
+
+read : String -> Maybe Element
+```
+
+Provide implementations for interfaces `Eq`, `Ord`, and `Show`
+using `atomicNr` and `symbol` in your implementations.
+Have a look at the type and documentation of function `on`
+from the prelude to help you with this.
+
+#### 2. A Binary Tree
+
+Below is a simple data type for binary trees:
+
+```idris
+data BTree a = Leaf
+             | Node (BTree a) a (BTree a)
+```
+
+Implement interfaces `Eq`, `Ord`, `Functor`, `Foldable`, and `Traversable`
+for `BTree`.
+In addition, implement the following two functions on
+`BTree`:
+
+```
+size : BTree a -> Nat
+
+depth : BTree a -> Nat
+```
+
+`size` should represent the number of values stored in a `BTree`.
+It can be implemented using `foldl`, for instance.
+`depth` should represent the maximum number of constructors
+before we reach a `Leaf` from the given `BTree`.
