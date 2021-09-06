@@ -1,8 +1,9 @@
 export IDRIS2 ?= idris2
 
 lib_pkg = chem.ipkg
+doc_pkg = doc.ipkg
 
-.PHONY: all lib install install-with-src clean clean-install repl develop
+.PHONY: all doc lib install install-with-src clean clean-install repl develop
 
 all: lib
 
@@ -11,8 +12,8 @@ clean-install: clean install
 lib:
 	${IDRIS2} --build ${lib_pkg}
 
-docs:
-	${IDRIS2} --build ${docs_pkg}
+doc:
+	${IDRIS2} --typecheck ${doc_pkg}
 
 install:
 	${IDRIS2} --install ${lib_pkg}

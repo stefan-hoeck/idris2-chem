@@ -1,2 +1,7 @@
-# idris2-chem
-Dependently typed cheminformatics in Idris2
+# idris2-chem : Dependently Typed Cheminformatics in Idris2
+
+This is still WIP. Please come back later.
+
+## Tutorial
+
+Start [here](/src/Doc/Index.md).
