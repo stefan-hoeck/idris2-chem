@@ -405,3 +405,119 @@ I increase the length of the string in `anotherDNASeq` to
 1000 characters, Idris takes about a minute to typecheck
 the file on my machine. There is, however, work in progress
 to make these typelevel calculations a lot faster.
+
+## Exercises
+
+It may take some time to solve all the exercises below. Just
+take it slow and do them one at a time. Make sure to use of holes
+and let Idris help you if you get stuck.
+Solutions available [here](Tut3/Sol.idr).
+
+### 1. RNA from String Literals
+
+Implement a function `readRNA` and provide an implementation
+of `fromString` as we did for DNA above. At first, try to come up
+with a solution without looking at the code above.
+Use the REPL to experiment with this and make sure, that no
+invalid strings are accepted.
+
+### 2. Zipping Vectors of Different Lengths
+
+Sometimes we'd like to zip two vectors of unknown origin, so we
+can't use `zipWith` directly. Write a predicate as a witness that
+two vectors are actually of the same length, and use this to
+implement `zipWithSLV`.
+
+Make sure to look at the solution afterwards, as it explains several
+ways to do this.
+
+### 3. Safe Indexing into Lists
+
+We'd like to access the n-th element of a list in a safe manner.
+A total implementation of such a function in Haskell might be similar
+to the following Idris code:
+
+```idris
+atMaybe : Nat -> List a -> Maybe a
+atMaybe _     Nil      = Nothing
+atMaybe Z     (h :: _) = Just h
+atMaybe (S k) (_ :: t) = atMaybe k t
+```
+
+Write a predicate witnessing that a natural number is a valid
+index into a given list. Use this to implement function `at`
+in the spirit of `atMaybe` but without having to wrap the
+result in a `Maybe`.
+
+### 4. Predecessor of a Natural Number
+
+We'd like to safely calculate the predecessor of a non-zero
+natural number. Come up with a suitable predicate and implement
+function `safePred` in the spirit of what we done so far in
+this part of the tutorial.
+
+### 5. Division by 2
+
+Write a predicate witnessing that a natural number is even
+and implement a function for safely dividing such a number by two.
+In addition, declare a function proposing that the sum of two
+even numbers is an even number. Proof this proposition by
+implementing the function.
+
+### 6. Remainder of Division by 2
+
+Write two predicates on natural numbers: The first witnessing that
+a natural number is odd, the second witnessing that a natural
+number equals 1. Next, implement a function calculating the
+remainder of a natural number when dividing it by 2.
+Finally, declare a type proposing that the remainder of calculating
+an odd number by 2 equals 1.
+Implement this function as a proof that the proposition holds.
+
+### 7. Assoc List
+
+An assoc list is a list of key value pairs:
+
+```idris
+AssocList : (k : Type) -> (v : Type) -> Type
+AssocList = List (k,v)
+```
+
+Define a predicate witnessing that a given key is in an
+assoc list, and implement function `lookup` for extracting
+the value at that position.
+
+Note: In this case, the predicate can't be erased at runtime,
+as we need it to figure out, where in the list the key is
+located. Also, do not use interface `Eq` or something similar
+in your implementation.
+
+### 8. Assoc Vect
+
+Same as exercise 7 but use a `Vect` instead of a list. Implement
+function `delete`, where the value associated with
+a given key should be removed.
+The types of the function should reflect that the resulting `Vect`
+is one element shorter.
+
+### 9. Head of Concatenated Lists
+
+Below is an implementation of list concatenation function
+(we do not use `concatenate` defined on `Foldable`, as it won't
+properly reduce a compile time):
+
+```idris
+conc : List (List a) -> List a
+conc []        = []
+conc (x :: xs) = x ++ conc xs
+```
+
+Define a predicate witnessing that a list of lists holds
+at least one non-empty list. Proof (by writing a proposition
+and implementing it) that concatenating a list of lists using `conc`
+where at least one list is non-empty results in a non-empty list.
+Finally, implement a function `headOfMany` taking a list of lists
+of which at least one is non-empty and returning the head of
+the concatenated result. Important: Make use of the proposition
+you proved above and implement `headOfMany` by invoking a
+`head` function like the one defined in this tutorial.
