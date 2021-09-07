@@ -37,7 +37,7 @@ given length, so that we can use a natural number to safely access
 an element at a given index? Write a predicate. Want to make sure,
 that a value of type `Bits8` is within a given limited range? Write
 a predicate. These examples should be enough to tickle your curiosity,
-so lets get started.
+so let's get started.
 
 Typically, a *predicate* for a given type `t` is a new data type, indexed
 over `t`, the constructors of which only target as subset of possible
@@ -73,7 +73,10 @@ head1 Nil      _ impossible
 Note, how we gave our list argument a name (`xs`) in the type declaration,
 and how we referenced that name in the type of `prf`. So our function
 takes a list of values named `xs`, plus a value of type `NonEmpty xs`
-as a proof that `xs` is actually non-empty.
+as a proof that `xs` is actually non-empty. From this proof, Idris
+can figure out that the second pattern match is indeed `impossible`
+(by inspecting the available constructors of `NonEmpty` plus their
+types) and accepts our implementation of `head1` to be indeed total.
 
 Let's try this at the REPL:
 
@@ -85,7 +88,8 @@ Error: When unifying NonEmpty (?h :: ?t) and NonEmpty [].
 ...
 ```
 
-As can be seen above, we do not actually do anything with `prf`. It should
+It works! However, as can be seen above, we do not actually
+do anything with `prf`. It should
 therefore be possible to erase it at runtime:
 
 ```idris
@@ -94,10 +98,12 @@ head2 (h :: _) _ = h
 head2 Nil      _ impossible
 ```
 
+That's better!
 Assume now that we read a list of values from the command line
 and want to return the first value of that list. We can no longer
-come up with a `NonEmpty` at compile time, so what shall we do?
-We write a generator function for `NonEmpty`:
+come up with a `NonEmpty` at compile time, since we know nothing
+about what our users will input in advance, so what shall we do?
+We write a generator function for `NonEmpty`!
 
 ```idris
 nonEmpty : (xs : List a) -> Maybe (NonEmpty xs)
@@ -108,10 +114,11 @@ headMay2 : List a -> Maybe a
 headMay2 xs = (\prf => head2 xs prf) <$> nonEmpty xs
 ```
 
-We got pretty far, already. We have a type-level guarantee that we call
-`head2` only on a non-empty list, and we have the ability to come up
-with a proof of non-emptyness at runtime. Still, `head2` is not *that*
-convenient to use. Enter auto implicits:
+We got pretty far already. We have a type-level guarantee that we call
+`head2` only on non-empty lists, and we have the ability to come up
+with a proof of non-emptiness at runtime. Still, `head2` is not *that*
+convenient to use as at compile time and in the REPL, we have to
+pass around the proofs of non-emptiness manually. Enter auto implicits:
 
 ```idris
 head : (xs : List a) -> {auto 0 prf : NonEmpty xs} -> a
@@ -123,15 +130,15 @@ headMay xs = (\_ => head xs) <$> nonEmpty xs
 ```
 
 Data constructors are automatically added to the implicit scope (!), so
-Idris2 can come up with a proof of non-emptyness at compile time on its
-own.
+Idris2 can come up with a proof of non-emptiness at compile time on its
+own. We can try this at the REPL:
 
 ```
 > head [1,2,3,4]
 1
 ```
 
-Now, we have all the required ingredients together: Use indexed data types
+Now we have all the required ingredients together: Use indexed data types
 to refine existing types and require them as erased auto implicit arguments
 to get both: Strong guarantees at runtime and convenient syntax at
 compile time.
