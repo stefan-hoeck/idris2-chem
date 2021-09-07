@@ -67,8 +67,10 @@ iterate (S k) f ini = ini :: iterate k f (f ini)
 --          Exercise 3
 --------------------------------------------------------------------------------
 
+public export
 data BaseType = RNA | DNA
 
+public export
 data Nucleobase : (t : BaseType) -> Type where
   A : Nucleobase t
   C : Nucleobase t
@@ -76,18 +78,23 @@ data Nucleobase : (t : BaseType) -> Type where
   T : Nucleobase DNA
   U : Nucleobase RNA
 
+public export
 DNABase : Type
 DNABase = Nucleobase DNA
 
+public export
 RNABase : Type
 RNABase = Nucleobase RNA
 
+public export
 DNASeq : Type
 DNASeq = List DNABase
 
+public export
 RNASeq : Type
 RNASeq = List RNABase
 
+public export
 translateBase : DNABase -> RNABase
 translateBase A = A
 translateBase C = C
@@ -95,9 +102,11 @@ translateBase G = G
 translateBase T = U
 translateBase U impossible
 
+public export
 translate : DNASeq -> RNASeq
 translate = map translateBase
 
+public export
 complementBase : DNABase -> DNABase
 complementBase A = T
 complementBase C = G
@@ -105,9 +114,11 @@ complementBase G = C
 complementBase T = A
 complementBase U impossible
 
+public export
 complement : DNASeq -> DNASeq
 complement = map complementBase
 
+public export
 readDNABase : Char -> Maybe DNABase
 readDNABase 'A' = Just A
 readDNABase 'C' = Just C
@@ -115,5 +126,6 @@ readDNABase 'G' = Just G
 readDNABase 'T' = Just T
 readDNABase _   = Nothing
 
+public export
 readDNA : String -> Maybe DNASeq
 readDNA = traverse readDNABase . unpack
