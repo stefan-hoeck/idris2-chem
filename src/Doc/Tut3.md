@@ -16,6 +16,8 @@ predicates actually hold.
 ```idris
 module Doc.Tut3
 
+import Doc.Tut2.Sol
+
 %default total
 ```
 
@@ -345,3 +347,61 @@ Let's try `zipWithSL` at the REPL:
 Error: Can't find an implementation for SameLength [1, 2, 3] [4, 5, 6, 7]
 ...
 ```
+
+## Being Just
+
+In Haskell, there is a partial function called `fromJust` defined
+in `Data.Maybe`, which extracts a value from a `Maybe` throwing
+an exception in case of a `Nothing`.
+We'd like to implement in Idris a provably total function, which
+allows us to do the same. After what we learned above this should
+be straight forward, so, as an exercise, try and come up with a
+solution of your own before looking at the code below.
+
+And here's my own version of this:
+
+```idris
+data IsJust : (m : Maybe a) -> Type where
+  IsIsJust : IsJust (Just v)
+
+fromJust : (m : Maybe a) -> {auto 0 prf : IsJust m} -> a
+fromJust (Just v) = v
+fromJust Nothing impossible
+```
+
+This is actually available from module `Data.Maybe` in the base
+library. However, what's the use of this? Let me show you.
+
+Remember the DNA sequences we implemented in [the second part
+of the tutorial](Tut2.md)? We implemented `readDNA`
+of type `String -> Maybe DNASeq`. However, we sometimes
+want to define DNA sequences at compile time and doing so
+via list syntax can become cumbersome quickly:
+
+```idris
+aDNASeq : DNASeq
+aDNASeq = [C,G,A,T,T,C,G,A]
+```
+
+It would be much more convenient, if we could use the string literal
+`"CGATTCGA"` in the example above. In order to be able to use
+string literals to construct a data type, we either need to implement
+interface `FromString`, or we need to implement an function called
+`fromString`. When we are dealing with a partial function -
+as is the case here: not all strings represent valid sequences of DNA -
+we go for the latter.
+
+```idris
+fromString : (s : String) -> {auto 0 prf : IsJust (readDNA s)} -> DNASeq
+fromString s = fromJust $ readDNA s
+
+anotherDNASeq : DNASeq
+anotherDNASeq = "CAGGTTTCCGACC"
+```
+
+This is really cool, but does it scale?
+The answer is: Well enough for many use cases. If
+I increase the length of the string in `anotherDNASeq` to
+1000 characters, Idris takes about a minute to typecheck
+the file on my machine. There is, however, work in progress
+to make these typelevel calculations a lot faster.
