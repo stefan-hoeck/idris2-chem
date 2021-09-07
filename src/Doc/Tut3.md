@@ -40,7 +40,7 @@ a predicate. These examples should be enough to tickle your curiosity,
 so let's get started.
 
 Typically, a *predicate* for a given type `t` is a new data type, indexed
-over `t`, the constructors of which only target as subset of possible
+over `t`, the constructors of which only target a subset of possible
 values of `t`. For instance, a predicate (sometimes also called a *view*) for
 non-empty lists would look as follows:
 
@@ -117,8 +117,8 @@ headMay2 xs = (\prf => head2 xs prf) <$> nonEmpty xs
 We got pretty far already. We have a type-level guarantee that we call
 `head2` only on non-empty lists, and we have the ability to come up
 with a proof of non-emptiness at runtime. Still, `head2` is not *that*
-convenient to use as at compile time and in the REPL, we have to
-pass around the proofs of non-emptiness manually. Enter auto implicits:
+convenient to use as at compile time and in the REPL: We have to
+pass around the proofs of non-emptiness manually. Enter auto-implicits:
 
 ```idris
 head : (xs : List a) -> {auto 0 prf : NonEmpty xs} -> a
@@ -167,7 +167,14 @@ sameLength (ha :: ta) (hb :: tb) = SLCons <$> sameLength ta tb
 sameLength _          _          = Nothing
 ```
 
-Implementing `zipWithSL` is now straight forward, or is it?
+Take a moment to figure out what the definition of `SameLength` tells
+us: Two lists are of equal length, if they either are both empty,
+or if we cons single values onto two lists of equal length. Note also
+that the two lists not necessarily store values of the same
+types. This is important, since when we zip two lists, they are also
+typically not holding values of the same types.
+
+Implementing `zipWithSL` is now straight forward. Or is it?
 Our first try might look as the one commented out below. However,
 this won't compile. Idris can't find a value of type
 `SameLength ta tb` in the recursive case.
@@ -187,13 +194,16 @@ this won't compile. Idris can't find a value of type
 I could just show you the solution for this, but we will do
 this in several steps to learn something about type-driven
 development in Idris. It is best to follow along with
-your own version of the code. In order to keep Idris happy,
-and still being able to typecheck this file,
-I'll number the different steps shown below.
+your own version of the code. In order to keep Idris happy
+and still being able to typecheck this file
+I'll append numbers to the function names in
+the different steps shown below.
 
 First, we should experiment with inserting some holes. Auto search
 couldn't find the required `prf` in the recursive step, so we
-start there:
+start there by explicitly passing a hole. In order to unclutter
+the code, I'll drop the `impossible` cases: Idris is happy without
+them.
 
 ```idris
 zipWithSL1 :  (f : a -> b -> c)
@@ -204,8 +214,6 @@ zipWithSL1 :  (f : a -> b -> c)
 zipWithSL1 _ Nil        Nil        = Nil
 zipWithSL1 f (ha :: ta) (hb :: tb) =
   f ha hb :: zipWithSL1 f ta tb {prf = ?recPrf}
-zipWithSL1 _ Nil (_ :: _) impossible
-zipWithSL1 _ (_ :: _) Nil impossible
 ```
 
 This typechecks, and Idris will give the following information
@@ -241,14 +249,12 @@ zipWithSL2 :  (f : a -> b -> c)
 zipWithSL2 _ Nil        Nil        = Nil
 zipWithSL2 f (ha :: ta) (hb :: tb) =
   f ha hb :: zipWithSL2 f ta tb {prf = ?adjPrf prf}
-zipWithSL2 _ Nil (_ :: _) impossible
-zipWithSL2 _ (_ :: _) Nil impossible
 ```
 
-Here, we check, what the type of a hypothetical function
+Here, we check what the type of a hypothetical function
 `adjPrf` would be, if it could convert the existing
 `prf` value to a value of the expected type in the
-recursive call. Let's check its type:
+recursive call. Let's inspect its type:
 
 ```
 > :t adjPrf
@@ -299,8 +305,6 @@ zipWithSL3 :  (f : a -> b -> c)
 zipWithSL3 _ Nil        Nil        = Nil
 zipWithSL3 f (ha :: ta) (hb :: tb) =
   f ha hb :: zipWithSL3 f ta tb {prf = unconsSL prf}
-zipWithSL3 _ Nil (_ :: _) impossible
-zipWithSL3 _ (_ :: _) Nil impossible
 ```
 
 Before we leave this section, I'll show you one last
@@ -320,19 +324,17 @@ zipWithSL :  (f : a -> b -> c)
 zipWithSL _ Nil        Nil                          = Nil
 zipWithSL f (ha :: ta) (hb :: tb) {prf = SLCons sl} =
   f ha hb :: zipWithSL f ta tb
-zipWithSL _ Nil (_ :: _) impossible
-zipWithSL _ (_ :: _) Nil impossible
 ```
 
-Here, there is no longer a need to pass on the smaller proof
+There is no longer a need to pass on the smaller proof
 explicitly in the recursive call, as all local variables are
 automatically part of the implicit scope.
-*But wait!*, you'll say, *didn't you say we were not allowed
-to pattern match on erased arguments?*. I'm glad, you rememberd :-).
+"But wait!", you'll say, "Didn't you say we were not allowed
+to pattern match on erased arguments?". I'm glad you rememberd :-).
 Strictly speaking, we are not pattern matching on `prf` here,
 but on the argument lists `as` and `bs`. From their structure
 the structure of `prf` follows immediately, therefore we
-are safe to deconstruct it here.
+are allowed to deconstruct it here.
 
 Let's try `zipWithSL` at the REPL:
 
