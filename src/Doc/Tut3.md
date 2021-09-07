@@ -122,7 +122,7 @@ headMay : List a -> Maybe a
 headMay xs = (\_ => head xs) <$> nonEmpty xs
 ```
 
-Data constructors are automatically added to the implicit scope, so
+Data constructors are automatically added to the implicit scope (!), so
 Idris2 can come up with a proof of non-emptyness at compile time on its
 own.
 
@@ -133,4 +133,206 @@ own.
 
 Now, we have all the required ingredients together: Use indexed data types
 to refine existing types and require them as erased auto implicit arguments
-to get strong guarantees both a runtime and convenient syntax at compile time.
+to get both: Strong guarantees at runtime and convenient syntax at
+compile time.
+
+## Matching Implicits and Zipping Lists
+
+The implementation of `zipWith` for `List`s provided by Idris will
+silently drop the remainder of the longer list, which is sometimes
+the desired behavior. More often, however, I consider it to be a bug
+if the two lists I try to zip are not of equal length. Let's declare
+a refined version of `zipWith` in the spirit of the one we wrote
+for `Vect`, where we accept only lists of equal length.
+
+First, we need a predicate for a pair of lists of equal length.
+This will have to be a data type indexed over two list
+arguments. Here is its definition plus a generator function:
+
+```idris
+data SameLength : (as : List a) -> (bs : List b) -> Type where
+  SLNil  : SameLength Nil Nil
+  SLCons : SameLength as bs -> SameLength (a :: as) (b :: bs)
+
+sameLength : (as : List a) -> (bs : List b) -> Maybe (SameLength as bs)
+sameLength Nil        Nil        = Just SLNil
+sameLength (ha :: ta) (hb :: tb) = SLCons <$> sameLength ta tb
+sameLength _          _          = Nothing
+```
+
+Implementing `zipWithSL` is now straight forward, or is it?
+Our first try might look as the one commented out below. However,
+this won't compile. Idris can't find a value of type
+`SameLength ta tb` in the recursive case.
+
+```idris
+-- zipWithSL :  (f : a -> b -> c)
+--           -> (as : List a)
+--           -> (bs : List b)
+--           -> {auto 0 prf : SameLength as bs}
+--           -> List c
+-- zipWithSL _ Nil        Nil        = Nil
+-- zipWithSL f (ha :: ta) (hb :: tb) = f ha hb :: zipWithSL f ta tb
+-- zipWithSL _ Nil (_ :: _) impossible
+-- zipWithSL _ (_ :: _) Nil impossible
+```
+
+I could just show you the solution for this, but we will do
+this in several steps to learn something about type-driven
+development in Idris. It is best to follow along with
+your own version of the code. In order to keep Idris happy,
+and still being able to typecheck this file,
+I'll number the different steps shown below.
+
+First, we should experiment with inserting some holes. Auto search
+couldn't find the required `prf` in the recursive step, so we
+start there:
+
+```idris
+zipWithSL1 :  (f : a -> b -> c)
+           -> (as : List a)
+           -> (bs : List b)
+           -> {auto 0 prf : SameLength as bs}
+           -> List c
+zipWithSL1 _ Nil        Nil        = Nil
+zipWithSL1 f (ha :: ta) (hb :: tb) =
+  f ha hb :: zipWithSL1 f ta tb {prf = ?recPrf}
+zipWithSL1 _ Nil (_ :: _) impossible
+zipWithSL1 _ (_ :: _) Nil impossible
+```
+
+This typechecks, and Idris will give the following information
+about `recPrf` and its context in the REPL:
+
+```
+> :t recPrf
+ 0 c : Type
+ 0 b : Type
+ 0 a : Type
+   ha : a
+   ta : List a
+   hb : b
+   tb : List b
+ 0 prf : SameLength (ha :: ta) (hb :: tb)
+   f : a -> b -> c
+------------------------------
+recPrf : SameLength ta tb
+```
+
+So, we need to somehow convey to Idris that `ta` and `tb`
+are of the same length. We already have a value of type
+`SameLength (ha :: ta) (hb :: tb)`, so we seem to be
+pretty close. You might already have figured out what to do,
+but I'd like to check one more hole:
+
+```idris
+zipWithSL2 :  (f : a -> b -> c)
+           -> (as : List a)
+           -> (bs : List b)
+           -> {auto 0 prf : SameLength as bs}
+           -> List c
+zipWithSL2 _ Nil        Nil        = Nil
+zipWithSL2 f (ha :: ta) (hb :: tb) =
+  f ha hb :: zipWithSL2 f ta tb {prf = ?adjPrf prf}
+zipWithSL2 _ Nil (_ :: _) impossible
+zipWithSL2 _ (_ :: _) Nil impossible
+```
+
+Here, we check, what the type of a hypothetical function
+`adjPrf` would be, if it could convert the existing
+`prf` value to a value of the expected type in the
+recursive call. Let's check its type:
+
+```
+> :t adjPrf
+ 0 c : Type
+ 0 b : Type
+ 0 a : Type
+   ha : a
+   ta : List a
+   hb : b
+   tb : List b
+ 0 prf : SameLength (ha :: ta) (hb :: tb)
+   f : a -> b -> c
+------------------------------
+adjPrf : SameLength (ha :: ta) (hb :: tb) -> SameLength ta tb
+```
+
+OK, from the type of `adjPrf` we learn, that we need to
+extract the proof of same length for the tails of the lists
+only. But, looking at the data constructors of `SameLength`,
+this should be trivially possible, as a value of type
+`SameLength (ha :: ta) (hb :: tb)` was by definition
+constructed with the `SLCons` constructor.
+
+```idris
+unconsSL : SameLength (a :: as) (b :: bs) -> SameLength as bs
+```
+
+Now, the above type reads like a mathematical proposition:
+"If two non-empty lists are of the same length, then their
+tails must be of the same length". We can now *proof* this
+proposition by implementing this function while satisfying
+the totality checker:
+
+```idris
+unconsSL (SLCons sl) = sl
+unconsSL SLNil impossible
+```
+
+We can use this *proof* to help the typechecker
+and are now able to finish the implementation of `zipWithSL`:
+
+```idris
+zipWithSL3 :  (f : a -> b -> c)
+           -> (as : List a)
+           -> (bs : List b)
+           -> {auto 0 prf : SameLength as bs}
+           -> List c
+zipWithSL3 _ Nil        Nil        = Nil
+zipWithSL3 f (ha :: ta) (hb :: tb) =
+  f ha hb :: zipWithSL3 f ta tb {prf = unconsSL prf}
+zipWithSL3 _ Nil (_ :: _) impossible
+zipWithSL3 _ (_ :: _) Nil impossible
+```
+
+Before we leave this section, I'll show you one last
+technique we could have used in the implementation of `zipWithSL`.
+The only thing `unconsSL` does, is performing a pattern match
+in order to extract the smaller part of the proof.
+It is possible to this in the implementation of `zipWithSL` directly,
+that is, it is possible to pattern match on named implicit
+arguments:
+
+```idris
+zipWithSL :  (f : a -> b -> c)
+          -> (as : List a)
+          -> (bs : List b)
+          -> {auto 0 prf : SameLength as bs}
+          -> List c
+zipWithSL _ Nil        Nil                          = Nil
+zipWithSL f (ha :: ta) (hb :: tb) {prf = SLCons sl} =
+  f ha hb :: zipWithSL f ta tb
+zipWithSL _ Nil (_ :: _) impossible
+zipWithSL _ (_ :: _) Nil impossible
+```
+
+Here, there is no longer a need to pass on the smaller proof
+explicitly in the recursive call, as all local variables are
+automatically part of the implicit scope.
+*But wait!*, you'll say, *didn't you say we were not allowed
+to pattern match on erased arguments?*. I'm glad, you rememberd :-).
+Strictly speaking, we are not pattern matching on `prf` here,
+but on the argument lists `as` and `bs`. From their structure
+the structure of `prf` follows immediately, therefore we
+are safe to deconstruct it here.
+
+Let's try `zipWithSL` at the REPL:
+
+```
+> zipWithSL3 (+) [1,2,3] [4,5,6]
+[5, 7, 9]
+> zipWithSL3 (+) [1,2,3] [4,5,6,7]
+Error: Can't find an implementation for SameLength [1, 2, 3] [4, 5, 6, 7]
+...
+```
