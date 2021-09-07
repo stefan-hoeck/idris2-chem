@@ -797,10 +797,8 @@ replicate : (n : Nat) -> (v : a) -> Vect n a
 ||| This should iteratively apply `f` to the initial argument.
 ||| For instance:
 |||
-||| ```
-||| > iterate 6 (*2) 1
-||| [1, 2, 4, 8, 16, 32] 
-||| ```
+||| `iterate 6 (*2) 1` should return
+||| `[1, 2, 4, 8, 16, 32]`
 iterate : (n : Nat) -> (f : a -> a) -> (ini : a) -> Vect n a
 ```
 
@@ -816,4 +814,6 @@ in a type safe manner. For instance, using uracil in a DNA strand should
 be a type error.
 
 In addition, implement algorithms for transcribing DNA to RNA and calculate
-complementary sequences of DNA.
+complementary sequences of DNA and write a function
+`readDNA`, which tries to read a DNA sequence from a string of
+one-letter codes.
