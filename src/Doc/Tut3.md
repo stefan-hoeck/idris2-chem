@@ -386,7 +386,7 @@ aDNASeq = [C,G,A,T,T,C,G,A]
 It would be much more convenient, if we could use the string literal
 `"CGATTCGA"` in the example above. In order to be able to use
 string literals to construct a data type, we either need to implement
-interface `FromString`, or we need to implement an function called
+interface `FromString`, or we need to implement a function called
 `fromString`. When we are dealing with a partial function -
 as is the case here: not all strings represent valid sequences of DNA -
 we go for the latter.
