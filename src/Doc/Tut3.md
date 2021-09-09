@@ -480,7 +480,7 @@ An assoc list is a list of key value pairs:
 
 ```idris
 AssocList : (k : Type) -> (v : Type) -> Type
-AssocList = List (k,v)
+AssocList k v = List (k,v)
 ```
 
 Define a predicate witnessing that a given key is in an
