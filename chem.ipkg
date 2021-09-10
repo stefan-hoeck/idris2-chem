@@ -11,3 +11,6 @@ modules = Chem
         , Chem.Element
         , Chem.Isotope
         , Chem.Types
+
+        , Text.Molfile.Reader
+        , Text.Molfile.Types
