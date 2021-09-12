@@ -3,10 +3,15 @@
 module Text.Molfile.Types
 
 import Chem.Element
+
 import Data.DPair
 import Data.Nat
 import Data.String
 import Data.Vect
+
+import Generics.Derive
+
+import Data.String
 
 import public Language.Reflection.Refined.Util
 import Language.Reflection.Refined
@@ -19,16 +24,27 @@ import Language.Reflection.Refined
 --------------------------------------------------------------------------------
 
 public export
-readInt : Cast String a => Num a => Eq a => String -> Maybe a
-readInt "0" = Just 0
-readInt s = let n = cast {to = a} s
-             in if n == 0 then Nothing else Just n
+readNat : Num a => String -> Maybe a
+readNat = go 0
+  where go : a -> String -> Maybe a
+        go res s = case strM s of
+          StrNil       => Just res
+          StrCons c cs =>
+            if isDigit c
+               then go (fromInteger (cast (ord c - 48)) + res * 10)
+                    (assert_smaller s cs)
+               else Nothing
+
+public export
+readInt : Num a => Neg a => String -> Maybe a
+readInt s = case strM s of
+  StrCons '-' t => negate <$> readNat t
+  _             => readNat s
 
 public export
 readRefinedInt :  {f : a -> Bool}
-               -> Cast String a
-               => Num a
-               => Eq a
+               -> Num a
+               => Neg a
                => String
                -> Maybe (Subset a $ \n => So (f n))
 readRefinedInt s =
@@ -77,85 +93,138 @@ namespace StringN
 --          Fixed Width Numbers
 --------------------------------------------------------------------------------
 
-||| A digit character (plus a proof that it is indeed a digit)
+||| An unsigned integer limited by an upper bound.
 public export
-record Digit where
-  constructor MkDigit
-  value : Char
-  0 prf : So (isDigit value)
-
-%runElab refinedChar "Digit"
-
-||| Convert a digit to a natural number
-public export
-digitToNat : Digit -> Nat
-digitToNat d = cast $ ord d.value - 48
-
-||| An unsigned integer represented by a fixed
-||| number of digits.
-public export
-record Digits (n : Nat) where
+record Digits (n : Bits32) where
   constructor MkDigits
-  digits : Vect n Digit
+  value : Bits32
+  0 prf : So (value < n)
 
 public export
 Eq (Digits n) where
-  (==) = (==) `on` digits
+  (==) = (==) `on` value
 
 public export
 Ord (Digits n) where
-  compare = compare `on` digits
+  compare = compare `on` value
 
 export
 Show (Digits n) where
-  show = foldMap (singleton . value) . digits
+  show = show . value
 
 namespace Digits
+  public export
+  refine : {n : _} -> Bits32 -> Maybe (Digits n)
+  refine v = case choose (v < n) of
+    Left oh => Just $ MkDigits v oh
+    Right _ => Nothing
+
+  public export
+  fromInteger :  {n : _}
+              -> (v : Integer)
+              -> {auto 0 _ : IsJust (Digits.refine {n} (cast v)) }
+              -> Digits n
+  fromInteger v = fromJust $ refine {n} (cast v)
+
   ||| Convert a string to a fixed-width number.
-  ||| The string must consist exactly of the given
-  ||| number of digits.
   public export
   read : {n : _} -> String -> Maybe (Digits n)
-  read s = traverse refine (unpack s) >>= map MkDigits . toVect n 
+  read "" = refine 0
+  read s  = readInt s >>= refine
 
-  ||| Use string literals for fixed-width numbers at
-  ||| compiletime.
-  |||
-  ||| TODO: Should we use a `BitsX` representation instead
-  |||       and accept an integer literal?
-  public export
-  fromString :  {n : _}
-             -> (s : String)
-             -> {auto 0 _ : IsJust (read {n} s)}
-             -> Digits n
-  fromString s = fromJust $ read s
+||| Fixed-width floating point numbers
+public export
+record Float (minPre,maxPre : Int32) (maxPost : Bits32) where
+  constructor MkFloat
+  pre       : Int32
+  post      : Bits32
+  0 prePrf  : So (minPre  <= pre  && pre  <= maxPre)
+  0 postPrf : So (post <= maxPost)
 
 public export
-digitsToNat : Digits n -> Nat
-digitsToNat ds = go 0 $ ds.digits
-  where go : Nat -> Vect k Digit -> Nat
-        go j []        = j
-        go j (x :: xs) = go (digitToNat x + 10*j) xs
+Eq (Float a b c) where
+  (==) = (==) `on` (\v => (v.pre,v.post))
+
+public export
+Ord (Float a b c) where
+  compare = compare `on` (\v => (v.pre,v.post))
+
+namespace Float
+  public export
+  read :  {minPre,maxPre : _}
+       -> {maxPost : _}
+       -> String
+       -> Maybe (Float minPre maxPre maxPost)
+  read s = do
+    (pre,post) <- case split ('.' ==) (unpack s) of
+                    ('+' :: pre) ::: [post] => Just (pre,post)
+                    pre          ::: [post] => Just (pre,post)
+                    _                       => Nothing
+    Element pr prf1 <- readRefinedInt (pack pre)
+    Element po prf2 <- readRefinedInt (pack post)
+    pure (MkFloat pr po prf1 prf2)
+
+  public export
+  write : Float a b c -> String
+  write f = show f.pre ++ "." ++ show f.post
 
 --------------------------------------------------------------------------------
 --          Counts Line
 --------------------------------------------------------------------------------
 
+------------------------------
+-- MolVersion
+
 public export
 data MolVersion = V2000 | V3000
+
+%runElab derive "MolVersion" [Generic,Meta,Eq,Ord,Show]
+
+namespace MolVersion
+  public export
+  read : String -> Maybe MolVersion
+  read "V2000" = Just V2000
+  read "v2000" = Just V2000
+  read "V3000" = Just V3000
+  read "v3000" = Just V3000
+  read _       = Nothing
+
+  public export
+  write : MolVersion -> String
+  write V2000 = "v2000"
+  write V3000 = "v3000"
+
+------------------------------
+-- ChiralFlag
 
 public export
 data ChiralFlag = NonChiral | Chiral
 
+%runElab derive "ChiralFlag" [Generic,Meta,Eq,Ord,Show]
+
+namespace ChiralFlag
+  public export
+  read : String -> Maybe ChiralFlag
+  read "0" = Just NonChiral
+  read "1" = Just Chiral
+  read _   = Nothing
+
+  public export
+  write : ChiralFlag -> String
+  write NonChiral = "0"
+  write Chiral    = "1"
+
+
 public export
 record Counts where
   constructor MkCounts
-  atoms     : Digits 3
-  bonds     : Digits 3
-  atomLists : Digits 3
+  atoms     : Digits 999
+  bonds     : Digits 999
+  atomLists : Digits 999
   chiral    : ChiralFlag
-  props     : Digits 3
-  version   : Maybe MolVersion
+  version   : MolVersion
+
+%runElab derive "Counts" [Generic,Meta,Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Atoms
@@ -168,6 +237,8 @@ record Counts where
 ||| RSharp -> R# (RGroupLabel)
 public export
 data AtomSymbol = L | A | Q | Ast | LP | RSharp | El Elem
+
+%runElab derive "AtomSymbol" [Generic,Eq]
 
 export
 Show AtomSymbol where
@@ -206,6 +277,8 @@ data StereoParity = NoStereo
                   | EvenStereo
                   | AnyStereo
 
+%runElab derive "StereoParity" [Generic,Meta,Eq,Ord,Show]
+
 namespace StereoParity
   public export
   read : String -> Maybe StereoParity
@@ -228,6 +301,8 @@ namespace StereoParity
 ||| Stereo care box encoded in V2000
 public export
 data  StereoCareBox = IgnoreStereo | MatchStereo
+
+%runElab derive "StereoCareBox" [Generic,Meta,Eq,Ord,Show]
 
 namespace StereoCareBox
   public export
@@ -253,6 +328,23 @@ data Valence : Type where
   NoValence : Valence
   MkValence : (n : Bits8) -> (0 prf : So (n <= 14)) -> Valence
 
+valenceCode : Valence -> Bits8
+valenceCode NoValence       = 0
+valenceCode (MkValence 0 _) = 15
+valenceCode (MkValence n _) = n
+
+public export %inline
+Eq Valence where
+  (==) = (==) `on` valenceCode
+
+public export %inline
+Ord Valence where
+  compare = compare `on` valenceCode
+
+public export %inline
+Show Valence where
+  show = show . valenceCode
+
 namespace Valence
   public export
   read : String -> Maybe Valence
@@ -260,11 +352,9 @@ namespace Valence
   read "15" = Just $ MkValence 0 Oh
   read s    = (\(Element v oh) => MkValence v oh) <$> readRefinedInt s
 
-  public export
+  public export %inline
   write : Valence -> String
-  write NoValence       = "0"
-  write (MkValence 0 _) = "15"
-  write (MkValence n _) = show n
+  write = show
 
 ------------------------------
 -- H0Designator
@@ -272,6 +362,8 @@ namespace Valence
 ||| Reduntant hydrogen count flag
 public export
 data H0Designator = H0NotSpecified | NoHAllowed
+
+%runElab derive "H0Designator" [Generic,Meta,Eq,Ord,Show]
 
 namespace H0Designator
   public export
@@ -293,6 +385,24 @@ data AtomCharge : Type where
   DoubletRadical : AtomCharge
   MkCharge : (v : Int8) -> (0 prf : So (abs v <= 3)) -> AtomCharge
 
+chargeCode : AtomCharge -> Int8
+chargeCode DoubletRadical = 4
+chargeCode (MkCharge 0 _) = 0
+chargeCode (MkCharge n _) = 4 - n
+
+public export %inline
+Eq AtomCharge where
+  (==) = (==) `on` chargeCode
+
+public export %inline
+Ord AtomCharge where
+  compare = compare `on` chargeCode
+
+export
+Show AtomCharge where
+  show DoubletRadical   = "DoubletRadical"
+  show (MkCharge v prf) = show v
+
 namespace AtomCharge
   public export
   read : String -> Maybe AtomCharge
@@ -306,11 +416,9 @@ namespace AtomCharge
   read "7" = Just $ MkCharge (-3) Oh
   read _   = Nothing
 
-  public export
+  public export %inline
   write : AtomCharge -> String
-  write DoubletRadical = "4"
-  write (MkCharge 0 _) = "0"
-  write (MkCharge n _) = show $ 4 - n
+  write = show . chargeCode
 
 ------------------------------
 -- InvRetentionFlag
@@ -320,40 +428,41 @@ data InvRetentionFlag = InvNotApplied
                       | ConfigInverted
                       | ConfigRetained
 
+%runElab derive "InvRetentionFlag" [Generic,Meta,Eq,Ord,Show]
+
+namespace InvRetentionFlag
+  public export
+  read : String -> Maybe InvRetentionFlag
+  read "0" = Just InvNotApplied
+  read "1" = Just ConfigInverted
+  read "2" = Just ConfigRetained
+  read _   = Nothing
+
+  public export
+  write : InvRetentionFlag -> String
+  write InvNotApplied  = "0"
+  write ConfigInverted = "1"
+  write ConfigRetained = "2"
+
+------------------------------
+-- ExactChangeFlag
+
 public export
 data ExactChangeFlag = ChangeNotApplied | ExactChange
 
-||| Stores coordinates in the specified length defined in the BIOVIA
-||| databases 2020, CTFile Formats, p. 43
-|||
-||| NOTE: Currently unclear if the fifth position in a coordinate in front of
-|||       the decimal sign is reserved for the sign or if it can be occupied
-|||       by a number. To cover any situation, a five digit number is allowed.
-public export
-record Coordinate where
-  constructor MkCoordinate
-  pre       : Int16
-  post      : Bits16
-  0 prePrf  : So (abs pre <= 9999)
-  0 postPrf : So (post <= 9999)
+%runElab derive "ExactChangeFlag" [Generic,Meta,Eq,Ord,Show]
 
-||| Energy value of max 12 digits (including decimal point)
-public export
-record Energy where
-  constructor MkEnergy
-  pre       : Int16
-  post      : Bits16
-  0 prePrf  : So (abs pre <= 9999)
-  0 postPrf : So (post <= 9999)
+namespace ExactChangeFlag
+  public export
+  read : String -> Maybe ExactChangeFlag
+  read "0" = Just ChangeNotApplied
+  read "1" = Just ExactChange
+  read _   = Nothing
 
-||| ScalingFactorLong as a decimal number (sssssssss) x10
-public export
-record ScalingFactor where
-  constructor MkScalingFactor
-  pre       : Int16
-  post      : Bits16
-  0 prePrf  : So (abs pre <= 9999)
-  0 postPrf : So (post <= 9999)
+  public export
+  write : ExactChangeFlag -> String
+  write ChangeNotApplied  = "0"
+  write ExactChange       = "1"
 
 ------------------------------
 -- MassDiff
@@ -367,8 +476,12 @@ record MassDiff where
 
 %runElab refinedInt8 "MassDiff"
 
+public export
+readMassDiff : String -> Maybe MassDiff
+readMassDiff s = (\(Element v p) => MkMassDiff v p) <$> readRefinedInt s
+
 ------------------------------
--- MassDiff
+-- Hydrogen Count
 
 ||| Hydrogen Count
 public export
@@ -378,6 +491,10 @@ record HydrogenCount where
   0 prf : So (value <= 4)
 
 %runElab refinedBits8 "HydrogenCount"
+
+public export
+readHydrogenCount : String -> Maybe HydrogenCount
+readHydrogenCount s = (\(Element v p) => MkHydrogenCount v p) <$> readRefinedInt s
 
 ------------------------------
 -- AtomRef
@@ -391,7 +508,16 @@ record AtomRef where
 
 %runElab refinedBits32 "AtomRef"
 
+public export
+readAtomRef : String -> Maybe AtomRef
+readAtomRef s = (\(Element v p) => MkAtomRef v p) <$> readRefinedInt s
+
+public export
+Coordinate : Type
+Coordinate = Float (-9999) 99999 9999
+
 ||| Data on a single V2000 Atom Line
+public export
 record Atom where
   constructor MkAtom
   x                : Coordinate
@@ -405,8 +531,6 @@ record Atom where
   stereoCareBox    : StereoCareBox
   valence          : Valence
   h0designator     : H0Designator
-  unused1          : String
-  unused2          : String
   atomMapping      : AtomRef
   invRetentionFlag : InvRetentionFlag
   exactChangeFlag  : ExactChangeFlag
@@ -835,9 +959,9 @@ record MolFile where
   info    : StringN 80
   comment : StringN 80
   counts  : Counts
-  atoms   : Vect (digitsToNat counts.atoms) Atom
-  bonds   : Vect (digitsToNat counts.bonds) Bond
-  props   : Vect (digitsToNat counts.props) Property
+  atoms   : Vect (cast counts.atoms.value) Atom
+  bonds   : Vect (cast counts.bonds.value) Bond
+  props   : List Property
 
 
 -- -- CTAB file types -------------------------------------------------------------
@@ -882,10 +1006,3 @@ record MolFile where
 -- data Time = Time Hour Minute
 --   deriving (Show, Eq)
 -- 
-
---------------------------------------------------------------------------------
---          Tests
---------------------------------------------------------------------------------
-
-read023 : 23 = digitsToNat {n = 3} "023"
-read023 = Refl

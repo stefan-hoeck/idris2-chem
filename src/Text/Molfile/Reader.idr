@@ -4,10 +4,12 @@ import Data.String
 import Data.Vect
 import public Text.Molfile.Types
 
+%default total
+
 ||| Tries to split a `String` into a vector of
 ||| chunks of exactly the given lengths.
-||| Fails if the length of the string does not match
-||| the lengths of the chunks.
+||| Fails if the length of the string does not exactly match
+||| the length of concatenated chunks.
 public export
 chunks : Vect n Int -> String -> Maybe (Vect n String)
 chunks ns s = go 0 ns
@@ -15,11 +17,67 @@ chunks ns s = go 0 ns
         go pos [] = if pos == cast (length s) then Just [] else Nothing
         go pos (x :: xs) = (strSubstr pos x s ::) <$> go (pos + x) xs
 
+public export
+trimmedChunks : Vect n Int -> String -> Maybe (Vect n String)
+trimmedChunks ns s = map trim <$> chunks ns s
+
+||| Chunks of the counts line. See `counts` for a description
+||| of the format and types of chunks.
+public export
+countChunks : Vect 12 Int
+countChunks = [3,3,3,3,3,3,3,3,3,3,3,6]
+
+||| General format:
+|||   aaabbblllfffcccsssxxxrrrpppiiimmmvvvvvv
+|||
+|||   aaa    : number of atoms
+|||   bbb    : number of bonds
+|||   lll    : number of atom lines
+|||   ccc    : chiral flag
+|||   vvvvvv : version
+|||
+||| The other fields are obsolete or no longer supported
+||| and are being ignored by the parser.
+public export
 counts : String -> Maybe Counts
 counts s = do
-  [x,y,z,d,e,f,g,h,i,j,k,l] <- chunks [3,3,3,3,3,3,3,3,3,3,3,6] s
-  -- [| MkCounts (read x) (read y) (read z)
-  ?foo
+  [a,b,l,_,c,_,_,_,_,_,_,v] <- trimmedChunks countChunks s
+  [| MkCounts (read a) (read b) (read l) (read s) (read v) |]
+
+||| Chunks of an atom line. See `atom` for a description
+||| of the format and types of chunks.
+public export
+atomChunks : Vect 16 Int
+atomChunks = [10,10,10,4,2,3,3,3,3,3,3,3,3,3,3,3]
+
+||| General format:
+|||   xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
+|||
+|||   x,y,z : coordinates
+|||   aaa   : atom symbol
+|||   dd    : mass difference (superseded by M ISO line)
+|||   ccc   : charge (superseded by M RAD and M CHG lines)
+|||   sss   : atom stereo parity
+|||   hhh   : hydrogen count + 1
+|||   bbb   : stereo care box
+|||   vvv   : valence
+|||   HHH   : H0 designator
+|||
+|||   r and i are not used and ignored
+public export
+atom : String -> Maybe Atom
+atom s = do
+  [x,y,z,a,d,c,s,h,b,v,h0,_,_,m,n,e] <- trimmedChunks atomChunks s
+  [| MkAtom (read x) (read y) (read z) (read a) (readMassDiff d) (read c)
+            (read s) (readHydrogenCount h) (read b) (read v) (read h0)
+            (readAtomRef m) (read n) (read e) |]
+
+||| Chunks of a bond line. See `atom` for a description
+||| of the format and types of chunks.
+public export
+bondChunks : Vect 7 Int
+bondChunks = [3,3,3,3,3,3,3]
+
 
 --- --------------------------------------------------------------------------------
 --- -- Molfile reader function
@@ -49,15 +107,6 @@ counts s = do
 ---                            <*> traverse pMolAtomLine atomLines
 ---                            <*> traverse pMolBondLine bondLines
 ---                            <*> readPropertyBlock propertyLines
---- 
---- 
---- 
---- -- Block getters   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
---- -- | Test whether a list has one object only
---- isSingleton :: Show a => Text -> [a] -> Either [Text] a
---- isSingleton _ [x] = pure x
---- isSingleton t  e  = Left [DT.concat ["Not a valid object for ", t, ": ", show(e)]]
---- 
 --- 
 --- -- | Get an exact number of lines
 --- getNLines :: Int -> [Text] -> Either [Text] ([Text],[Text])
@@ -102,109 +151,7 @@ counts s = do
 ---                     else Left [eT <> unlines ls]
 --- 
 --- -- Line readers ---------------------------------------------------------------
---- -- Counts line
---- 
---- -- | Parses and reads the contents line of a molfile
---- --   NOTE: This function can only handle lines of the given format.
---- --         Deviations as shown on page 43 in the CTAB specification
---- --         can't be handled yet.
---- --
---- -- Example
---- --
---- -- >>> pCountsLine "  0  0  0  0  0  0  0  0  0  0999 V2000"
---- -- Success (MolFileCounts {nAtoms = Refined 0, nBonds = Refined 0, nAtomLists = Refined 0, obsolete1 = Refined 0, chiralFlag = NonChiral, obsolete2 = Refined 0, obsolete3 = Refined 0, obsolete4 = Refined 0, obsolete5 = Refined 0, obsolete6 = Refined 0, nProperties = Refined 999, molVersion = Just V2000})
---- pCountsLine :: Text -> Validation [Text] MolCounts
---- pCountsLine t = case splitCountsLine t of
----    Success [ac,bc,alc,o1,cf,o2,o3,o4,o5,o6,pc,mv] -> MolFileCounts
----        <$> readAtomCount ac
----        <*> readBondCount bc
----        <*> readAtomListCount alc
----        <*> readObsolete o1
----        <*> readChiralFlag cf
----        <*> readObsolete o2
----        <*> readObsolete o3
----        <*> readObsolete o4
----        <*> readObsolete o5
----        <*> readObsolete o6
----        <*> readPropertiesCount pc
----        <*> (readMolVersion $ DT.strip mv)
----    Failure x -> Failure x
----    _ -> Failure $ pLineErrorMessage "splitCountsLine"
---- 
---- -- | Split the counts line into tokens
---- splitCountsLine :: Text -> Validation [Text] [Text]
---- splitCountsLine = splitText [3,3,3,3,3,3,3,3,3,3,3,6]
---- 
---- -- | Reads the number of atoms present in the mol file
---- readAtomCount :: Text -> Validation [Text] AtomCount
---- readAtomCount = readAndRefine textToInt . DT.strip
---- 
---- -- | Reads the number of bonds present in the mol file
---- readBondCount :: Text -> Validation [Text] BondCount
---- readBondCount = readAndRefine textToInt . DT.strip
---- 
---- -- | Reads the number of atomlists present in the mol file
---- --   Used for queries.
---- readAtomListCount :: Text -> Validation [Text] AtomCount
---- readAtomListCount = readAndRefine textToInt . DT.strip
---- 
---- -- | Reads a refined int of a length f 3 digits tops
---- --   which must be present. This function is used for
---- --   the values which are considered obsolete
---- readObsolete :: Text -> Validation [Text] (Refined (FromTo 0 999) Int)
---- readObsolete = readAndRefine textToInt . DT.strip
---- 
---- -- | Interprets the chiral flag
---- readChiralFlag :: Text -> Validation [Text] ChiralFlag
---- readChiralFlag = selectFlag . DT.strip
----   where selectFlag "0" = Success NonChiral
----         selectFlag "1" = Success Chiral
----         selectFlag t   = Failure ["Invalid chiral flac in  counts line: " <> t]
---- 
---- -- | Read the number of additional property lines
---- readPropertiesCount :: Text -> Validation [Text] PropertiesCount
---- readPropertiesCount = readAndRefine textToInt . DT.strip
---- 
---- 
---- -- Atom line reader    .   .   .   .   .   .   .   .   .   .   .   .   .   .   .
---- 
---- -- | Reads an atom line
---- --
---- -- Example
---- --
---- -- >>> pMolAtomLine "    3.5938   -8.5438    0.0000   N 0  3  0  1  0  0  0  0  0  0  0  0"
---- -- Success (MolFileAtom {x = MolCoordinate (Refined 3) (Refined 5938), y = MolCoordinate (Refined (-8)) (Refined 5438), z = MolCoordinate (Refined 0) (Refined 0), symbol = Element N, massDifference = Refined 0, charge = Charge (Refined 1), stereoParity = NoStereo, hydrogenCount = Refined 0, stereoCareBox = IgnoreStereo, valence = NoMarking, h0designator = H0NotSpecified, atomUnused1 = "0", atomUnused2 = "0", atomAtomMapping = Refined 0, invRetentionFlag = InvNotApplied, exactChangeFlag = ChangeNotApplied})
---- -- >>> pMolAtomLine "    3.59A8   -8.5438    0.0000   N 0  3  0  1  6  0 -3  0  0  0  0  0"
---- --Failure ["Failure reading decimals of atom coodinate: 59A8","Invalid Stereo Care Box: 6","Invalid H0 Designator: -3"]
---- -- >>> pMolAtomLine "    3.59A8   -8.5438"
---- -- Failure ["Invalid line length (20) (specified 69) in '    3.59A8   -8.5438'"]
---- pMolAtomLine :: Text -> Validation [Text] MolAtom
---- pMolAtomLine t =
----   case splitAtomLine t of
----      Success [x,y,z,_,a,md,c,sp,hc,sc,v,h0,u1,u2,mm,nn,ee] -> MolFileAtom
----          <$> readCoordinate       x
----          <*> readCoordinate       y
----          <*> readCoordinate       z
----          <*> readAtomSymbol       (DT.strip a)
----          <*> readMassDiff         (DT.strip  md)
----          <*> readCharge           (DT.strip c)
----          <*> readStereoParity     (DT.strip sp)
----          <*> readHydrogenCount    (DT.strip hc)
----          <*> readStereoCareBox    (DT.strip sc)
----          <*> readValence          (DT.strip v)
----          <*> readH0Designator     (DT.strip h0)
----          <*> readUnused           (DT.strip u1)
----          <*> readUnused           (DT.strip u2)
----          <*> readAAMapping        (DT.strip mm)
----          <*> readInvRetentionFlag (DT.strip nn)
----          <*> readExactChangeFlag  (DT.strip ee)
----      Failure x -> Failure x
----      _ -> Failure $ pLineErrorMessage "splitAtomLine"
---- 
---- -- | Separates an atom line into its parts and removes the whitespace
---- --   around the characters
---- splitAtomLine :: Text -> Validation [Text] [Text]
---- splitAtomLine = splitText [10,10,10,1,3,2,3,3,3,3,3,3,3,3,3,3,3]
+
 --- 
 --- 
 --- -- | Reads a bind line
@@ -230,150 +177,6 @@ counts s = do
 ---                      <*> readReactionCenter rc
 ---      Failure x -> Failure x
 ---      _ -> Failure $ pLineErrorMessage "splitBondLine"
---- 
---- 
---- -- | Separates an atom line into its parts and removes the whitespace
---- --   around the characters
---- splitBondLine :: Text -> Validation [Text] [Text]
---- splitBondLine = splitAndTrimText [3,3,3,3,3,3,3]
---- 
---- -- | Helper function to abstract a default error message
---- pLineErrorMessage :: Text -> [Text]
---- pLineErrorMessage t =
----   [DT.concat [t, " is unable to capture the invalid",
----               "line structure. This error should be fixed in the future"]]
---- 
---- --------------------------------------------------------------------------------
---- 
---- 
---- -- | Uses a reader function and a tuple of the data type to build
---- --   in an applicative context and a text to parse
---- parseValidateBuild :: Applicative f
----                    => (Text -> f a)
----                    -> Int
----                    -> (f (a -> b), Text)
----                    -> (f b, Text)
---- parseValidateBuild ft n (fa,t) = let (s, s') = DT.splitAt n t
----                                      x       = ft $ DT.strip s
----                                  in  (fa <*> x, s')
---- 
---- 
---- -- File Specific types ---------------------------------------------------------
---- 
---- -- | Reads the mol file version
---- --
---- -- Example:
---- --
---- -- >>> readMolVersion "V2000"
---- -- Success (Just V2000)
---- -- >>> readMolVersion "CrOW"
---- -- Failure ["Invalid Molfile version: CrOW"]
---- readMolVersion :: Text -> Validation [Text] (Maybe MolVersion)
---- readMolVersion = traverse readMolVersionContent . hasContent . DT.strip
---- 
---- readMolVersionContent :: Text -> Validation [Text] MolVersion
---- readMolVersionContent "V2000" = Success V2000
---- readMolVersionContent "v2000" = Success V2000
---- readMolVersionContent "V3000" = Success V3000
---- readMolVersionContent "v3000" = Success V3000
---- readMolVersionContent t = Failure ["Invalid Molfile version: " <> t]
---- 
---- 
---- -- Atom types --------------------------------------------- ---------------------
---- 
---- -- | Reads & validates an atom coordinate of the form: xxxxx.xxxx
---- --
---- -- Example
---- --
---- -- >>> readCoordinate "  -12.34  "
---- -- Success (MolCoordinate (Refined (-12)) (Refined 3400))
---- -- >>> readCoordinate "  -12.34 "
---- -- Failure ["Invalid atom coordinate structure (xxxxx.xxxx). Actual:   -12.34 "]
---- readCoordinate :: Text -> Validation [Text] MolCoordinate
---- readCoordinate t =
----   case splitText [5,1,4] t of
----     Success [d5,".", d4] -> MolCoordinate
----                             <$> readLeftInt d5
----                             <*> readRightInt d4
----     _ -> Failure ["Invalid atom coordinate structure (xxxxx.xxxx). Actual: " <> t]
---- 
---- 
---- -- | Validates the (sign &) digits of an atom coordinate
---- --
---- -- Example
---- --
---- -- >>> readLeftInt "  -12"
---- -- Success (Refined (-12))
---- -- >>> readLeftInt "   a"
---- -- Failure ["Failure reading natural part of atom coordinate: a"]
---- readLeftInt ::  Text -> Validation [Text] FiveDigitInt
---- readLeftInt =  eF . readFiveDigitInt . DT.strip
----   where eF = prependErrorMessage
----               "Failure reading natural part of atom coordinate: "
---- 
---- -- | Validates the decimal part of an atom coordinate
---- --
---- -- Example
---- --
---- -- >>> readRightInt "34  "
---- -- Success (Refined 3400)
---- -- >>> readRightInt "334a"
---- -- Failure ["Failure reading decimals of atom coodinate: 334a"]
---- readRightInt :: Text -> Validation [Text] FourDigitInt
---- readRightInt = eF . readFourDigitInt . DT.replace " " "0"
----    where eF = prependErrorMessage
----                 "Failure reading decimals of atom coodinate: "
---- 
---- 
---- 
---- -- | Validates a number which is in the range [-9999,99999]
---- readFiveDigitInt :: Text -> Validation [Text] FiveDigitInt
---- readFiveDigitInt = readAndRefine textToInt
---- 
---- -- | Validates a number which is in the range [0,9999]
---- readFourDigitInt :: Text -> Validation [Text] FourDigitInt
---- readFourDigitInt = readAndRefine textToInt
---- 
---- 
---- -- | Reads an atom atom mapping corresponding to the number of atoms
---- --
---- -- Example
---- --
---- -- >>> readAAMapping "3"
---- -- Success (Refined 3)
---- -- >>> readAAMapping "-1"
---- -- Failure ["Invalid Atom Atom Mapping: -1"]
---- readAAMapping :: Text -> Validation [Text] AtomReference
---- readAAMapping = prependErrorMessage "Invalid Atom Atom Mapping: "
----                 . readAndRefine textToIntPositive
---- 
---- -- | Reads the retention flag
---- --
---- -- Example
---- --
---- -- >>> readInvRetentionFlag "1"
---- -- Success ConfigInverted
---- -- >>> readInvRetentionFlag "-1"
---- -- Failure ["Invalid Inversion/Retention Flag: -1"]
---- readInvRetentionFlag :: Text -> Validation [Text] InvRetentionFlag
---- readInvRetentionFlag = prependErrorMessage "Invalid Inversion/Retention Flag: "
----                        . readBounded
---- 
---- -- | Reads the exact change flag
---- --
---- -- Example
---- --
---- -- >>> readExactChangeFlag "4"
---- -- Failure ["Invalid Inversion/Retention Flag: 4"]
---- -- >>> readExactChangeFlag "0"
---- -- Success ChangeNotApplied
---- readExactChangeFlag :: Text -> Validation [Text] ExactChangeFlag
---- readExactChangeFlag = prependErrorMessage "Invalid Inversion/Retention Flag: "
----                       . readBounded
---- 
---- 
---- -- Bond type readers -----------------------------------------------------------
---- 
 --- 
 --- --------------------------------------------------------------------------------
 --- -- ReadProperties
@@ -740,37 +543,3 @@ counts s = do
 ---       linkEntries      = readLinkAtomListEntries $ DT.strip nEntries
 ---   in AtomSymbolList <$> atomListType <*>
 ---      (fold (readNAtomSymbols <$> linkEntries <*> pure symbollist))
---- 
---- 
---- --------------------------------------------------------------------------------
---- -- General
---- 
---- -- | "Reads" something unused to retain the information
---- readUnused :: Text -> Validation [Text] Text
---- readUnused = Success
---- 
---- -- | Converts a text to a bounded type if possible
---- readBounded :: (Enum a, Bounded a) => Text -> Validation [Text] a
---- readBounded t = maybeToValidation [t]
----               $ textToIntPositive t >>= boundedToEnum
---- 
---- -- | Reads and refines a text which might be left blank
---- readRefinedMaybe :: Predicate p0 a
----                  => (Text -> Maybe a)
----                  -> Text
----                  -> Validation [Text] (Maybe (Refined p0 a))
---- readRefinedMaybe f t = traverse (maybeToValidation [t] . refineFail) $ f t
---- 
---- -- | Reads a decimal number of the format xxxxx.xxxx where
---- --   there are a maximum of
---- --   NOTE: This method does not store the position of the
---- --         decimal point. If there is ,e.g., trailing
---- --         whitespace then this information might get lost
---- readRefinedDecimal :: (FiveDigitInt -> FourDigitInt -> b)
----                    -> Text
----                    -> Validation [Text] b
---- readRefinedDecimal f t =
----   case DT.splitOn "." t of
----      [l,r] -> f <$> readLeftInt l <*> readRightInt r
----      _     -> Failure ["Invalid decimal number (expected a decimal point): "
----                        <> t]
