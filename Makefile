@@ -4,9 +4,11 @@ lib_pkg = chem.ipkg
 
 doc_pkg = doc.ipkg
 
+test_pkg = test.ipkg
+
 
 .PHONY: all
-all: lib
+all: lib docs test
 
 .PHONY: clean-install
 clean-install: clean install
@@ -21,6 +23,10 @@ lib:
 .PHONY: docs
 docs:
 	${IDRIS2} --typecheck ${doc_pkg}
+
+.PHONY: test
+test:
+	${IDRIS2} --build ${test_pkg} && build/exec/runTest -n 1000
 
 .PHONY: install
 install:
