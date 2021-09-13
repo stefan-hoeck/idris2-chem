@@ -2,6 +2,7 @@ module Text.Molfile.Reader
 
 import Data.String
 import Data.Vect
+import public Text.Molfile.Float
 import public Text.Molfile.Types
 
 %default total
@@ -68,16 +69,31 @@ public export
 atom : String -> Maybe Atom
 atom s = do
   [x,y,z,a,d,c,s,h,b,v,h0,_,_,m,n,e] <- trimmedChunks atomChunks s
-  [| MkAtom (read x) (read y) (read z) (read a) (readMassDiff d) (read c)
-            (read s) (readHydrogenCount h) (read b) (read v) (read h0)
-            (readAtomRef m) (read n) (read e) |]
+  [| MkAtom (read x) (read y) (read z) (read a) (read d) (read c)
+            (read s) (read h) (read b) (read v) (read h0)
+            (read m) (read n) (read e) |]
 
-||| Chunks of a bond line. See `atom` for a description
+||| Chunks of a bond line. See `bond` for a description
 ||| of the format and types of chunks.
 public export
 bondChunks : Vect 7 Int
 bondChunks = [3,3,3,3,3,3,3]
 
+||| General format:
+|||   111222tttsssxxxrrrccc
+|||
+|||   111 and 222 : atom references
+|||   ttt         : bond type
+|||   sss         : bond stereo
+|||   rrr         : bond topology
+|||   ccc         : reacting center status
+|||
+|||   xxx is not used and ignored
+public export
+bond : String -> Maybe Bond
+bond s = do
+  [r1,r2,t,ss,r,_,c] <- trimmedChunks bondChunks s
+  [| MkBond (read r1) (read r2) (read t) (read ss) (read r) (read c) |]
 
 --- --------------------------------------------------------------------------------
 --- -- Molfile reader function

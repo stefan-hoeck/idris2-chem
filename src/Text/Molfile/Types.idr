@@ -3,170 +3,32 @@
 module Text.Molfile.Types
 
 import Chem.Element
-
-import Data.DPair
+import public Data.Refined
 import Data.Nat
 import Data.String
 import Data.Vect
-
 import Generics.Derive
-
-import Data.String
-
-import public Language.Reflection.Refined.Util
 import Language.Reflection.Refined
+import Text.Molfile.Float
+
+--------------------------------------------------------------------------------
+--          Pragmas
+--------------------------------------------------------------------------------
 
 %default total
+
 %language ElabReflection
 
---------------------------------------------------------------------------------
---          Refined Integers
---------------------------------------------------------------------------------
+%hide Language.Reflection.TT.Count
 
+||| An uninterpreted line in a v2000 mol file
 public export
-readNat : Num a => String -> Maybe a
-readNat = go 0
-  where go : a -> String -> Maybe a
-        go res s = case strM s of
-          StrNil       => Just res
-          StrCons c cs =>
-            if isDigit c
-               then go (fromInteger (cast (ord c - 48)) + res * 10)
-                    (assert_smaller s cs)
-               else Nothing
-
-public export
-readInt : Num a => Neg a => String -> Maybe a
-readInt s = case strM s of
-  StrCons '-' t => negate <$> readNat t
-  _             => readNat s
-
-public export
-readRefinedInt :  {f : a -> Bool}
-               -> Num a
-               => Neg a
-               => String
-               -> Maybe (Subset a $ \n => So (f n))
-readRefinedInt s =
-  readInt s >>= \n =>
-    case choose (f n) of
-      Left oh => Just $ Element n oh
-      Right _ => Nothing
-
---------------------------------------------------------------------------------
---          Limited Length Strings
---------------------------------------------------------------------------------
-
-public export
-record StringN (n : Nat) where
-  constructor MkStringN
+record MolLine where
+  constructor MkMolLine
   value : String
-  0 prf : LTE (length value) n
+  0 prf : So (length value <= 80)
 
-public export
-Eq (StringN n) where
-  (==) = (==) `on` value
-
-public export
-Ord (StringN n) where
-  compare = compare `on` value
-
-export
-Show (StringN n) where
-  show = show . value
-
-namespace StringN
-  public export
-  refine : {n : _} -> String -> Maybe (StringN n)
-  refine s = case isLTE (length s) n of
-    Yes prf => Just $ MkStringN s prf
-    No _    => Nothing
-
-  public export
-  fromString :  {n : _}
-             -> (s : String)
-             -> {auto 0 _ : IsJust (refine {n} s)}
-             -> StringN n
-  fromString s = fromJust $ refine s
-
---------------------------------------------------------------------------------
---          Fixed Width Numbers
---------------------------------------------------------------------------------
-
-||| An unsigned integer limited by an upper bound.
-public export
-record Digits (n : Bits32) where
-  constructor MkDigits
-  value : Bits32
-  0 prf : So (value < n)
-
-public export
-Eq (Digits n) where
-  (==) = (==) `on` value
-
-public export
-Ord (Digits n) where
-  compare = compare `on` value
-
-export
-Show (Digits n) where
-  show = show . value
-
-namespace Digits
-  public export
-  refine : {n : _} -> Bits32 -> Maybe (Digits n)
-  refine v = case choose (v < n) of
-    Left oh => Just $ MkDigits v oh
-    Right _ => Nothing
-
-  public export
-  fromInteger :  {n : _}
-              -> (v : Integer)
-              -> {auto 0 _ : IsJust (Digits.refine {n} (cast v)) }
-              -> Digits n
-  fromInteger v = fromJust $ refine {n} (cast v)
-
-  ||| Convert a string to a fixed-width number.
-  public export
-  read : {n : _} -> String -> Maybe (Digits n)
-  read "" = refine 0
-  read s  = readInt s >>= refine
-
-||| Fixed-width floating point numbers
-public export
-record Float (minPre,maxPre : Int32) (maxPost : Bits32) where
-  constructor MkFloat
-  pre       : Int32
-  post      : Bits32
-  0 prePrf  : So (minPre  <= pre  && pre  <= maxPre)
-  0 postPrf : So (post <= maxPost)
-
-public export
-Eq (Float a b c) where
-  (==) = (==) `on` (\v => (v.pre,v.post))
-
-public export
-Ord (Float a b c) where
-  compare = compare `on` (\v => (v.pre,v.post))
-
-namespace Float
-  public export
-  read :  {minPre,maxPre : _}
-       -> {maxPost : _}
-       -> String
-       -> Maybe (Float minPre maxPre maxPost)
-  read s = do
-    (pre,post) <- case split ('.' ==) (unpack s) of
-                    ('+' :: pre) ::: [post] => Just (pre,post)
-                    pre          ::: [post] => Just (pre,post)
-                    _                       => Nothing
-    Element pr prf1 <- readRefinedInt (pack pre)
-    Element po prf2 <- readRefinedInt (pack post)
-    pure (MkFloat pr po prf1 prf2)
-
-  public export
-  write : Float a b c -> String
-  write f = show f.pre ++ "." ++ show f.post
+%runElab refinedString "MolLine"
 
 --------------------------------------------------------------------------------
 --          Counts Line
@@ -183,10 +45,10 @@ data MolVersion = V2000 | V3000
 namespace MolVersion
   public export
   read : String -> Maybe MolVersion
-  read "V2000" = Just V2000
   read "v2000" = Just V2000
-  read "V3000" = Just V3000
   read "v3000" = Just V3000
+  read "V2000" = Just V2000
+  read "V3000" = Just V3000
   read _       = Nothing
 
   public export
@@ -215,12 +77,24 @@ namespace ChiralFlag
   write Chiral    = "1"
 
 
+------------------------------
+-- Count
+
+public export
+record Count where
+  constructor MkCount
+  value : Bits16
+  0 prf : So (value <= 999)
+
+%runElab rwNat "Count" `(Bits16)
+
+
 public export
 record Counts where
   constructor MkCounts
-  atoms     : Digits 999
-  bonds     : Digits 999
-  atomLists : Digits 999
+  atoms     : Count
+  bonds     : Count
+  atomLists : Count
   chiral    : ChiralFlag
   version   : MolVersion
 
@@ -260,6 +134,10 @@ namespace AtomSymbol
   read "LP" = Just LP
   read "R#" = Just RSharp
   read s    = El <$> read s
+
+  public export %inline
+  write : AtomSymbol -> String
+  write = show
 
   public export
   fromString :  (s : String)
@@ -350,11 +228,13 @@ namespace Valence
   read : String -> Maybe Valence
   read "0"  = Just NoValence
   read "15" = Just $ MkValence 0 Oh
-  read s    = (\(Element v oh) => MkValence v oh) <$> readRefinedInt s
+  read s    = readNat s >>= refineSo MkValence
 
   public export %inline
   write : Valence -> String
-  write = show
+  write NoValence       = "0"
+  write (MkValence 0 _) = "15"
+  write (MkValence n _) = show n
 
 ------------------------------
 -- H0Designator
@@ -474,27 +354,42 @@ record MassDiff where
   value : Int8
   0 prf : So ((-3) <= value && value <= 4)
 
-%runElab refinedInt8 "MassDiff"
-
-public export
-readMassDiff : String -> Maybe MassDiff
-readMassDiff s = (\(Element v p) => MkMassDiff v p) <$> readRefinedInt s
+%runElab rwInt "MassDiff" `(Int8)
 
 ------------------------------
 -- Hydrogen Count
 
-||| Hydrogen Count
 public export
-record HydrogenCount where
-  constructor MkHydrogenCount
-  value : Bits8
-  0 prf : So (value <= 4)
+data HydrogenCount : Type where
+  NoHC : HydrogenCount
+  HC   : (v : Bits8) -> (0 prf : So (v <= 4)) -> HydrogenCount
 
-%runElab refinedBits8 "HydrogenCount"
+hcCode : HydrogenCount -> Bits8
+hcCode NoHC     = 0
+hcCode (HC v _) = v + 1
 
-public export
-readHydrogenCount : String -> Maybe HydrogenCount
-readHydrogenCount s = (\(Element v p) => MkHydrogenCount v p) <$> readRefinedInt s
+public export %inline
+Eq HydrogenCount where
+  (==) = (==) `on` hcCode
+
+public export %inline
+Ord HydrogenCount where
+  compare = compare `on` hcCode
+
+export
+Show HydrogenCount where
+  show NoHC     = "NoHC"
+  show (HC v _) = show v
+
+namespace HydrogenCount
+  public export
+  read : String -> Maybe HydrogenCount
+  read "0" = Just $ NoHC
+  read s   = readNat s >>= refineSo HC
+
+  public export %inline
+  write : HydrogenCount -> String
+  write = show . hcCode
 
 ------------------------------
 -- AtomRef
@@ -506,15 +401,11 @@ record AtomRef where
   value : Bits32
   0 prf : So (value <= 999)
 
-%runElab refinedBits32 "AtomRef"
-
-public export
-readAtomRef : String -> Maybe AtomRef
-readAtomRef s = (\(Element v p) => MkAtomRef v p) <$> readRefinedInt s
+%runElab rwInt "AtomRef" `(Bits32)
 
 public export
 Coordinate : Type
-Coordinate = Float (-9999) 99999 9999
+Coordinate = Float (-9999) 99999 4
 
 ||| Data on a single V2000 Atom Line
 public export
@@ -674,7 +565,6 @@ record Bond where
   atom2                : AtomRef
   type                 : BondType
   stereo               : BondStereo
-  unused               : String
   topology             : BondTopo
   reactingCenterStatus : ReactingCenterStatus
 
@@ -955,9 +845,9 @@ data Property : Type where
 public export
 record MolFile where
   constructor MkMolFile
-  name    : StringN 80
-  info    : StringN 80
-  comment : StringN 80
+  name    : MolLine
+  info    : MolLine
+  comment : MolLine
   counts  : Counts
   atoms   : Vect (cast counts.atoms.value) Atom
   bonds   : Vect (cast counts.bonds.value) Bond

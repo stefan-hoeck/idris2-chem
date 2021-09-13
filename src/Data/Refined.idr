@@ -1,8 +1,8 @@
 ||| Utilities for working with refined primitives
 module Data.Refined
 
-import public Data.DPair
 import public Language.Reflection.Refined.Util
+import Language.Reflection.Refined
 
 import Data.String
 
@@ -10,123 +10,139 @@ import Data.String
 --          Parsing and Printing
 --------------------------------------------------------------------------------
 
+||| Reads a natural number consisting *only* of digits.
+||| Note: * The number may be prefixed with an arbitrary
+|||         number of zeros
+|||       * Any non-digit character will make the function
+|||         return `Nothing`
+|||       * Bounds are not checked, so this might lead to
+|||         truncation due to integer overflows in case of
+|||         large digit sequences
+|||       * An empty string returns `Just 0`
 public export
 readNat : Num a => String -> Maybe a
 readNat = go 0
-  where go : a -> String -> Maybe a
+  where go : Integer -> String -> Maybe a
         go res s = case strM s of
-          StrNil       => Just res
+          StrNil       => Just $ fromInteger res
           StrCons c cs =>
             if isDigit c
-               then go (fromInteger (cast (ord c - 48)) + res * 10)
+               then go (cast (ord c - 48) + res * 10)
                     (assert_smaller s cs)
                else Nothing
 
+||| Like `readNat`, but the number can be prefixed
+||| with a single optional '+'.
+public export
+readNatPlus : Num a => String -> Maybe a
+readNatPlus s = case strM s of
+  StrCons '+' t => readNat t
+  _             => readNat s
+
+||| Like `readNat`, but supports negative numbers,
+||| which must be prefixed with a single '-'.
 public export
 readInt : Num a => Neg a => String -> Maybe a
 readInt s = case strM s of
   StrCons '-' t => negate <$> readNat t
   _             => readNat s
 
+||| Like `readInt`, but positive numbers can be prefixed
+||| with a single optional '+'.
 public export
-readRefinedNat :  {f : a -> Bool}
-               -> Num a
-               => String
-               -> Maybe (Subset a $ So . f)
-readRefinedNat s =
-  readNat s >>= \n =>
-    case choose (f n) of
-      Left oh => Just $ Element n oh
-      Right _ => Nothing
-
-public export
-readRefinedInt :  {f : a -> Bool}
-               -> Num a
-               => Neg a
-               => String
-               -> Maybe (Subset a $ So . f)
-readRefinedInt s =
-  readInt s >>= \n =>
-    case choose (f n) of
-      Left oh => Just $ Element n oh
-      Right _ => Nothing
-
-namespace Int8
-  public export %inline
-  read : {f : Int8 -> Bool} -> String -> Maybe (Subset Int8 $ So . f)
-  read = readRefinedInt
-
-  public export %inline
-  write : Subset Int8 p -> String
-  write = show . fst
-
-namespace Int16
-  public export %inline
-  read : {f : Int16 -> Bool} -> String -> Maybe (Subset Int16 $ So . f)
-  read = readRefinedInt
-
-  public export %inline
-  write : Subset Int16 p -> String
-  write = show . fst
-
-namespace Int32
-  public export %inline
-  read : {f : Int32 -> Bool} -> String -> Maybe (Subset Int32 $ So . f)
-  read = readRefinedInt
-
-  public export %inline
-  write : Subset Int32 p -> String
-  write = show . fst
-
-namespace Int64
-  public export %inline
-  read : {f : Int64 -> Bool} -> String -> Maybe (Subset Int64 $ So . f)
-  read = readRefinedInt
-
-  public export %inline
-  write : Subset Int64 p -> String
-  write = show . fst
-
-namespace Bits8
-  public export %inline
-  read : {f : Bits8 -> Bool} -> String -> Maybe (Subset Bits8 $ So . f)
-  read = readRefinedNat
-
-  public export %inline
-  write : Subset Bits8 p -> String
-  write = show . fst
-
-namespace Bits16
-  public export %inline
-  read : {f : Bits16 -> Bool} -> String -> Maybe (Subset Bits16 $ So . f)
-  read = readRefinedNat
-
-  public export %inline
-  write : Subset Bits16 p -> String
-  write = show . fst
-
-namespace Bits32
-  public export %inline
-  read : {f : Bits32 -> Bool} -> String -> Maybe (Subset Bits32 $ So . f)
-  read = readRefinedNat
-
-  public export %inline
-  write : Subset Bits32 p -> String
-  write = show . fst
-
-namespace Bits64
-  public export %inline
-  read : {f : Bits64 -> Bool} -> String -> Maybe (Subset Bits64 $ So . f)
-  read = readRefinedNat
-
-  public export %inline
-  write : Subset Bits64 p -> String
-  write = show . fst
+readIntPlus : Num a => Neg a => String -> Maybe a
+readIntPlus s = case strM s of
+  StrCons '+' t => readNat t
+  _             => readInt s
 
 --------------------------------------------------------------------------------
---          Fixed-width naturals
+--          Elab Scripts
 --------------------------------------------------------------------------------
 
-public export
-Digits : Bits32 -> Type
-Digits maxVal = Subset Bits32 (So . (<= maxVal))
+||| This creates boiler-plate code for refined primitive integral values.
+|||
+||| A refined value must be of the following structure:
+||| It must be a record with a constructor equal to the
+||| type's name prefixed by "Mk", a single accessor called `value`
+||| and an erased proof of validity of type `So`. See below for
+||| an example
+|||
+||| The generated code consists of the following (in the section
+||| below, `prim` means the primitive data type (`Bits16` in the
+||| example below), `dt` means the refined data type (`MassNr` in
+||| in the example below)):
+|||
+|||  * implementations of `Eq`, `Ord`, and `Show`
+|||  * a namespace named after the data type, exporting
+|||    the following functions:
+|||
+|||    * function `refine` of type `prim -> Maybe dt`
+|||    * function `fromInteger` of type
+|||      `(n : Integer) -> {0 auto _ : IsJust (refine n)} -> dt`
+|||    * function `read` of type `String -> Maybe dt`
+|||    * function `write` of type `dt -> String`
+||| 
+||| @dataType Name of the data type (for instance "MassNr")
+||| @reader   quoted function used for reading the unrefined
+|||           integral from a string (for instance `(readNat))
+||| @writer   quoted function used for writing the refined
+|||           type to a string (for instance `(show . value))
+||| @type     quoted name of the wrapped data type (for instance
+|||           `(Bits16)).
+|||
+||| ```idris example
+||| %language ElabReflection
+|||
+||| record MassNr where
+|||   constructor MkMassNr
+|||   value : Bits16
+|||   0 prf : So (1 <= value && value <= 511)
+|||
+||| %runElab rwIntegral MassNr `(readNat) `(show . value) `(Bits16)
+||| ```
+export
+rwIntegral :  (dataType : String)
+           -> (reader   : TTImp)
+           -> (writer   : TTImp)
+           -> (tpe      : TTImp)
+           -> Elab ()
+rwIntegral dt reader writer tpe =
+  let ns        = MkNS [dt]
+      t         = varStr dt
+
+      -- this has to be namespaced
+      -- to avoid disambiguities when being used
+      -- in `read`
+      refineNS  = var $ NS ns (UN "refine")
+   in refinedIntegralDflt dt tpe >>
+      declare
+        [ INamespace EmptyFC ns
+          `[ public export
+             read : String -> Maybe ~(t)
+             read s = ~(reader) s >>= ~(refineNS)
+
+             public export
+             write : ~(t) -> String
+             write = ~(writer)
+           ]
+        ]
+
+||| Alias for `rwIntegral dt `(readNat) `(show . value)`
+export
+rwNat : (dataType : String) -> (tpe : TTImp) -> Elab ()
+rwNat dt = rwIntegral dt `(readNat) `(show . value)
+
+||| Alias for `rwIntegral dt `(readNatPlus) `(show . value)`
+export
+rwNatPlus : (dataType : String) -> (tpe : TTImp) -> Elab ()
+rwNatPlus dt = rwIntegral dt `(readNatPlus) `(show . value)
+
+||| Alias for `rwIntegral dt `(readInt) `(show . value)`
+export
+rwInt : (dataType : String) -> (tpe : TTImp) -> Elab ()
+rwInt dt = rwIntegral dt `(readInt) `(show . value)
+
+||| Alias for `rwIntegral dt `(readIntPlus) `(show . value)`
+export
+rwIntPlus : (dataType : String) -> (tpe : TTImp) -> Elab ()
+rwIntPlus dt = rwIntegral dt `(readIntPlus) `(show . value)
