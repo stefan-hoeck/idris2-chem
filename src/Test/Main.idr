@@ -1,6 +1,6 @@
 module Test.Main
 
-import Test.Text.Molfile.Spec
+import Test.Text.Molfile
 
 main : IO ()
 main = pure ()
