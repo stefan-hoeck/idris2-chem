@@ -1,5 +1,6 @@
 module Test.Main
 
+import Data.Either
 import Data.Maybe
 import Hedgehog
 import Text.Molfile.Reader
@@ -8,7 +9,7 @@ import Test.Text.Molfile
 mf : String
 mf = #"""
      Molecule from ChemDoodle Web Components
-
+       
      http://www.ichemlabs.com
       71 74  0  0  0  0            999 V2000
          4.0434    1.7194    0.0000 C   0  0  0  0  0  0
@@ -160,9 +161,9 @@ mf = #"""
      """#
 
 run : Nat -> Bool -> IO ()
-run Z     b = printLn b
-run (S k) b = run k $ isJust (atom mf) && b
+run Z     False = printLn $ mol mf
+run Z     True  = putStrLn "Success!"
+run (S k) b = run k $ isRight (mol mf) && b
 
 main : IO ()
 main = test . pure $ Test.Text.Molfile.props
--- main = run 1000 True -- test . pure $ Test.Text.Molfile.props

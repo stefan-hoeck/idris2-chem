@@ -11,6 +11,7 @@ import Data.Vect
 import Generics.Derive
 import Language.Reflection.Refined
 import Text.Molfile.Float
+import Text.RW
 
 --------------------------------------------------------------------------------
 --          Pragmas
@@ -39,6 +40,14 @@ record MolLine where
 
 %runElab refinedString "MolLine"
 
+export %hint %inline
+readMolLine : Read MolLine
+readMolLine = mkRead refine "MolLine"
+
+export %hint %inline
+writeMolLine : Write MolLine
+writeMolLine = MkWrite value
+
 --------------------------------------------------------------------------------
 --          Counts Line
 --------------------------------------------------------------------------------
@@ -52,18 +61,24 @@ data MolVersion = V2000 | V3000
 %runElab derive "MolVersion" [Generic,Meta,Eq,Ord,Show]
 
 namespace MolVersion
-  public export
-  read : String -> Maybe MolVersion
-  read "v2000" = Just V2000
-  read "v3000" = Just V3000
-  read "V2000" = Just V2000
-  read "V3000" = Just V3000
-  read _       = Nothing
+  rd : String -> Maybe MolVersion
+  rd "v2000" = Just V2000
+  rd "v3000" = Just V3000
+  rd "V2000" = Just V2000
+  rd "V3000" = Just V3000
+  rd _       = Nothing
 
-  public export
-  write : MolVersion -> String
-  write V2000 = "v2000"
-  write V3000 = "v3000"
+  wt : MolVersion -> String
+  wt V2000 = "v2000"
+  wt V3000 = "v3000"
+
+  export %hint %inline
+  readImpl : Read MolVersion
+  readImpl = mkRead rd "MolVersion"
+
+  export %hint %inline
+  writeImpl : Write MolVersion
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- ChiralFlag
@@ -74,16 +89,22 @@ data ChiralFlag = NonChiral | Chiral
 %runElab derive "ChiralFlag" [Generic,Meta,Eq,Ord,Show]
 
 namespace ChiralFlag
-  public export
-  read : String -> Maybe ChiralFlag
-  read "0" = Just NonChiral
-  read "1" = Just Chiral
-  read _   = Nothing
+  rd : String -> Maybe ChiralFlag
+  rd "0" = Just NonChiral
+  rd "1" = Just Chiral
+  rd _   = Nothing
 
-  public export
-  write : ChiralFlag -> String
-  write NonChiral = "0"
-  write Chiral    = "1"
+  wt : ChiralFlag -> String
+  wt NonChiral = "0"
+  wt Chiral    = "1"
+
+  export %hint %inline
+  readImpl : Read ChiralFlag
+  readImpl = mkRead rd "ChiralFlag"
+
+  export %hint %inline
+  writeImpl : Write ChiralFlag
+  writeImpl = MkWrite wt
 
 
 ------------------------------
@@ -133,25 +154,22 @@ Show AtomSymbol where
   show (El x) = symbol x
 
 namespace AtomSymbol
-  public export
-  read : String -> Maybe AtomSymbol
-  read "L"  = Just L
-  read "A"  = Just A
-  read "Q"  = Just Q
-  read "*"  = Just Ast
-  read "LP" = Just LP
-  read "R#" = Just RSharp
-  read s    = El <$> read s
+  rd : String -> Maybe AtomSymbol
+  rd "L"  = Just L
+  rd "A"  = Just A
+  rd "Q"  = Just Q
+  rd "*"  = Just Ast
+  rd "LP" = Just LP
+  rd "R#" = Just RSharp
+  rd s    = El <$> fromSymbol s
 
-  public export %inline
-  write : AtomSymbol -> String
-  write = show
+  export %hint %inline
+  readImpl : Read AtomSymbol
+  readImpl = mkRead rd "AtomSymbol"
 
-  public export
-  fromString :  (s : String)
-             -> {auto 0 _ : IsJust (AtomSymbol.read s)}
-             -> AtomSymbol
-  fromString s = fromJust $ read s
+  export %hint %inline
+  writeImpl : Write AtomSymbol
+  writeImpl = MkWrite show
 
 ------------------------------
 -- StereoParity
@@ -166,20 +184,26 @@ data StereoParity = NoStereo
 %runElab derive "StereoParity" [Generic,Meta,Eq,Ord,Show]
 
 namespace StereoParity
-  public export
-  read : String -> Maybe StereoParity
-  read "0" = Just NoStereo
-  read "1" = Just OddStereo
-  read "2" = Just EvenStereo
-  read "3" = Just AnyStereo
-  read _   = Nothing
+  rd : String -> Maybe StereoParity
+  rd "0" = Just NoStereo
+  rd "1" = Just OddStereo
+  rd "2" = Just EvenStereo
+  rd "3" = Just AnyStereo
+  rd _   = Nothing
 
-  public export
-  write : StereoParity -> String
-  write NoStereo   = "0"
-  write OddStereo  = "1"
-  write EvenStereo = "2"
-  write AnyStereo  = "3"
+  wt : StereoParity -> String
+  wt NoStereo   = "0"
+  wt OddStereo  = "1"
+  wt EvenStereo = "2"
+  wt AnyStereo  = "3"
+
+  export %hint %inline
+  readImpl : Read StereoParity
+  readImpl = mkRead rd "StereoParity"
+
+  export %hint %inline
+  writeImpl : Write StereoParity
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- StereoCareBox
@@ -191,16 +215,22 @@ data  StereoCareBox = IgnoreStereo | MatchStereo
 %runElab derive "StereoCareBox" [Generic,Meta,Eq,Ord,Show]
 
 namespace StereoCareBox
-  public export
-  read : String -> Maybe StereoCareBox
-  read "0" = Just IgnoreStereo
-  read "1" = Just MatchStereo
-  read _   = Nothing
+  rd : String -> Maybe StereoCareBox
+  rd "0" = Just IgnoreStereo
+  rd "1" = Just MatchStereo
+  rd _   = Nothing
 
-  public export
-  write : StereoCareBox -> String
-  write IgnoreStereo = "0"
-  write MatchStereo  = "1"
+  wt : StereoCareBox -> String
+  wt IgnoreStereo = "0"
+  wt MatchStereo  = "1"
+
+  export %hint %inline
+  readImpl : Read StereoCareBox
+  readImpl = mkRead rd "StereoCareBox"
+
+  export %hint %inline
+  writeImpl : Write StereoCareBox
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- Valence
@@ -232,17 +262,23 @@ Show Valence where
   show = show . valenceCode
 
 namespace Valence
-  public export
-  read : String -> Maybe Valence
-  read "0"  = Just NoValence
-  read "15" = Just $ MkValence 0 Oh
-  read s    = readNat s >>= refineSo MkValence
+  rd : String -> Maybe Valence
+  rd "0"  = Just NoValence
+  rd "15" = Just $ MkValence 0 Oh
+  rd s    = readNat s >>= refineSo MkValence
 
-  public export %inline
-  write : Valence -> String
-  write NoValence       = "0"
-  write (MkValence 0 _) = "15"
-  write (MkValence n _) = show n
+  wt : Valence -> String
+  wt NoValence       = "0"
+  wt (MkValence 0 _) = "15"
+  wt (MkValence n _) = show n
+
+  export %hint %inline
+  readImpl : Read Valence
+  readImpl = mkRead rd "Valence"
+
+  export %hint %inline
+  writeImpl : Write Valence
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- H0Designator
@@ -254,16 +290,22 @@ data H0Designator = H0NotSpecified | NoHAllowed
 %runElab derive "H0Designator" [Generic,Meta,Eq,Ord,Show]
 
 namespace H0Designator
-  public export
-  read : String -> Maybe H0Designator
-  read "0" = Just H0NotSpecified
-  read "1" = Just NoHAllowed
-  read _   = Nothing
+  rd : String -> Maybe H0Designator
+  rd "0" = Just H0NotSpecified
+  rd "1" = Just NoHAllowed
+  rd _   = Nothing
 
-  public export
-  write : H0Designator -> String
-  write H0NotSpecified = "0"
-  write NoHAllowed     = "1"
+  wt : H0Designator -> String
+  wt H0NotSpecified = "0"
+  wt NoHAllowed     = "1"
+
+  export %hint %inline
+  readImpl : Read H0Designator
+  readImpl = mkRead rd "H0Designator"
+
+  export %hint %inline
+  writeImpl : Write H0Designator
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- AtomCharge
@@ -292,21 +334,24 @@ Show AtomCharge where
   show (MkCharge v prf) = show v
 
 namespace AtomCharge
-  public export
-  read : String -> Maybe AtomCharge
-  read "0" = Just $ MkCharge 0 Oh
-  read "1" = Just $ MkCharge 3 Oh
-  read "2" = Just $ MkCharge 2 Oh
-  read "3" = Just $ MkCharge 1 Oh
-  read "4" = Just $ DoubletRadical
-  read "5" = Just $ MkCharge (-1) Oh
-  read "6" = Just $ MkCharge (-2) Oh
-  read "7" = Just $ MkCharge (-3) Oh
-  read _   = Nothing
+  rd : String -> Maybe AtomCharge
+  rd "0" = Just $ MkCharge 0 Oh
+  rd "1" = Just $ MkCharge 3 Oh
+  rd "2" = Just $ MkCharge 2 Oh
+  rd "3" = Just $ MkCharge 1 Oh
+  rd "4" = Just $ DoubletRadical
+  rd "5" = Just $ MkCharge (-1) Oh
+  rd "6" = Just $ MkCharge (-2) Oh
+  rd "7" = Just $ MkCharge (-3) Oh
+  rd _   = Nothing
 
-  public export %inline
-  write : AtomCharge -> String
-  write = show . chargeCode
+  export %hint %inline
+  readImpl : Read AtomCharge
+  readImpl = mkRead rd "AtomCharge"
+
+  export %hint %inline
+  writeImpl : Write AtomCharge
+  writeImpl = MkWrite (show . chargeCode)
 
 ------------------------------
 -- InvRetentionFlag
@@ -319,18 +364,24 @@ data InvRetentionFlag = InvNotApplied
 %runElab derive "InvRetentionFlag" [Generic,Meta,Eq,Ord,Show]
 
 namespace InvRetentionFlag
-  public export
-  read : String -> Maybe InvRetentionFlag
-  read "0" = Just InvNotApplied
-  read "1" = Just ConfigInverted
-  read "2" = Just ConfigRetained
-  read _   = Nothing
+  rd : String -> Maybe InvRetentionFlag
+  rd "0" = Just InvNotApplied
+  rd "1" = Just ConfigInverted
+  rd "2" = Just ConfigRetained
+  rd _   = Nothing
 
-  public export
-  write : InvRetentionFlag -> String
-  write InvNotApplied  = "0"
-  write ConfigInverted = "1"
-  write ConfigRetained = "2"
+  wt : InvRetentionFlag -> String
+  wt InvNotApplied  = "0"
+  wt ConfigInverted = "1"
+  wt ConfigRetained = "2"
+
+  export %hint %inline
+  readImpl : Read InvRetentionFlag
+  readImpl = mkRead rd "InvRetentionFlag"
+
+  export %hint %inline
+  writeImpl : Write InvRetentionFlag
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- ExactChangeFlag
@@ -341,16 +392,22 @@ data ExactChangeFlag = ChangeNotApplied | ExactChange
 %runElab derive "ExactChangeFlag" [Generic,Meta,Eq,Ord,Show]
 
 namespace ExactChangeFlag
-  public export
-  read : String -> Maybe ExactChangeFlag
-  read "0" = Just ChangeNotApplied
-  read "1" = Just ExactChange
-  read _   = Nothing
+  rd : String -> Maybe ExactChangeFlag
+  rd "0" = Just ChangeNotApplied
+  rd "1" = Just ExactChange
+  rd _   = Nothing
 
-  public export
-  write : ExactChangeFlag -> String
-  write ChangeNotApplied  = "0"
-  write ExactChange       = "1"
+  wt : ExactChangeFlag -> String
+  wt ChangeNotApplied  = "0"
+  wt ExactChange       = "1"
+
+  export %hint %inline
+  readImpl : Read ExactChangeFlag
+  readImpl = mkRead rd "ExactChangeFlag"
+
+  export %hint %inline
+  writeImpl : Write ExactChangeFlag
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- MassDiff
@@ -390,14 +447,17 @@ Show HydrogenCount where
   show (HC v _) = show v
 
 namespace HydrogenCount
-  public export
-  read : String -> Maybe HydrogenCount
-  read "0" = Just $ NoHC
-  read s   = readNat s >>= refineSo HC . (\x => x - 1)
+  rd : String -> Maybe HydrogenCount
+  rd "0" = Just $ NoHC
+  rd s   = readNat s >>= refineSo HC . (\x => x - 1)
 
-  public export %inline
-  write : HydrogenCount -> String
-  write = show . hcCode
+  export %hint %inline
+  readImpl : Read HydrogenCount
+  readImpl = mkRead rd "HydrogenCount"
+
+  export %hint %inline
+  writeImpl : Write HydrogenCount
+  writeImpl = MkWrite (show . hcCode)
 
 ------------------------------
 -- AtomRef
@@ -407,7 +467,7 @@ public export
 record AtomRef where
   constructor MkAtomRef
   value : Bits32
-  0 prf : So (1 <= value && value <= 999)
+  0 prf : So (0 <= value && value <= 999)
 
 %runElab rwInt "AtomRef" `(Bits32)
 
@@ -458,28 +518,34 @@ data BondType =
 %runElab derive "BondType" [Generic,Meta,Eq,Show]
 
 namespace BondType
-  public export
-  read : String -> Maybe BondType
-  read "1" = Just Single
-  read "2" = Just Dbl
-  read "3" = Just Triple
-  read "4" = Just Aromatic
-  read "5" = Just SngOrDbl
-  read "6" = Just SngOrAromatic
-  read "7" = Just DblOrAromatic
-  read "8" = Just AnyBond
-  read _   = Nothing
+  rd : String -> Maybe BondType
+  rd "1" = Just Single
+  rd "2" = Just Dbl
+  rd "3" = Just Triple
+  rd "4" = Just Aromatic
+  rd "5" = Just SngOrDbl
+  rd "6" = Just SngOrAromatic
+  rd "7" = Just DblOrAromatic
+  rd "8" = Just AnyBond
+  rd _   = Nothing
 
-  public export
-  write : BondType -> String
-  write Single        = "1"
-  write Dbl           = "2"
-  write Triple        = "3"
-  write Aromatic      = "4"
-  write SngOrDbl      = "5"
-  write SngOrAromatic = "6"
-  write DblOrAromatic = "7"
-  write AnyBond       = "8"
+  wt : BondType -> String
+  wt Single        = "1"
+  wt Dbl           = "2"
+  wt Triple        = "3"
+  wt Aromatic      = "4"
+  wt SngOrDbl      = "5"
+  wt SngOrAromatic = "6"
+  wt DblOrAromatic = "7"
+  wt AnyBond       = "8"
+
+  export %hint %inline
+  readImpl : Read BondType
+  readImpl = mkRead rd "BondType"
+
+  export %hint %inline
+  writeImpl : Write BondType
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- BondStereo
@@ -491,22 +557,28 @@ data BondStereo = NoBondStereo | Up | CisOrTrans | UpOrDown | Down
 %runElab derive "BondStereo" [Generic,Meta,Eq,Show]
 
 namespace BondStereo
-  public export
-  read : String -> Maybe BondStereo
-  read "0" = Just NoBondStereo
-  read "1" = Just Up
-  read "3" = Just CisOrTrans
-  read "4" = Just UpOrDown
-  read "6" = Just Down
-  read _   = Nothing
+  rd : String -> Maybe BondStereo
+  rd "0" = Just NoBondStereo
+  rd "1" = Just Up
+  rd "3" = Just CisOrTrans
+  rd "4" = Just UpOrDown
+  rd "6" = Just Down
+  rd _   = Nothing
 
-  public export
-  write : BondStereo -> String
-  write NoBondStereo = "0"
-  write Up           = "1"
-  write CisOrTrans   = "3"
-  write UpOrDown     = "4"
-  write Down         = "6"
+  wt : BondStereo -> String
+  wt NoBondStereo = "0"
+  wt Up           = "1"
+  wt CisOrTrans   = "3"
+  wt UpOrDown     = "4"
+  wt Down         = "6"
+
+  export %hint %inline
+  readImpl : Read BondStereo
+  readImpl = mkRead rd "BondStereo"
+
+  export %hint %inline
+  writeImpl : Write BondStereo
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- BondTopo
@@ -518,18 +590,24 @@ data BondTopo = AnyTopology | Ring | Chain
 %runElab derive "BondTopo" [Generic,Meta,Eq,Show]
 
 namespace BondTopo
-  public export
-  read : String -> Maybe BondTopo
-  read "0" = Just AnyTopology
-  read "1" = Just Ring
-  read "2" = Just Chain
-  read _   = Nothing
+  rd : String -> Maybe BondTopo
+  rd "0" = Just AnyTopology
+  rd "1" = Just Ring
+  rd "2" = Just Chain
+  rd _   = Nothing
 
-  public export
-  write : BondTopo -> String
-  write AnyTopology = "0"
-  write Ring        = "1"
-  write Chain       = "2"
+  wt : BondTopo -> String
+  wt AnyTopology = "0"
+  wt Ring        = "1"
+  wt Chain       = "2"
+
+  export %hint %inline
+  readImpl : Read BondTopo
+  readImpl = mkRead rd "BondTopo"
+
+  export %hint %inline
+  writeImpl : Write BondTopo
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- ReactingCenterStatus
@@ -548,32 +626,38 @@ data ReactingCenterStatus =
   | CenterBMBAndOC  -- 13
 
 namespace ReactingCenterStatus
-  public export
-  read : String -> Maybe ReactingCenterStatus
-  read "0"  = Just Unmarked
-  read "-1" = Just NotACenter
-  read "1"  = Just Center
-  read "2"  = Just NoChange
-  read "4"  = Just BondMadeBroken
-  read "8"  = Just BondOrderChange
-  read "12" = Just BondMBAndOC
-  read "5"  = Just CenterBMB
-  read "9"  = Just CenterBOC
-  read "13" = Just CenterBMBAndOC
-  read _    = Nothing
+  rd : String -> Maybe ReactingCenterStatus
+  rd "0"  = Just Unmarked
+  rd "-1" = Just NotACenter
+  rd "1"  = Just Center
+  rd "2"  = Just NoChange
+  rd "4"  = Just BondMadeBroken
+  rd "8"  = Just BondOrderChange
+  rd "12" = Just BondMBAndOC
+  rd "5"  = Just CenterBMB
+  rd "9"  = Just CenterBOC
+  rd "13" = Just CenterBMBAndOC
+  rd _    = Nothing
 
-  public export
-  write : ReactingCenterStatus -> String
-  write Unmarked        = "0"
-  write NotACenter      = "-1"
-  write Center          = "1"
-  write NoChange        = "2"
-  write BondMadeBroken  = "4"
-  write BondOrderChange = "8"
-  write BondMBAndOC     = "12"
-  write CenterBMB       = "5"
-  write CenterBOC       = "9"
-  write CenterBMBAndOC  = "13"
+  wt : ReactingCenterStatus -> String
+  wt Unmarked        = "0"
+  wt NotACenter      = "-1"
+  wt Center          = "1"
+  wt NoChange        = "2"
+  wt BondMadeBroken  = "4"
+  wt BondOrderChange = "8"
+  wt BondMBAndOC     = "12"
+  wt CenterBMB       = "5"
+  wt CenterBOC       = "9"
+  wt CenterBMBAndOC  = "13"
+
+  export %hint %inline
+  readImpl : Read ReactingCenterStatus
+  readImpl = mkRead rd "ReactingCenterStatus"
+
+  export %hint %inline
+  writeImpl : Write ReactingCenterStatus
+  writeImpl = MkWrite wt
 
 %runElab derive "ReactingCenterStatus" [Generic,Meta,Eq,Show]
 
@@ -613,20 +697,26 @@ data Radical = NoRadical | Singlet | Doublet | Triplet
 %runElab derive "Radical" [Generic,Meta,Show,Eq,Ord]
 
 namespace Radical
-  public export
-  read : String -> Maybe Radical
-  read "0" = Just NoRadical
-  read "1" = Just Singlet
-  read "2" = Just Doublet
-  read "3" = Just Triplet
-  read _   = Nothing
+  rd : String -> Maybe Radical
+  rd "0" = Just NoRadical
+  rd "1" = Just Singlet
+  rd "2" = Just Doublet
+  rd "3" = Just Triplet
+  rd _   = Nothing
 
-  public export
-  write : Radical -> String
-  write NoRadical = "0"
-  write Singlet   = "1"
-  write Doublet   = "2"
-  write Triplet   = "3"
+  wt : Radical -> String
+  wt NoRadical = "0"
+  wt Singlet   = "1"
+  wt Doublet   = "2"
+  wt Triplet   = "3"
+
+  export %hint %inline
+  readImpl : Read Radical
+  readImpl = mkRead rd "Radical"
+
+  export %hint %inline
+  writeImpl : Write Radical
+  writeImpl = MkWrite wt
 
 ------------------------------
 -- Property
@@ -656,39 +746,45 @@ wpair w (ar,va) = padLeft 4 ' ' (write ar) ++ padLeft 4 ' ' (w va)
 writeN8 : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> (a -> String) -> String
 writeN8 c ps wa = padLeft 3 ' ' (write c) ++ foldMap (wpair wa) ps
 
-rpairs : {n : _} -> (String -> Maybe a) -> String -> Maybe (Vect n (AtomRef,a))
-rpairs r s = go n 9
-  where go : (k : Nat) -> (pos : Int) -> Maybe (Vect k (AtomRef, a))
-        go 0     pos = if cast pos == length s then Just [] else Nothing
+rpairs : {n : _} -> Read a => String -> Either String (Vect n (AtomRef,a))
+rpairs s = go n 9
+  where go : (k : Nat) -> (pos : Int) -> Either String (Vect k (AtomRef, a))
+        go 0     pos = if cast pos == length s then Right [] else Left "Unexpected end of line"
         go (S k) pos = do
-          ar <- AtomRef.read . ltrim $ strSubstr pos 4 s
-          va <- r . ltrim $ strSubstr (pos + 4) 4 s
+          ar <- readE {a = AtomRef} . ltrim $ strSubstr pos 4 s
+          va <- readE {a} . ltrim $ strSubstr (pos + 4) 4 s
           t  <- go k $ pos + 8
           pure $ (ar,va) :: t
 
-readN8 :  (f : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> b)
-       -> (read : String -> Maybe a)
+readN8 :  Read a
+       => (f : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> b)
        -> String
-       -> Maybe b
-readN8 f read s = do
-  c  <- N8.read . ltrim $ strSubstr 6 3 s
-  ps <- rpairs read s
+       -> Either String b
+readN8 f s = do
+  c  <- readE {a = N8} . ltrim $ strSubstr 6 3 s
+  ps <- rpairs s
   pure $ f c ps
 
 namespace Property
-  public export
-  write : Property -> String
-  write (Chg c pairs) = "M  CHG" ++ writeN8 c pairs write
-  write (Iso c pairs) = "M  ISO" ++ writeN8 c pairs write
-  write (Rad c pairs) = "M  RAD" ++ writeN8 c pairs write
+  wt : Property -> String
+  wt (Chg c pairs) = "M  CHG" ++ writeN8 c pairs write
+  wt (Iso c pairs) = "M  ISO" ++ writeN8 c pairs write
+  wt (Rad c pairs) = "M  RAD" ++ writeN8 c pairs write
 
-  public export
-  read : String -> Maybe Property
-  read s = case strSubstr 0 6 s of
-    "M  CHG" => readN8 Chg read s
-    "M  ISO" => readN8 Iso read s
-    "M  RAD" => readN8 Rad read s
-    _        => Nothing
+  rd : String -> Either String Property
+  rd s = case strSubstr 0 6 s of
+    "M  CHG" => readN8 Chg s
+    "M  ISO" => readN8 Iso s
+    "M  RAD" => readN8 Rad s
+    s        => Left $ #"Not a valid Property: \#{s}"#
+
+  export %hint %inline
+  readImpl : Read Property
+  readImpl = mkReadE rd
+
+  export %hint %inline
+  writeImpl : Write Property
+  writeImpl = MkWrite wt
 
 --------------------------------------------------------------------------------
 --          MolFile

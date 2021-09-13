@@ -2,6 +2,7 @@ module Text.Molfile.Reader
 
 import Data.String
 import Data.Vect
+import Text.RW
 import public Text.Molfile.Float
 import public Text.Molfile.Types
 
@@ -15,16 +16,23 @@ import public Text.Molfile.Types
 ||| chunks of exactly the given lengths.
 ||| Fails if the length of the string does not exactly match
 ||| the length of concatenated chunks.
-public export
-chunks : Vect n Int -> String -> Maybe (Vect n String)
+export
+chunks : Vect n Int -> String -> Either String (Vect n String)
 chunks ns s = go 0 ns
-  where go : (pos : Int) -> Vect k Int -> Maybe (Vect k String)
-        go pos [] = if pos >= cast (length s) then Just [] else Nothing
+  where go : (pos : Int) -> Vect k Int -> Either String (Vect k String)
+        go pos [] = if pos >= cast (length s)
+                       then Right []
+                       else Left $ #"String is too long: \#{s} (max : \#{show pos})"#
         go pos (x :: xs) = (strSubstr pos x s ::) <$> go (pos + x) xs
 
-public export
-trimmedChunks : Vect n Int -> String -> Maybe (Vect n String)
-trimmedChunks ns s = map trim <$> chunks ns s
+trimOr0 : String -> String
+trimOr0 "" = "0"
+trimOr0 s  = trim s
+
+export
+trimmedChunks : Vect n Int -> String -> Either String (Vect n String)
+trimmedChunks ns s = map trimOr0 <$> chunks ns s
+
 
 ||| Chunks of the counts line. See `counts` for a description
 ||| of the format and types of chunks.
@@ -43,10 +51,10 @@ countChunks = [3,3,3,3,3,3,3,3,3,3,3,6]
 ||| The other fields are obsolete or no longer supported
 ||| and are being ignored by the parser.
 export
-counts : String -> Maybe Counts
+counts : String -> Either String Counts
 counts s = do
   [a,b,_,_,c,_,_,_,_,_,_,v] <- trimmedChunks countChunks s
-  [| MkCounts (read a) (read b) (read c) (read v) |]
+  [| MkCounts (readE a) (readE b) (readE c) (readE v) |]
 
 ||| Chunks of an atom line. See `atom` for a description
 ||| of the format and types of chunks.
@@ -69,12 +77,12 @@ atomChunks = [10,10,10,4,2,3,3,3,3,3,3,3,3,3,3,3]
 |||
 |||   r and i are not used and ignored
 export
-atom : String -> Maybe Atom
+atom : String -> Either String Atom
 atom s = do
   [x,y,z,a,d,c,s,h,b,v,h0,_,_,m,n,e] <- trimmedChunks atomChunks s
-  [| MkAtom (read x) (read y) (read z) (read a) (read d) (read c)
-            (read s) (read h) (read b) (read v) (read h0)
-            (read m) (read n) (read e) |]
+  [| MkAtom (readE x) (readE y) (readE z) (readE a) (readE d) (readE c)
+            (readE s) (readE h) (readE b) (readE v) (readE h0)
+            (readE m) (readE n) (readE e) |]
 
 ||| Chunks of a bond line. See `bond` for a description
 ||| of the format and types of chunks.
@@ -93,47 +101,47 @@ bondChunks = [3,3,3,3,3,3,3]
 |||
 |||   xxx is not used and ignored
 export
-bond : String -> Maybe Bond
+bond : String -> Either String Bond
 bond s = do
   [r1,r2,t,ss,r,_,c] <- trimmedChunks bondChunks s
-  [| MkBond (read r1) (read r2) (read t) (read ss) (read r) (read c) |]
+  [| MkBond (readE r1) (readE r2) (readE t) (readE ss) (readE r) (readE c) |]
 
 readN :  {n : _}
-      -> (String -> Maybe a)
+      -> (String -> Either String a)
       -> List String
-      -> Maybe (Vect n a, List String)
+      -> Either String (Vect n a, List String)
 readN read = go n
-  where go : (k : Nat) -> List String -> Maybe (Vect k a, List String)
-        go Z ss           = Just ([], ss)
-        go (S k) []       = Nothing
+  where go : (k : Nat) -> List String -> Either String (Vect k a, List String)
+        go Z ss           = Right ([], ss)
+        go (S k) []       = Left "Unexpected end of input"
         go (S k) (h :: t) = do
           va        <- read h
           (vt,rest) <- go k t
           pure (va :: vt, rest)
 
-readProps : List String -> Maybe (List Property)
-readProps []         = Nothing
-readProps ["M  END"] = Just []
+readProps : List String -> Either String (List Property)
+readProps []         = Left "Unexpected end of mol file"
+readProps ["M  END"] = Right []
 readProps (x :: xs)  = do
-  p1 <- read x
+  p1 <- readE x
   t  <- readProps xs
   pure $ p1 :: t
 
 
-molLines : List String -> Maybe MolFile
+molLines : List String -> Either String MolFile
 molLines (n :: i :: c :: cnt :: t) = do
-  name    <- MolLine.refine n
-  info    <- MolLine.refine i
-  comm    <- MolLine.refine c
+  name    <- readE n
+  info    <- readE i
+  comm    <- readE c
   cnts    <- counts cnt
   (as,t1) <- readN atom t
   (bs,t2) <- readN bond t1
   ps      <- readProps t2
   pure (MkMolFile name info comm cnts as bs ps)
-molLines _ = Nothing
+molLines _ = Left "Unexpected end of input"
 
 export
-mol : String -> Maybe MolFile
+mol : String -> Either String MolFile
 mol = molLines . lines
 
 --------------------------------------------------------------------------------

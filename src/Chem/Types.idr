@@ -2,6 +2,7 @@ module Chem.Types
 
 import public Data.Refined
 import Language.Reflection.Refined
+import Text.RW
 
 %default total
 %language ElabReflection

@@ -5,6 +5,7 @@ module Text.Molfile.Float
 import Data.List1
 import Data.Refined
 import Data.String
+import Text.RW
 
 public export
 pow10 : Nat -> Bits32
@@ -39,12 +40,11 @@ refine pre post = do
   prfPost <- maybeSo (post < pow10 wpost)
   pure $ MkFloat pre post prfPre prfPost
 
-public export
-read :  {minPre,maxPre : _}
-     -> {wpost : _}
-     -> String
-     -> Maybe (Float minPre maxPre wpost)
-read s = case split ('.' ==) s of
+rd :  {minPre,maxPre : _}
+   -> {wpost : _}
+   -> String
+   -> Maybe (Float minPre maxPre wpost)
+rd s = case split ('.' ==) s of
   (h ::: [t]) =>
     if length t == wpost
        then do
@@ -54,10 +54,17 @@ read s = case split ('.' ==) s of
        else Nothing
   _           => Nothing
 
-export
-write : {wpost : _} -> Float minPre maxPre wpost -> String
-write f = show f.pre ++ "." ++ padLeft wpost '0' (show f.post)
+export %hint %inline
+readImpl : {minPre,maxPre : _} -> {wpost : _} -> Read (Float minPre maxPre wpost)
+readImpl = mkRead rd "Float"
 
+
+wt : {wpost : _} -> Float minPre maxPre wpost -> String
+wt f = show f.pre ++ "." ++ padLeft wpost '0' (show f.post)
+
+export %hint %inline
+writeImpl : {wpost : _} -> Write (Float minPre maxPre wpost)
+writeImpl = MkWrite wt
 public export %inline
 {wpost : _} -> Show (Float a b wpost) where
   show = write

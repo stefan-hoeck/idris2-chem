@@ -142,6 +142,7 @@ rwIntegral :  (dataType : String)
 rwIntegral dt reader writer tpe =
   let ns        = MkNS [dt]
       t         = varStr dt
+      nameStr   = primVal $ Str dt
 
       -- this has to be namespaced
       -- to avoid disambiguities when being used
@@ -150,13 +151,13 @@ rwIntegral dt reader writer tpe =
    in refinedIntegralDflt dt tpe >>
       declare
         [ INamespace EmptyFC ns
-          `[ public export
-             read : String -> Maybe ~(t)
-             read s = ~(reader) s >>= ~(refineNS)
+          `[ public export %hint
+             readImpl : Read ~(t)
+             readImpl = mkRead (\s => ~(reader) s >>= ~(refineNS)) ~(nameStr)
 
-             public export
-             write : ~(t) -> String
-             write = ~(writer)
+             public export %hint
+             writeImpl : Write ~(t)
+             writeImpl = MkWrite ~(writer)
            ]
         ]
 
