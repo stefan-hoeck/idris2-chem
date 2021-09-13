@@ -5,8 +5,7 @@ version    = 0.1.0
 sourcedir  = "src"
 depends    = base         >= 0.4.0
            , contrib      >= 0.4.0
-           , elab-util    >= 0.3.0
-           , sop          >= 0.4.0
+           , elab-util    >= 0.3.1
 
 modules = Doc.Tut1
         , Doc.Tut1.Sol
