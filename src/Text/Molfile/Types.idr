@@ -21,12 +21,20 @@ import Text.Molfile.Float
 
 %hide Language.Reflection.TT.Count
 
+--------------------------------------------------------------------------------
+--          V2000 Mol Lines
+--------------------------------------------------------------------------------
+
+public export %inline
+isMolLine : String -> Bool
+isMolLine s = length s <= 80 && all isPrintableAscii s
+
 ||| An uninterpreted line in a v2000 mol file
 public export
 record MolLine where
   constructor MkMolLine
   value : String
-  0 prf : So (length value <= 80)
+  0 prf : So (isMolLine value)
 
 %runElab refinedString "MolLine"
 
@@ -385,7 +393,7 @@ namespace HydrogenCount
   public export
   read : String -> Maybe HydrogenCount
   read "0" = Just $ NoHC
-  read s   = readNat s >>= refineSo HC
+  read s   = readNat s >>= refineSo HC . (\x => x - 1)
 
   public export %inline
   write : HydrogenCount -> String
@@ -426,6 +434,8 @@ record Atom where
   invRetentionFlag : InvRetentionFlag
   exactChangeFlag  : ExactChangeFlag
 
+%runElab derive "Atom" [Generic,Meta,Eq,Show]
+
 --------------------------------------------------------------------------------
 --          Bonds
 --------------------------------------------------------------------------------
@@ -444,6 +454,8 @@ data BondType =
   | SngOrAromatic
   | DblOrAromatic
   | AnyBond
+
+%runElab derive "BondType" [Generic,Meta,Eq,Show]
 
 namespace BondType
   public export
@@ -476,6 +488,8 @@ namespace BondType
 public export
 data BondStereo = NoBondStereo | Up | CisOrTrans | UpOrDown | Down
 
+%runElab derive "BondStereo" [Generic,Meta,Eq,Show]
+
 namespace BondStereo
   public export
   read : String -> Maybe BondStereo
@@ -500,6 +514,8 @@ namespace BondStereo
 ||| Bond topology encoded in CTAB V2000
 public export
 data BondTopo = AnyTopology | Ring | Chain
+
+%runElab derive "BondTopo" [Generic,Meta,Eq,Show]
 
 namespace BondTopo
   public export
@@ -529,7 +545,7 @@ data ReactingCenterStatus =
   | BondMBAndOC     -- 12
   | CenterBMB       -- 5
   | CenterBOC       -- 9
-  | CenterBMBAandOC -- 13
+  | CenterBMBAndOC  -- 13
 
 namespace ReactingCenterStatus
   public export
@@ -543,9 +559,10 @@ namespace ReactingCenterStatus
   read "12" = Just BondMBAndOC
   read "5"  = Just CenterBMB
   read "9"  = Just CenterBOC
-  read "13" = Just CenterBMBAandOC
+  read "13" = Just CenterBMBAndOC
   read _    = Nothing
 
+  public export
   write : ReactingCenterStatus -> String
   write Unmarked        = "0"
   write NotACenter      = "-1"
@@ -556,7 +573,9 @@ namespace ReactingCenterStatus
   write BondMBAndOC     = "12"
   write CenterBMB       = "5"
   write CenterBOC       = "9"
-  write CenterBMBAandOC = "13"
+  write CenterBMBAndOC  = "13"
+
+%runElab derive "ReactingCenterStatus" [Generic,Meta,Eq,Show]
 
 public export
 record Bond where
@@ -567,6 +586,8 @@ record Bond where
   stereo               : BondStereo
   topology             : BondTopo
   reactingCenterStatus : ReactingCenterStatus
+
+%runElab derive "Bond" [Generic,Meta,Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Properties

@@ -28,24 +28,36 @@ public export
 Ord (Float a b c) where
   compare = compare `on` (\v => (v.pre,v.post))
 
-namespace Float
-  public export
-  read :  {minPre,maxPre : _}
+public export
+refine :  {minPre, maxPre : _}
        -> {wpost : _}
-       -> String
+       -> Int32
+       -> Bits32
        -> Maybe (Float minPre maxPre wpost)
-  read s = case split ('.' ==) s of
-    (h ::: [t]) =>
-      if length t == wpost
-         then do
-           pre     <- readIntPlus {a = Int32} h 
-           post    <- readNat {a = Bits32} t
-           prfPre  <- maybeSo (minPre <= pre && pre <= maxPre)
-           prfPost <- maybeSo (post < pow10 wpost)
-           pure $ MkFloat pre post prfPre prfPost
-         else Nothing
-    _           => Nothing
+refine pre post = do
+  prfPre  <- maybeSo (minPre <= pre && pre <= maxPre)
+  prfPost <- maybeSo (post < pow10 wpost)
+  pure $ MkFloat pre post prfPre prfPost
 
-  export
-  write : {wpost : _} -> Float minPre maxPre wpost -> String
-  write f = show f.pre ++ "." ++ padLeft wpost '0' (show f.post)
+public export
+read :  {minPre,maxPre : _}
+     -> {wpost : _}
+     -> String
+     -> Maybe (Float minPre maxPre wpost)
+read s = case split ('.' ==) s of
+  (h ::: [t]) =>
+    if length t == wpost
+       then do
+         pre     <- readIntPlus h
+         post    <- readNat t
+         refine pre post
+       else Nothing
+  _           => Nothing
+
+export
+write : {wpost : _} -> Float minPre maxPre wpost -> String
+write f = show f.pre ++ "." ++ padLeft wpost '0' (show f.post)
+
+public export %inline
+{wpost : _} -> Show (Float a b wpost) where
+  show = write

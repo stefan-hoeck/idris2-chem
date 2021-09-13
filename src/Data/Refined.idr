@@ -1,10 +1,15 @@
 ||| Utilities for working with refined primitives
+|||
+||| TODO: Eventually, we should clean up this stuff and put it in its
+|||       own Idris2 package
 module Data.Refined
 
 import public Language.Reflection.Refined.Util
 import Language.Reflection.Refined
 
 import Data.String
+
+%default total
 
 --------------------------------------------------------------------------------
 --          Parsing and Printing
@@ -54,6 +59,34 @@ readIntPlus : Num a => Neg a => String -> Maybe a
 readIntPlus s = case strM s of
   StrCons '+' t => readNat t
   _             => readInt s
+
+--------------------------------------------------------------------------------
+--          Refined Strings
+--------------------------------------------------------------------------------
+
+public export
+all : (Char -> Bool) -> String -> Bool
+all f x = case strM x of
+  StrNil         => True
+  (StrCons y xs) => case f y of
+    True  => all f (assert_smaller x xs)
+    False => False
+
+public export
+any : (Char -> Bool) -> String -> Bool
+any f x = case strM x of
+  StrNil         => False
+  (StrCons y xs) => case f y of
+    True  => True
+    False => any f (assert_smaller x xs)
+
+public export
+isPrintableAscii : Char -> Bool
+isPrintableAscii c = '\32' <= c && c <= '\127'
+
+public export
+isPrintableLatin : Char -> Bool
+isPrintableLatin c = isPrintableAscii c || ('\160' <= c && c <= '\255')
 
 --------------------------------------------------------------------------------
 --          Elab Scripts

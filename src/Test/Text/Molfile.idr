@@ -2,26 +2,174 @@ module Test.Text.Molfile
 
 import Chem.Element
 import Chem.Types
-
 import Data.Refined
 import Data.String
-
+import Data.Vect
+import Hedgehog
 import Test.Chem.Element
+import Text.Molfile.Float
+import Text.Molfile.Reader
 import Text.Molfile.Types
+
+%default total
+
+export
+molLine : Gen MolLine
+molLine = fromMaybe "" . refine <$> string (linear 0 80) printableAscii
+
+export
+molVersion : Gen MolVersion
+molVersion = element [V2000, V3000]
+
+export
+chiralFlag : Gen ChiralFlag
+chiralFlag = element [NonChiral, Chiral]
+
+export
+count : Gen Count
+count = fromMaybe 0 . refine <$> bits16 (linear 0 999)
+
+export
+counts : Gen Counts
+counts = [| MkCounts count count count chiralFlag molVersion |]
+
+export
+atomSymbol : Gen AtomSymbol
+atomSymbol = frequency [ (10, map El element)
+                       , (1,  element [L,A,Q,Ast,LP,RSharp])
+                       ]
+
+export
+stereoParity : Gen StereoParity
+stereoParity = element [NoStereo, OddStereo, EvenStereo, AnyStereo]
+
+export
+stereoCareBox : Gen StereoCareBox
+stereoCareBox = element [IgnoreStereo, MatchStereo]
+
+export
+valence : Gen Valence
+valence =
+  frequency
+    [ (1, pure NoValence)
+    , (10, fromMaybe NoValence . refineSo MkValence <$> bits8 (linear 0 14))
+    ]
+
+export
+h0Designator : Gen H0Designator
+h0Designator = element [H0NotSpecified, NoHAllowed]
+
+export
+atomCharge : Gen AtomCharge
+atomCharge =
+  frequency
+    [ (1, pure DoubletRadical)
+    , (10, fromMaybe DoubletRadical
+         . refineSo MkCharge <$> int8 (linearFrom 0 (-3) 3))
+    ]
+
+export
+invRetentionFlag : Gen InvRetentionFlag
+invRetentionFlag = element [InvNotApplied, ConfigInverted, ConfigRetained]
+
+export
+exactChangeFlag : Gen ExactChangeFlag
+exactChangeFlag = element [ChangeNotApplied, ExactChange]
+
+export
+massDiff : Gen MassDiff
+massDiff = fromMaybe 0 . refine <$> int8 (linearFrom 0 (-3) 4)
+
+export
+hydrogenCount : Gen HydrogenCount
+hydrogenCount =
+  frequency
+    [ (1, pure NoHC)
+    , (10, fromMaybe NoHC . refineSo HC <$> bits8 (linear 0 4))
+    ]
+
+export
+atomRef : Gen AtomRef
+atomRef = fromMaybe 0 . refine <$> bits32 (linear 0 999)
+
+export
+coordinate : Gen Coordinate
+coordinate =
+  fromMaybe (MkFloat 0 0 Oh Oh) <$> 
+  [| refine (int32 (linear (-9999) 99999)) (bits32 (linear 0 9999)) |]
+
+export
+atom : Gen Atom
+atom =
+  [| MkAtom coordinate coordinate coordinate atomSymbol massDiff atomCharge
+            stereoParity hydrogenCount stereoCareBox valence
+            h0Designator atomRef invRetentionFlag exactChangeFlag |]
+
+export
+bondType : Gen BondType
+bondType = element [Single,Dbl,Triple,Aromatic,SngOrDbl
+                   ,SngOrAromatic,DblOrAromatic,AnyBond]
+
+export
+bondStereo : Gen BondStereo
+bondStereo = element [NoBondStereo,Up,CisOrTrans,UpOrDown,Down]
+
+export
+bondTopo : Gen BondTopo
+bondTopo = element [AnyTopology,Ring,Chain]
+
+export
+reactingCenterStatus : Gen ReactingCenterStatus
+reactingCenterStatus =
+  element [ Unmarked, NotACenter, Center, NoChange, BondMadeBroken
+          , BondOrderChange, BondMBAndOC, CenterBMB, CenterBOC, CenterBMBAndOC]
+
+export
+bond : Gen Bond
+bond =
+  [| MkBond atomRef atomRef bondType bondStereo bondTopo
+            reactingCenterStatus |]
+
+--------------------------------------------------------------------------------
+--          Properties
+--------------------------------------------------------------------------------
+
+rw :  Eq a
+   => Show a
+   => Gen a
+   -> (read : String -> Maybe a)
+   -> (write : a -> String)
+   -> Hedgehog.Property
+rw gen read write = property $ do
+  v <- forAll gen
+  let str : String
+      str = write v
+  
+  footnote ("Encoded: " ++ str)
+  
+  read str === Just v
+
+
+export
+props : Group
+props = MkGroup "Molfile Properties"
+          [ ("prop_atom", rw atom atom writeAtom)
+          , ("prop_bond", rw bond bond writeBond)
+          ]
 
 --------------------------------------------------------------------------------
 --          Proofs
 --------------------------------------------------------------------------------
 
-molVersionRW : (v : MolVersion) -> Just v = read (write v)
+molVersionRW : (v : MolVersion) -> Just v = MolVersion.read (write v)
 molVersionRW V2000 = Refl
 molVersionRW V3000 = Refl
 
-chiralFlagRW : (v : ChiralFlag) -> Just v = read (write v)
+chiralFlagRW : (v : ChiralFlag) -> Just v = ChiralFlag.read (write v)
 chiralFlagRW NonChiral = Refl
 chiralFlagRW Chiral    = Refl
 
-atomSymbolRW : (v : AtomSymbol) -> Just v = read (write v)
+atomSymbolRW : (v : AtomSymbol) -> Just v = AtomSymbol.read (write v)
 atomSymbolRW L        = Refl
 atomSymbolRW A        = Refl
 atomSymbolRW Q        = Refl
@@ -147,12 +295,59 @@ atomSymbolRW (El Lv)  = Refl
 atomSymbolRW (El Uus) = Refl
 atomSymbolRW (El Uuo) = Refl
 
-stereoParityRW : (v : StereoParity) -> Just v = read (write v)
+stereoParityRW : (v : StereoParity) -> Just v = StereoParity.read (write v)
 stereoParityRW NoStereo   = Refl
 stereoParityRW OddStereo  = Refl
 stereoParityRW EvenStereo = Refl
 stereoParityRW AnyStereo  = Refl
 
-stereoCareBoxRW : (v : StereoCareBox) -> Just v = read (write v)
+stereoCareBoxRW : (v : StereoCareBox) -> Just v = StereoCareBox.read (write v)
 stereoCareBoxRW IgnoreStereo = Refl
 stereoCareBoxRW MatchStereo  = Refl
+
+h0DesignatorRW : (v : H0Designator) -> Just v = H0Designator.read (write v)
+h0DesignatorRW H0NotSpecified = Refl
+h0DesignatorRW NoHAllowed     = Refl
+
+invRetentionFlagRW : (v : InvRetentionFlag) -> Just v = InvRetentionFlag.read (write v)
+invRetentionFlagRW InvNotApplied  = Refl
+invRetentionFlagRW ConfigInverted = Refl
+invRetentionFlagRW ConfigRetained = Refl
+
+exactChangeFlagRW : (v : ExactChangeFlag) -> Just v = ExactChangeFlag.read (write v)
+exactChangeFlagRW ChangeNotApplied = Refl
+exactChangeFlagRW ExactChange      = Refl
+
+bondTypeRW : (v : BondType) -> Just v = BondType.read (write v)
+bondTypeRW Single        = Refl
+bondTypeRW Dbl           = Refl
+bondTypeRW Triple        = Refl
+bondTypeRW Aromatic      = Refl
+bondTypeRW SngOrDbl      = Refl
+bondTypeRW SngOrAromatic = Refl
+bondTypeRW DblOrAromatic = Refl
+bondTypeRW AnyBond       = Refl
+
+bondStereoRW : (v : BondStereo) -> Just v = BondStereo.read (write v)
+bondStereoRW NoBondStereo = Refl
+bondStereoRW Up           = Refl
+bondStereoRW CisOrTrans   = Refl
+bondStereoRW UpOrDown     = Refl
+bondStereoRW Down         = Refl
+
+bondTopoRW : (v : BondTopo) -> Just v = BondTopo.read (write v)
+bondTopoRW AnyTopology = Refl
+bondTopoRW Ring        = Refl
+bondTopoRW Chain       = Refl
+
+reactingCenterStatusRW : (v : ReactingCenterStatus) -> Just v = ReactingCenterStatus.read (write v)
+reactingCenterStatusRW Unmarked        = Refl
+reactingCenterStatusRW NotACenter      = Refl
+reactingCenterStatusRW Center          = Refl
+reactingCenterStatusRW NoChange        = Refl
+reactingCenterStatusRW BondMadeBroken  = Refl
+reactingCenterStatusRW BondOrderChange = Refl
+reactingCenterStatusRW BondMBAndOC     = Refl
+reactingCenterStatusRW CenterBMB       = Refl
+reactingCenterStatusRW CenterBOC       = Refl
+reactingCenterStatusRW CenterBMBAndOC  = Refl

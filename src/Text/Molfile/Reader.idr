@@ -7,6 +7,10 @@ import public Text.Molfile.Types
 
 %default total
 
+--------------------------------------------------------------------------------
+--          Reading
+--------------------------------------------------------------------------------
+
 ||| Tries to split a `String` into a vector of
 ||| chunks of exactly the given lengths.
 ||| Fails if the length of the string does not exactly match
@@ -94,6 +98,32 @@ bond : String -> Maybe Bond
 bond s = do
   [r1,r2,t,ss,r,_,c] <- trimmedChunks bondChunks s
   [| MkBond (read r1) (read r2) (read t) (read ss) (read r) (read c) |]
+
+--------------------------------------------------------------------------------
+--          Writing
+--------------------------------------------------------------------------------
+
+export
+writeChunks : Vect n Int -> Vect n String -> String
+writeChunks = go ""
+  where go : String -> Vect k Int -> Vect k String -> String
+        go res [] []               = res
+        go res (x :: xs) (y :: ys) =
+          go (res ++ padLeft (cast x) ' ' y) xs ys
+
+export
+writeAtom : Atom -> String
+writeAtom (MkAtom x y z a d c s h b v h0 m n e) =
+  writeChunks atomChunks
+    [ write x, write y, write z, write a, write d, write c
+    , write s, write h, write b, write v, write h0, "", "", write m, write n
+    , write e]
+
+export
+writeBond : Bond -> String
+writeBond (MkBond r1 r2 t ss r c) =
+  writeChunks bondChunks
+    [write r1, write r2, write t, write ss, write r, "", write c]
 
 --- --------------------------------------------------------------------------------
 --- -- Molfile reader function
