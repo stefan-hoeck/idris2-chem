@@ -137,7 +137,7 @@ elemAtomicNrIso Uuo = Refl
 
 -- proof that `read` and `symbol` correlate as expected
 export
-readFromSymbol : (e : Elem) -> Just e = read (symbol e)
+readFromSymbol : (e : Elem) -> Just e = Element.read (symbol e)
 readFromSymbol H   = Refl
 readFromSymbol He  = Refl
 readFromSymbol Li  = Refl

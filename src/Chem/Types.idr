@@ -1,6 +1,6 @@
 module Chem.Types
 
-import public Language.Reflection.Refined.Util
+import public Data.Refined
 import Language.Reflection.Refined
 
 %default total
@@ -20,7 +20,7 @@ record AtomicNr where
   value : Bits8
   0 prf : So (isAtomicNr value)
 
-%runElab refinedBits8 "AtomicNr"
+%runElab rwNat "AtomicNr" `(Bits8)
 
 --------------------------------------------------------------------------------
 --          Mass Number
@@ -36,7 +36,7 @@ record MassNr where
   value : Bits16
   0 prf : So (isMassNr value)
 
-%runElab refinedBits16 "MassNr"
+%runElab rwNat "MassNr" `(Bits16)
 
 --------------------------------------------------------------------------------
 --          Abundance
@@ -137,3 +137,15 @@ molecularToMolarMass (MkMolecularMass v p) = MkMolarMass v p
 public export
 molarToMolecularMass : MolarMass -> MolecularMass
 molarToMolecularMass (MkMolarMass v p) = MkMolecularMass v p
+
+--------------------------------------------------------------------------------
+--          Charge
+--------------------------------------------------------------------------------
+
+public export
+record Charge where
+  constructor MkCharge
+  value : Int8
+  0 prf : So (-15 <= value && value <= 15)
+
+%runElab rwIntPlus "Charge" `(Int8)

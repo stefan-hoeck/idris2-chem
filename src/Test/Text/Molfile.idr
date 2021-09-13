@@ -7,6 +7,7 @@ import Data.String
 import Data.Vect
 import Hedgehog
 import Test.Chem.Element
+import Test.Chem.Types
 import Text.Molfile.Float
 import Text.Molfile.Reader
 import Text.Molfile.Types
@@ -30,8 +31,16 @@ count : Gen Count
 count = fromMaybe 0 . refine <$> bits16 (linear 0 999)
 
 export
+smallCount : Gen Count
+smallCount = fromMaybe 0 . refine <$> bits16 (linear 0 30)
+
+export
 counts : Gen Counts
-counts = [| MkCounts count count count chiralFlag molVersion |]
+counts = [| MkCounts count count chiralFlag molVersion |]
+
+export
+smallCounts : Gen Counts
+smallCounts = [| MkCounts smallCount smallCount chiralFlag molVersion |]
 
 export
 atomSymbol : Gen AtomSymbol
@@ -90,7 +99,7 @@ hydrogenCount =
 
 export
 atomRef : Gen AtomRef
-atomRef = fromMaybe 0 . refine <$> bits32 (linear 0 999)
+atomRef = fromMaybe 1 . refine <$> bits32 (linear 1 999)
 
 export
 coordinate : Gen Coordinate
@@ -130,6 +139,35 @@ bond =
   [| MkBond atomRef atomRef bondType bondStereo bondTopo
             reactingCenterStatus |]
 
+export
+radical : Gen Radical
+radical = element [NoRadical, Singlet, Doublet, Triplet]
+
+genN8 : Gen a -> (f : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> b) -> Gen b
+genN8 ga f = do
+  c  <- fromMaybe 1 . N8.refine <$> bits8 (linear 1 8)
+  ps <- vect (cast c.value) [| MkPair atomRef ga |]
+  pure $ f c ps
+
+export
+prop : Gen Text.Molfile.Types.Property
+prop = frequency [ (10, genN8 charge Chg)
+                 , (10, genN8 massNr Iso)
+                 , (10, genN8 radical Rad)
+                 ]
+
+export
+molFile : Gen MolFile
+molFile = do
+  n  <- molLine
+  i  <- molLine
+  c  <- molLine
+  cs <- smallCounts
+  as <- vect (cast cs.atoms.value) atom
+  bs <- vect (cast cs.bonds.value) bond
+  ps <- list (linear 0 30) prop
+  pure (MkMolFile n i c cs as bs ps)
+
 --------------------------------------------------------------------------------
 --          Properties
 --------------------------------------------------------------------------------
@@ -153,8 +191,11 @@ rw gen read write = property $ do
 export
 props : Group
 props = MkGroup "Molfile Properties"
-          [ ("prop_atom", rw atom atom writeAtom)
-          , ("prop_bond", rw bond bond writeBond)
+          [ ("prop_count", rw counts counts writeCounts)
+          , ("prop_atom",  rw atom atom writeAtom)
+          , ("prop_bond",  rw bond bond writeBond)
+          , ("prop_prop",  rw prop read write)
+          , ("prop_mol",   rw molFile mol writeMol)
           ]
 
 --------------------------------------------------------------------------------

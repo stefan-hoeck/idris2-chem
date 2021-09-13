@@ -3,6 +3,7 @@
 module Text.Molfile.Types
 
 import Chem.Element
+import Chem.Types
 import public Data.Refined
 import Data.Nat
 import Data.String
@@ -102,7 +103,6 @@ record Counts where
   constructor MkCounts
   atoms     : Count
   bonds     : Count
-  atomLists : Count
   chiral    : ChiralFlag
   version   : MolVersion
 
@@ -407,7 +407,7 @@ public export
 record AtomRef where
   constructor MkAtomRef
   value : Bits32
-  0 prf : So (value <= 999)
+  0 prf : So (1 <= value && value <= 999)
 
 %runElab rwInt "AtomRef" `(Bits32)
 
@@ -592,272 +592,103 @@ record Bond where
 --------------------------------------------------------------------------------
 --          Properties
 --------------------------------------------------------------------------------
--- -- CTAB Properties -------------------------------------------------------------
--- --  NOTE: All lines not understood by the interpreted are ignored
--- --        (Page 47 | BIOVIA Databases 2020 - CT File Formats)
--- --
--- --  **IgnoreLines - S  SKPnnn...**
--- --
--- --   where nnn is the number of following lines to be ignored
--- --
--- --   **AtomAlias - A aaa\nx...**AtomSymbolList
--- --
--- --   aaa: Atom number, x: Text describing the alias
--- --   NOTE: The x... is on the line after the atom number
--- --
--- --   **AtomValue - V  aaa v....**
--- --
--- --   aaa: Atom number, v:
--- --   Stores some value text (only text, no interpretation)
--- --
--- --   **GroupAbbrevation - G  aaappp\nx...**
--- --
--- --   Page 49 | BIOVIA Databases 2020 - CT File Formats:
--- --   aaa, ppp: Atom number, x: alias as text
--- --     Abbreviation is required for compatibility with previous versions of ISIS/Desktop, which allowed
--- --     abbreviations with only one attachment. The attachment is denoted by two atom numbers, aaa and
--- --     ppp. All of the atoms on the aaa side of the bond formed by aaa-ppp are abbreviated. The coordinates
--- --     of the abbreviation are the coordinates of aaa. The text of the abbreviation is on the following line (x...).
--- --
--- --   _The following are standard property lines of the form "M  xxx ..."_
--- --   _There are two spaces between the M and xxx._
--- --
--- --   **Charge - M  CHGnn8 aaa vvv**
--- --
--- --   Page 49 | BIOVIA Databases 2020 - CT File Formats:
--- --   aaa: atom number, vvv:
--- --     15 to +15. Default of 0 = uncharged atom. When present, this property
--- --     supersedes all charge and radical values in the atom block, forcing a 0 charge
--- --     on all atoms not listed in an M CHG or M RAD line.
--- --
--- --   **Radical - M  RADnn8 aaa vvv**
--- --
--- --   Page 49 | BIOVIA Databases 2020 - CT File Formats:
--- --   aaa: atom number, vvv:
--- --     Default of 0 = no radical, 1 = singlet (:), 2 = doublet ( . or ^), 3 = triplet (^^). When
--- --     present, this property supersedes all charge and radical values in the atom
--- --     block, forcing a 0 (zero) charge and radical on all atoms not listed in an MCHG or
--- --     MRAD line.
--- --
--- --   **Isotope - M  ISOnn8 aaa vvv**
--- --
--- --   Page 49 | BIOVIA Databases 2020 - CT File Formats:
--- --   aaa: atom number, vvv:
--- --     Absolute mass of the atom isotope as a positive integer. When present, this property
--- --     supersedes all isotope values in the atom block. Default (no entry) means natural abundance.
--- --     The difference between this absolute mass value and the natural abundance value specified in
--- --     the PTABLE.DAT file must be within the range of -18 to +12.
--- --
--- --   **RingBondCount - M  RBCnn8 aaa vvv**
--- --
--- --   Page 49 | BIOVIA Databases 2020 - CT File Formats:
--- --   aaa: atom number, vvv:
--- --      Number of ring bonds allowed: default of 0 = off, -1 = no ring bonds (r0),-2 = as drawn (r*); 2 =
--- --      (r2), 3 = (r3), 4 or more = (r4).
--- --
--- --   **SubstitutionCount - M  SUBnn8 aaa vvv**
--- --
--- --   Page 49 | BIOVIA Databases 2020 - CT File Formats:
--- --   aaa: atom number, vvv:
--- --      of substitutions allowed: default of 0 = off, -1 = no substitution (s0),-2 = as drawn (s*);
--- --      1, 2, 3, 4, 5 = (s1) through (s5), 6 or more = (s6).
--- --
--- --   **UnsaturatedCount - M  UNSnn8 aaa vvv**
--- --
--- --   Page 49 | BIOVIA Databases 2020 - CT File Formats:
--- --   aaa: atom number, vvv:
--- --      At least one multiple bond: default of 0 = off, 1 = on.
--- --
--- --   **LinkAtom - M  UNSnn8 aaa vvv**
--- --
--- --   Page 50 | BIOVIA Databases 2020 - CT File Formats:
--- --   aaa: atom number, vvv: count
--- --      Link atom (aaa) and its substituents, other than bbb and ccc, can
--- --      be repeated 1 to vvv times, (vvv > = 2). The bbb and ccc
--- --      parameters can be 0 (zero) for link nodes on atoms with
--- --      attachment point information.
--- --
--- --   **AtomList - M ALS aaannn e 11112222333344445555...**
--- --
--- --   Page 50 | BIOVIA Databases 2020 - CT File Formats:
--- --   aaa: Atom number, value
--- --   nnn: number of entries on line (16 maximum)
--- --   e: Exclusion, value is T if a ’NOT’ list, F if a normal list.
--- --   1111: Atom symbol of list entry in field of width 4
--- --
--- --   Note: This line contains the atom symbol rather than the atom number used in the atom list block,
--- --   and is independent of the Ptable. (For information about the Ptable, see BIOVIA Chemical
--- --   Representation.). Any data found in this item supersedes data from the atom list block. The number
--- --   of entries can exceed the fixed limit of 5 in the atom list block entry.
--- --
--- --   **AttachementPoint - M APOnn2 aaa vvv ...**
--- --
--- --  Page 50 | BIOVIA Databases 2020 - CT File Formats:
--- --  aaa: atom number, vvv: count
--- --     Indicates whether atom aaa of the Rgroup member is the first attachment point
--- --     (vvv = 1), second attachment point (vvv = 2), both attachment points (vvv = 3);
--- --     default of 0 = no attachment.
--- --
--- --  NOTE: Rgroup & Sgroup properties are ignored
--- data MolProperties = AtomAlias AtomReference Alias
---                    | AtomValue AtomReference ValueText
---                    | GroupAbbrevation AtomReference AtomReference Alias
---                    | SkipNextN ThreeDigitInt [Text]
---                    | PCharge AtomReference ChargeProperty
---                    | PRadical AtomReference RadicalProperty
---                    | PIsotope AtomReference IsotopeProperty
---                    | RingBondCount AtomReference RingBondCountProperty
---                    | SubstitutionCount AtomReference SubstitutionCountProperty
---                    | UnsaturatedCount AtomReference UnsaturationProperty
---                    | LinkAtom AtomReference LinkAtomRepetition LinkAtomReference LinkAtomReference
---                    | AtomList AtomReference AtomSymbolList
---   deriving(Show, Eq)
--- 
--- -- Property Types
--- -- | Identifies which "class" of property is present
--- --   Only the lines starting with M are encoded in a single
--- --   line, the others arent
--- data PropertyEntry = OneLine OneLineTag Text
---                    | TwoLine TwoLineTag [Text]
---                    | IgnoreLines ThreeDigitInt [Text]
---                    | UnknownProperty Text
--- 
--- 
--- -- | Representation of the initial character information of
--- --   a property line in a molfile. Used for determining the
--- --   number of lines belonging to a tag
--- data PropertyTagFirst = SkipNTag ThreeDigitInt
---                       | OneLineTag OneLineTag
---                       | TwoLinesTag TwoLineTag
---                       | UnrecognizedTag
---   deriving(Show, Eq)
--- 
--- -- | References entries requiring two lines
--- data TwoLineTag = AA -- Atom alias
---                 | VA -- Atom Value
---                 | AG -- Group Abreviation
---   deriving(Show, Eq)
--- 
--- -- | References entries spanning one line
--- data OneLineTag = CHG
---                 | RAD
---                 | ISO
---                 | RBC
---                 | SUB
---                 | UNS
---                 | LIN
---                 | ALS
---   deriving(Show, Eq)
--- 
--- -- | Number of available entries of a nn8 line
--- type NN8 = Refined (FromTo 1 8) Int
--- 
--- -- | Number of available entries of a LIN line
--- type LIN = Refined (FromTo 1 4) Int
--- 
--- -- | ALS number of entries
--- type N16 = Refined (FromTo 1 16) Int
--- 
--- -- | Due to having the possibility of multiple entries for a single,
--- --   this datatype can be used to group
--- -- TODO
--- 
--- -- | Representing alias text
--- --   TODO: Limitations of aliases not known (multiple lines or just 80 chars?)
--- type Alias = Text
--- 
--- -- | Representing value text
--- --   TODO: Limitations of aliases not known (multiple lines or just 80 chars?)
--- type ValueText = Text
--- 
--- -- | Charge Property
--- type ChargeProperty = Refined (Or (NegativeFromTo 15 0) (FromTo 0 15)) Int
--- 
--- -- | Radical of Property Block
--- data RadicalProperty = NoRadical
---                      | Singlet   -- (:)       Default
---                      | Doublet   -- (. or ^)
---                      | Triplet   -- (^^)
---   deriving(Show, Eq, Enum, Ord, Bounded)
--- 
--- -- | Encodes the isotope property
--- --   No value is interpreted as default which means natural abundance
--- data IsotopeProperty = DefaultIsotope
---                      | Isotope IsotopePropertyR
---   deriving(Show, Eq)
--- -- | Refined range for isotope values
--- type IsotopePropertyR = Refined (Or (NegativeFromTo 18 0) (FromTo 0 12)) Int
--- 
--- -- | RingBondCount encoding
--- data RingBondCountProperty = RBOff       -- Default
---                            | NoRingBonds
---                            | AsDrawnRB   -- (r*)
---                            | R2          -- (r2)
---                            | R3          -- (r3)
---                            | R4          -- (r4)
---   deriving(Show, Eq, Enum, Ord, Bounded)
--- 
--- -- | Substitution representation
--- data SubstitutionCountProperty = SUBOff        -- Default
---                           | NoSubstitution
---                           | AsDrawnS      -- (s*)
---                           | S1            -- (s1)
---                           | S2            -- (s2)
---                           | S3            -- (s3)
---                           | S4            -- (s4)
---                           | S5            -- (s5)
---                           | S6            -- (s6)
---  deriving(Show, Eq, Enum, Ord, Bounded)
--- 
--- -- | Unsaturation
--- data UnsaturationProperty = UNSOff | UNSOn
---   deriving(Show, Eq, Enum, Ord, Bounded)
--- 
--- -- | Counts for bbb and ccc which can be zero for atoms with
--- --   attachement point information
--- type LinkAtomReference = Refined (FromTo 0 999) Int
--- -- | Link atom count repetitions  vvv >= 2 for substituents
--- --   other than bbb and ccc
--- type LinkAtomRepetition = Refined (FromTo 2 999) Int
--- 
--- -- | Number of atom list entries on line (max. 16)
--- type AtomListEntries = Refined (FromTo 1 16) Int
--- 
--- -- | List encoding
--- data AtomListType = NotList | NormalList
---   deriving(Show, Eq, Enum, Ord, Bounded)
--- 
--- -- | Represents the atoms listed in the property line
--- data AtomSymbolList = AtomSymbolList AtomListType [MolAtomSymbol]
---   deriving(Show, Eq)
--- 
--- -- | Rgroup properties
--- --   An enumeration of the Rgroup property labels which are not handled
--- --   See: Page 50 | BIOVIA Databases 2020 - CT File Formats:
--- --
--- --   This data type is added to have a quick overview on what is not
--- --   not handled in the ctab property block in terms of Rgroup labels
--- data RgroupLabels = APO -- Attachement Point
---                   | AAL -- Atom Attachement Order
---                   | RGP -- Label Location
---                   | LOG -- Logic, Unsatisfied Sites, Range of Occurence
--- 
--- -- | Sgroup properties
--- --   An enumeration of the Sgroup property labels which are not handled
--- --   See: Page 50 | BIOVIA Databases 2020 - CT File Formats:
--- --
--- --   This data type is added to have a quick overview on what is not
--- --   not handled in the ctab property block in terms of Sgroup labels
--- data SgroupLabels = STY -- Type
---                   | SST -- Subtype
---                   | SLB -- Labels
---                   | SCN -- Connectivity
---                   | SDS -- Expansion
---                   | SAL -- Atom List
---                   | SBL -- Bond List
+
+------------------------------
+-- N8
+
+public export
+record N8 where
+  constructor MkN8
+  value : Bits8
+  0 prf : So (1 <= value && value <= 8)
+
+%runElab rwNat "N8" `(Bits8)
+
+------------------------------
+-- Radical
+
+public export
+data Radical = NoRadical | Singlet | Doublet | Triplet
+
+%runElab derive "Radical" [Generic,Meta,Show,Eq,Ord]
+
+namespace Radical
+  public export
+  read : String -> Maybe Radical
+  read "0" = Just NoRadical
+  read "1" = Just Singlet
+  read "2" = Just Doublet
+  read "3" = Just Triplet
+  read _   = Nothing
+
+  public export
+  write : Radical -> String
+  write NoRadical = "0"
+  write Singlet   = "1"
+  write Doublet   = "2"
+  write Triplet   = "3"
+
+------------------------------
+-- Property
 
 public export
 data Property : Type where
+  Chg : (c : N8) -> (pairs : Vect (cast c.value) (AtomRef,Charge)) -> Property
+  Iso : (c : N8) -> (pairs : Vect (cast c.value) (AtomRef,MassNr)) -> Property
+  Rad : (c : N8) -> (pairs : Vect (cast c.value) (AtomRef,Radical)) -> Property
+
+public export
+Eq Property where
+  Chg c1 ps1 == Chg c2 ps2 = c1 == c2 && toList ps1 == toList ps2
+  Iso c1 ps1 == Iso c2 ps2 = c1 == c2 && toList ps1 == toList ps2
+  Rad c1 ps1 == Rad c2 ps2 = c1 == c2 && toList ps1 == toList ps2
+  _          == _          = False
+
+public export
+Show Property where
+  showPrec p (Chg c pairs) = showCon p "Chg" $ showArg c ++ showArg pairs
+  showPrec p (Iso c pairs) = showCon p "Iso" $ showArg c ++ showArg pairs
+  showPrec p (Rad c pairs) = showCon p "Rad" $ showArg c ++ showArg pairs
+
+wpair : (a -> String) -> (AtomRef,a) -> String
+wpair w (ar,va) = padLeft 4 ' ' (write ar) ++ padLeft 4 ' ' (w va)
+
+writeN8 : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> (a -> String) -> String
+writeN8 c ps wa = padLeft 3 ' ' (write c) ++ foldMap (wpair wa) ps
+
+rpairs : {n : _} -> (String -> Maybe a) -> String -> Maybe (Vect n (AtomRef,a))
+rpairs r s = go n 9
+  where go : (k : Nat) -> (pos : Int) -> Maybe (Vect k (AtomRef, a))
+        go 0     pos = if cast pos == length s then Just [] else Nothing
+        go (S k) pos = do
+          ar <- AtomRef.read . ltrim $ strSubstr pos 4 s
+          va <- r . ltrim $ strSubstr (pos + 4) 4 s
+          t  <- go k $ pos + 8
+          pure $ (ar,va) :: t
+
+readN8 :  (f : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> b)
+       -> (read : String -> Maybe a)
+       -> String
+       -> Maybe b
+readN8 f read s = do
+  c  <- N8.read . ltrim $ strSubstr 6 3 s
+  ps <- rpairs read s
+  pure $ f c ps
+
+namespace Property
+  public export
+  write : Property -> String
+  write (Chg c pairs) = "M  CHG" ++ writeN8 c pairs write
+  write (Iso c pairs) = "M  ISO" ++ writeN8 c pairs write
+  write (Rad c pairs) = "M  RAD" ++ writeN8 c pairs write
+
+  public export
+  read : String -> Maybe Property
+  read s = case strSubstr 0 6 s of
+    "M  CHG" => readN8 Chg read s
+    "M  ISO" => readN8 Iso read s
+    "M  RAD" => readN8 Rad read s
+    _        => Nothing
 
 --------------------------------------------------------------------------------
 --          MolFile
@@ -874,46 +705,14 @@ record MolFile where
   bonds   : Vect (cast counts.bonds.value) Bond
   props   : List Property
 
+public export
+Eq MolFile where
+  MkMolFile n1 i1 c1 cs1 as1 bs1 ps1 == MkMolFile n2 i2 c2 cs2 as2 bs2 ps2 =
+    n1 == n2 && i1 == i2 && c1 == c2 && cs1 == cs2 &&
+    toList as1 == toList as2 && toList bs1 == toList bs2 && ps1 == ps2
 
--- -- CTAB file types -------------------------------------------------------------
--- 
--- -- | Specifies reserved tags for CTAB file types
--- -- TODO: Unclear wheter list is exhaustive (most likely not)
--- data CTABFileTypes = RGfile  --  $MDL
---                    | SDfile  --  $$$$ (record separator)
---                    | RXNfile --  $RXN
---                    | RDfile  --  $RDFILE (header)
--- 
--- 
--- -- | Encoding for 2D or 3D representation
--- --   NOTE: If a non-zero Z coordinate is encountered,
--- --         then a 2D (Dim2) flag is ignored and the
--- --         molfile is treated as 3D instead
--- data Dimension = Dim2 | Dim3
---   deriving (Show, Eq, Ord, Enum, Bounded)
--- 
--- -- | Scaling factor short (SS)
--- type ScalingFactorShort = Refined (FromTo 0 99) Int
--- -- Refined types for time & Date representation
--- -- | Restriction to a two digit numbers representing years
--- type YearShort = Refined (FromTo 0 99) Int
--- -- | Months of a year
--- type Month = Refined (FromTo 1 12) Int
--- -- | Stretches to the maximal number of days in a month
--- --   Does not account for differences
--- type Day   = Refined (FromTo 1 31) Int
--- -- | Hour range
--- type Hour = Refined (FromTo 0 24) Int
--- -- | Minute Range
--- type Minute = Refined (FromTo 0 60) Int
--- 
--- -- | Representation of a date such as 20.10.2020
--- --   TODO: This type does not prevent invalid dates
--- --         such as 30.02.2020.
--- data UnfullyCheckedDate = UnfullyCheckedDate Day Month YearShort
---   deriving (Show, Eq)
--- 
--- -- | Type to represent time of a day
--- data Time = Time Hour Minute
---   deriving (Show, Eq)
--- 
+export
+Show MolFile where
+  showPrec p (MkMolFile n i c cs as bs ps) =
+    showCon p "MkMolFile" $  showArg n ++ showArg i ++ showArg c ++ showArg cs
+                          ++ showArg as ++ showArg bs ++ showArg ps
