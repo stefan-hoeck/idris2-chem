@@ -13,6 +13,8 @@ modules = Chem
         , Chem.Isotope
         , Chem.Types
 
+        , Data.IntMap
+        , Data.IntMap.Array
         , Data.Refined
 
         , Text.Molfile
