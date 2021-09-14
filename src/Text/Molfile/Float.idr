@@ -13,6 +13,8 @@ pow10 0     = 1
 pow10 (S k) = 10 * pow10 k
 
 ||| Fixed-width floating point numbers
+|||
+||| FIXME: This actually needs also a signum!
 public export
 record Float (minPre,maxPre : Int32) (wpost : Nat) where
   constructor MkFloat
@@ -48,7 +50,9 @@ rd s = case split ('.' ==) s of
   (h ::: [t]) =>
     if length t == wpost
        then do
-         pre     <- readIntPlus h
+         pre     <- case h of
+           "-0" => Just 0
+           _    => readIntPlus h
          post    <- readInt t
          refine pre post
        else Nothing
