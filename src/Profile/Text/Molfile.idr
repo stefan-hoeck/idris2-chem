@@ -164,14 +164,89 @@ mf = #"""
      M  END
      """#
 
+mfMedium : String
+mfMedium =
+#"""
+  
+  CDK
+  
+ 29 32  0  0  0  0  0  0  0  0999 V2000
+    0.0004    9.7502    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0
+    0.0001    8.2502    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -1.4770    8.5109    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0
+   -0.5131    6.8408    0.0000 F   0  0  0  0  0  0  0  0  0  0  0  0
+    1.2990    7.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    2.5990    8.2500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    3.8990    7.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    3.8990    6.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    2.5990    5.2500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    2.5990    3.7500    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+    1.3000    3.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    0.0010    3.7500    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0
+    1.3000    1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    2.6000    0.7500    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+    2.6000   -0.7500    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+    1.3000   -1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    1.3000   -3.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0
+   -0.0000   -0.7500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -1.3000   -1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -2.6000   -0.7500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -2.6000    0.7500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -1.3000    1.5000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+   -0.0000    0.7500    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    1.2990    6.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    5.1980    5.2498    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+    6.5596    5.8613    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    7.5659    4.7489    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+    6.8214    3.4552    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    5.3497    3.7554    0.0000 N   0  0  0  0  0  0  0  0  0  0  0  0
+  1  2  1  0  0  0  0 
+  2  3  1  0  0  0  0 
+  2  4  1  0  0  0  0 
+  2  5  1  0  0  0  0 
+  5  6  1  0  0  0  0 
+  6  7  2  0  0  0  0 
+  7  8  1  0  0  0  0 
+  8  9  2  0  0  0  0 
+  9 10  1  0  0  0  0 
+ 10 11  1  0  0  0  0 
+ 11 12  2  0  0  0  0 
+ 11 13  1  0  0  0  0 
+ 13 14  2  0  0  0  0 
+ 14 15  1  0  0  0  0 
+ 15 16  1  0  0  0  0 
+ 16 17  2  0  0  0  0 
+ 16 18  1  0  0  0  0 
+ 18 19  1  0  0  0  0 
+ 19 20  2  0  0  0  0 
+ 20 21  1  0  0  0  0 
+ 21 22  2  0  0  0  0 
+ 22 23  1  0  0  0  0 
+ 13 23  1  0  0  0  0 
+ 18 23  2  0  0  0  0 
+  9 24  1  0  0  0  0 
+  5 24  2  0  0  0  0 
+  8 25  1  0  0  0  0 
+ 25 26  1  0  0  0  0 
+ 26 27  2  0  0  0  0 
+ 27 28  1  0  0  0  0 
+ 28 29  2  0  0  0  0 
+ 25 29  1  0  0  0  0 
+M  END
+"""#
+
 atomStr : String
 atomStr = "   -2.8343    1.6134    0.0000 C   0  0  0  0  0  0"
 
 bondStr : String
 bondStr = " 56 55  1  1  0  0  0"
 
+-- before profiling, this was at about 670 us per run on my NUC
 testMol : () -> Bool
 testMol () = isRight $ mol mf
+
+testMolMedium : () -> Bool
+testMolMedium () = isRight $ mol mfMedium
 
 testAtom : () -> Bool
 testAtom () = isRight $ atom atomStr
@@ -183,13 +258,23 @@ testBond : () -> Bool
 testBond () = isRight $ bond bondStr
 
 testReadFloat : () -> Bool
-testReadFloat () = isJust $ read {a = Coordinate} "0.0000"
+testReadFloat () = isRight $ the (Either String Coordinate) (readE "-2.8343")
+
+testReadAtomSymbol : () -> Bool
+testReadAtomSymbol () =
+  isRight $ the (Either String AtomSymbol) (readE "C")
+
+testReadMassDiff : () -> Bool
+testReadMassDiff () =
+  isRight $ the (Either String MassDiff) (readE "1")
 
 export
 profile : IO ()
 profile = do
   profileAndReport $
-    MkTask "read MolFile" testMol 1000 ItIsSucc
+    MkTask "read large MolFile" testMol 1000 ItIsSucc
+  profileAndReport $
+    MkTask "read medium MolFile" testMolMedium 20000 ItIsSucc
   profileAndReport $
     MkTask "read atom line" testAtom 100000 ItIsSucc
   profileAndReport $
@@ -198,3 +283,7 @@ profile = do
     MkTask "make atom chunks" testAtomChunks 100000 ItIsSucc
   profileAndReport $
     MkTask "read Float" testReadFloat 1000000 ItIsSucc
+  profileAndReport $
+    MkTask "read AtomSymbol" testReadAtomSymbol 1000000 ItIsSucc
+  profileAndReport $
+    MkTask "read MassDiff" testReadMassDiff 1000000 ItIsSucc
