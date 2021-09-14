@@ -57,10 +57,9 @@ readNatStrM = go 0
                else Nothing
 
 readNatCast : Eq a => Num a => Cast String a => String -> Maybe a
-readNatCast "0" = Just 0
 readNatCast s   =
   let res = cast {to = a} s
-   in if res == 0 then Nothing else Just res
+   in if res == 0 && any ('0' /=) s then Nothing else Just res
 
 readNatUnpackTR : Num a => String -> Maybe a
 readNatUnpackTR = go 0 . unpack

@@ -12,33 +12,6 @@ import Data.String
 %default total
 
 --------------------------------------------------------------------------------
---          Parsing and Printing
---------------------------------------------------------------------------------
-
-||| Reads a natural number consisting *only* of digits.
-||| Note: * The number may be prefixed with an arbitrary
-|||         number of zeros
-|||       * Any non-digit character will make the function
-|||         return `Nothing`
-|||       * Bounds are not checked, so this might lead to
-|||         truncation due to integer overflows in case of
-|||         large digit sequences
-public export
-readInt : Eq a => Num a => Cast String a => String -> Maybe a
-readInt "0" = Just 0
-readInt s   =
-  let res = cast {to = a} s
-   in if res == 0 then Nothing else Just res
-
-||| Like `readInt`, but the number can be prefixed
-||| with a single optional '+'.
-public export
-readIntPlus : Eq a => Num a => Cast String a => String -> Maybe a
-readIntPlus s = case strM s of
-  StrCons '+' t => readInt t
-  _             => readInt s
-
---------------------------------------------------------------------------------
 --          Refined Strings
 --------------------------------------------------------------------------------
 
@@ -63,6 +36,32 @@ isPrintableAscii c = '\32' <= c && c <= '\127'
 public export
 isPrintableLatin : Char -> Bool
 isPrintableLatin c = isPrintableAscii c || ('\160' <= c && c <= '\255')
+
+--------------------------------------------------------------------------------
+--          Parsing and Printing
+--------------------------------------------------------------------------------
+
+||| Reads a natural number consisting *only* of digits.
+||| Note: * The number may be prefixed with an arbitrary
+|||         number of zeros
+|||       * Any non-digit character will make the function
+|||         return `Nothing`
+|||       * Bounds are not checked, so this might lead to
+|||         truncation due to integer overflows in case of
+|||         large digit sequences
+public export
+readInt : Eq a => Num a => Cast String a => String -> Maybe a
+readInt s   =
+  let res = cast {to = a} s
+   in if res == 0 && any ('0' /=) s then Nothing else Just res
+
+||| Like `readInt`, but the number can be prefixed
+||| with a single optional '+'.
+public export
+readIntPlus : Eq a => Num a => Cast String a => String -> Maybe a
+readIntPlus s = case strM s of
+  StrCons '+' t => readInt t
+  _             => readInt s
 
 --------------------------------------------------------------------------------
 --          Elab Scripts
