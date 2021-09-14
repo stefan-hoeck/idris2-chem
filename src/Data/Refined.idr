@@ -126,13 +126,13 @@ rwIntegral dt reader writer tpe =
    in refinedIntegralDflt dt tpe >>
       declare
         [ INamespace EmptyFC ns
-          `[ public export %hint
-             readImpl : Read ~(t)
-             readImpl = mkRead (\s => ~(reader) s >>= ~(refineNS)) ~(nameStr)
+          `[ public export
+             readE : String -> Either String ~(t)
+             readE = mkReadE (\s => ~(reader) s >>= ~(refineNS)) ~(nameStr)
 
-             public export %hint
-             writeImpl : Write ~(t)
-             writeImpl = MkWrite ~(writer)
+             public export
+             write : ~(t) -> String
+             write = ~(writer)
            ]
         ]
 

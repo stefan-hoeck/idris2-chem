@@ -527,6 +527,14 @@ symbol Lv  = "Lv"
 symbol Uus = "Uus"
 symbol Uuo = "Uuo"
 
+public export
+readE : String -> Either String Elem
+readE = mkReadE fromSymbol "Elem"
+
+public export %inline
+write : Elem -> String
+write = symbol
+
 --------------------------------------------------------------------------------
 --          Implementations
 --------------------------------------------------------------------------------
@@ -542,11 +550,3 @@ Ord Elem where
 export %inline
 Show Elem where
   show = symbol
-
-export %hint %inline
-readImpl : Read Elem
-readImpl = mkRead fromSymbol "Elem"
-
-export %hint %inline
-writeImpl : Write Elem
-writeImpl = MkWrite symbol

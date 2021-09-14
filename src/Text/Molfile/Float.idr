@@ -42,11 +42,12 @@ refine pre post = do
   prfPost <- maybeSo (post < pow10 wpost)
   pure $ MkFloat pre post prfPre prfPost
 
-rd :  {minPre,maxPre : _}
-   -> {wpost : _}
-   -> String
-   -> Maybe (Float minPre maxPre wpost)
-rd s = case split ('.' ==) s of
+public export
+read :  {minPre,maxPre : _}
+     -> {wpost : _}
+     -> String
+     -> Maybe (Float minPre maxPre wpost)
+read s = case split ('.' ==) s of
   (h ::: [t]) =>
     if length t == wpost
        then do
@@ -58,17 +59,18 @@ rd s = case split ('.' ==) s of
        else Nothing
   _           => Nothing
 
-export %hint %inline
-readImpl : {minPre,maxPre : _} -> {wpost : _} -> Read (Float minPre maxPre wpost)
-readImpl = mkRead rd "Float"
+public export
+readE :  {minPre,maxPre : _}
+      -> {wpost : _}
+      -> String
+      -> Either String (Float minPre maxPre wpost)
+readE = mkReadE read "Float"
 
 
-wt : {wpost : _} -> Float minPre maxPre wpost -> String
-wt f = show f.pre ++ "." ++ padLeft wpost '0' (show f.post)
+public export
+write : {wpost : _} -> Float minPre maxPre wpost -> String
+write f = show f.pre ++ "." ++ padLeft wpost '0' (show f.post)
 
-export %hint %inline
-writeImpl : {wpost : _} -> Write (Float minPre maxPre wpost)
-writeImpl = MkWrite wt
 public export %inline
 {wpost : _} -> Show (Float a b wpost) where
   show = write
