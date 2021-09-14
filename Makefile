@@ -6,6 +6,8 @@ doc_pkg = doc.ipkg
 
 test_pkg = test.ipkg
 
+profile_pkg = profile.ipkg
+
 
 .PHONY: all
 all: lib docs test
@@ -27,6 +29,10 @@ docs:
 .PHONY: test
 test:
 	${IDRIS2} --build ${test_pkg} && build/exec/runTest -n 1000
+
+.PHONY: profile
+profile:
+	${IDRIS2} --build ${profile_pkg} && build/exec/profile
 
 .PHONY: install
 install:
