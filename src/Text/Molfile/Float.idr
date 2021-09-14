@@ -49,7 +49,7 @@ rd s = case split ('.' ==) s of
     if length t == wpost
        then do
          pre     <- readIntPlus h
-         post    <- readNat t
+         post    <- readInt t
          refine pre post
        else Nothing
   _           => Nothing

@@ -23,41 +23,19 @@ import Data.String
 |||       * Bounds are not checked, so this might lead to
 |||         truncation due to integer overflows in case of
 |||         large digit sequences
-|||       * An empty string returns `Just 0`
 public export
-readNat : Num a => String -> Maybe a
-readNat = go 0
-  where go : Integer -> String -> Maybe a
-        go res s = case strM s of
-          StrNil       => Just $ fromInteger res
-          StrCons c cs =>
-            if isDigit c
-               then go (cast (ord c - 48) + res * 10)
-                    (assert_smaller s cs)
-               else Nothing
+readInt : Eq a => Num a => Cast String a => String -> Maybe a
+readInt "0" = Just 0
+readInt s   =
+  let res = cast {to = a} s
+   in if res == 0 then Nothing else Just res
 
-||| Like `readNat`, but the number can be prefixed
+||| Like `readInt`, but the number can be prefixed
 ||| with a single optional '+'.
 public export
-readNatPlus : Num a => String -> Maybe a
-readNatPlus s = case strM s of
-  StrCons '+' t => readNat t
-  _             => readNat s
-
-||| Like `readNat`, but supports negative numbers,
-||| which must be prefixed with a single '-'.
-public export
-readInt : Num a => Neg a => String -> Maybe a
-readInt s = case strM s of
-  StrCons '-' t => negate <$> readNat t
-  _             => readNat s
-
-||| Like `readInt`, but positive numbers can be prefixed
-||| with a single optional '+'.
-public export
-readIntPlus : Num a => Neg a => String -> Maybe a
+readIntPlus : Eq a => Num a => Cast String a => String -> Maybe a
 readIntPlus s = case strM s of
-  StrCons '+' t => readNat t
+  StrCons '+' t => readInt t
   _             => readInt s
 
 --------------------------------------------------------------------------------
@@ -66,19 +44,17 @@ readIntPlus s = case strM s of
 
 public export
 all : (Char -> Bool) -> String -> Bool
-all f x = case strM x of
-  StrNil         => True
-  (StrCons y xs) => case f y of
-    True  => all f (assert_smaller x xs)
-    False => False
+all f = go . unpack
+  where go : List Char -> Bool
+        go []       = True
+        go (h :: t) = if f h then go t else False
 
 public export
 any : (Char -> Bool) -> String -> Bool
-any f x = case strM x of
-  StrNil         => False
-  (StrCons y xs) => case f y of
-    True  => True
-    False => any f (assert_smaller x xs)
+any f = go . unpack
+  where go : List Char -> Bool
+        go []       = False
+        go (h :: t) = if f h then True else go t
 
 public export
 isPrintableAscii : Char -> Bool
@@ -117,7 +93,7 @@ isPrintableLatin c = isPrintableAscii c || ('\160' <= c && c <= '\255')
 ||| 
 ||| @dataType Name of the data type (for instance "MassNr")
 ||| @reader   quoted function used for reading the unrefined
-|||           integral from a string (for instance `(readNat))
+|||           integral from a string (for instance `(readInt))
 ||| @writer   quoted function used for writing the refined
 |||           type to a string (for instance `(show . value))
 ||| @type     quoted name of the wrapped data type (for instance
@@ -131,7 +107,7 @@ isPrintableLatin c = isPrintableAscii c || ('\160' <= c && c <= '\255')
 |||   value : Bits16
 |||   0 prf : So (1 <= value && value <= 511)
 |||
-||| %runElab rwIntegral MassNr `(readNat) `(show . value) `(Bits16)
+||| %runElab rwIntegral MassNr `(readInt) `(show . value) `(Bits16)
 ||| ```
 export
 rwIntegral :  (dataType : String)
@@ -160,16 +136,6 @@ rwIntegral dt reader writer tpe =
              writeImpl = MkWrite ~(writer)
            ]
         ]
-
-||| Alias for `rwIntegral dt `(readNat) `(show . value)`
-export
-rwNat : (dataType : String) -> (tpe : TTImp) -> Elab ()
-rwNat dt = rwIntegral dt `(readNat) `(show . value)
-
-||| Alias for `rwIntegral dt `(readNatPlus) `(show . value)`
-export
-rwNatPlus : (dataType : String) -> (tpe : TTImp) -> Elab ()
-rwNatPlus dt = rwIntegral dt `(readNatPlus) `(show . value)
 
 ||| Alias for `rwIntegral dt `(readInt) `(show . value)`
 export

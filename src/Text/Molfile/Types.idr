@@ -116,7 +116,7 @@ record Count where
   value : Bits16
   0 prf : So (value <= 999)
 
-%runElab rwNat "Count" `(Bits16)
+%runElab rwInt "Count" `(Bits16)
 
 
 public export
@@ -265,7 +265,7 @@ namespace Valence
   rd : String -> Maybe Valence
   rd "0"  = Just NoValence
   rd "15" = Just $ MkValence 0 Oh
-  rd s    = readNat s >>= refineSo MkValence
+  rd s    = readInt s >>= refineSo MkValence
 
   wt : Valence -> String
   wt NoValence       = "0"
@@ -449,7 +449,7 @@ Show HydrogenCount where
 namespace HydrogenCount
   rd : String -> Maybe HydrogenCount
   rd "0" = Just $ NoHC
-  rd s   = readNat s >>= refineSo HC . (\x => x - 1)
+  rd s   = readInt s >>= refineSo HC . (\x => x - 1)
 
   export %hint %inline
   readImpl : Read HydrogenCount
@@ -686,7 +686,7 @@ record N8 where
   value : Bits8
   0 prf : So (1 <= value && value <= 8)
 
-%runElab rwNat "N8" `(Bits8)
+%runElab rwInt "N8" `(Bits8)
 
 ------------------------------
 -- Radical

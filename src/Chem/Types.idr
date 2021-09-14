@@ -21,7 +21,7 @@ record AtomicNr where
   value : Bits8
   0 prf : So (isAtomicNr value)
 
-%runElab rwNat "AtomicNr" `(Bits8)
+%runElab rwInt "AtomicNr" `(Bits8)
 
 --------------------------------------------------------------------------------
 --          Mass Number
@@ -37,7 +37,7 @@ record MassNr where
   value : Bits16
   0 prf : So (isMassNr value)
 
-%runElab rwNat "MassNr" `(Bits16)
+%runElab rwInt "MassNr" `(Bits16)
 
 --------------------------------------------------------------------------------
 --          Abundance
