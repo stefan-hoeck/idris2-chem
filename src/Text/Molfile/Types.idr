@@ -143,23 +143,28 @@ data AtomSymbol = L | A | Q | Ast | LP | RSharp | El Elem
 namespace AtomSymbol
   public export
   read : String -> Maybe AtomSymbol
-  read "L"  = Just L
-  read "A"  = Just A
-  read "Q"  = Just Q
-  read "*"  = Just Ast
-  read "LP" = Just LP
-  read "R#" = Just RSharp
-  read s    = El <$> fromSymbol s
+  read s = case fromSymbol s of
+    -- choosing the right order here makes this
+    -- considerably faster in the most common case
+    Just el => Just (El el)
+    Nothing => case s of
+      "L"  => Just L
+      "A"  => Just A
+      "Q"  => Just Q
+      "*"  => Just Ast
+      "LP" => Just LP
+      "R#" => Just RSharp
+      _    => Nothing
 
   public export
   write : AtomSymbol -> String
+  write (El x) = symbol x
   write L      = "L"
   write A      = "A"
   write Q      = "Q"
   write Ast    = "*"
   write LP     = "LP"
   write RSharp = "R#"
-  write (El x) = symbol x
 
   public export
   readE : String -> Either String AtomSymbol

@@ -286,14 +286,14 @@ fromAtomicNr x   =
 
 public export
 fromSymbol : String -> Maybe Elem
+fromSymbol "C"   = Just C
+fromSymbol "O"   = Just O
+fromSymbol "N"   = Just N
 fromSymbol "H"   = Just H
 fromSymbol "He"  = Just He
 fromSymbol "Li"  = Just Li
 fromSymbol "Be"  = Just Be
 fromSymbol "B"   = Just B
-fromSymbol "C"   = Just C
-fromSymbol "N"   = Just N
-fromSymbol "O"   = Just O
 fromSymbol "F"   = Just F
 fromSymbol "Ne"  = Just Ne
 fromSymbol "Na"  = Just Na
