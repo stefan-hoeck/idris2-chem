@@ -1,5 +1,6 @@
 module Text.Molfile.Reader
 
+import Data.List
 import Data.String
 import Data.Vect
 import Text.RW
@@ -12,27 +13,27 @@ import public Text.Molfile.Types
 --          Reading
 --------------------------------------------------------------------------------
 
+-- this is significantly faster than `Data.String.trim`. Since
+-- we use this a lot, it had quite an impact on parsing performance.
+trimOr0 : String -> String
+trimOr0 "" = "0"
+trimOr0 s  = go Nil $ unpack s
+  where go : (res : List Char) -> (rem : List Char) -> String
+        go res [] = pack $ reverse res
+        go res (x :: xs) = if isSpace x then go res xs else go (x :: res) xs
+
 ||| Tries to split a `String` into a vector of
 ||| chunks of exactly the given lengths.
 ||| Fails if the length of the string does not exactly match
 ||| the length of concatenated chunks.
 export
-chunks : Vect n Int -> String -> Either String (Vect n String)
-chunks ns s = go 0 ns
+trimmedChunks : Vect n Int -> String -> Either String (Vect n String)
+trimmedChunks ns s = go 0 ns
   where go : (pos : Int) -> Vect k Int -> Either String (Vect k String)
         go pos [] = if pos >= cast (length s)
                        then Right []
                        else Left $ #"String is too long: \#{s} (max : \#{show pos})"#
-        go pos (x :: xs) = (strSubstr pos x s ::) <$> go (pos + x) xs
-
-trimOr0 : String -> String
-trimOr0 "" = "0"
-trimOr0 s  = trim s
-
-export
-trimmedChunks : Vect n Int -> String -> Either String (Vect n String)
-trimmedChunks ns s = map trimOr0 <$> chunks ns s
-
+        go pos (x :: xs) = (trimOr0 (strSubstr pos x s) ::) <$> go (pos + x) xs
 
 ||| Chunks of the counts line. See `counts` for a description
 ||| of the format and types of chunks.

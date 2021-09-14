@@ -1,8 +1,12 @@
 module Profile.Text.Molfile
 
 import Data.Either
+import Data.List
 import Data.Nat
+import Data.String
+import Data.Vect
 import Text.Molfile
+import Text.RW
 import Profile.Profiler
 
 -- One of the larger molecules in CyBy
@@ -160,11 +164,37 @@ mf = #"""
      M  END
      """#
 
+atomStr : String
+atomStr = "   -2.8343    1.6134    0.0000 C   0  0  0  0  0  0"
+
+bondStr : String
+bondStr = " 56 55  1  1  0  0  0"
+
 testMol : () -> Bool
 testMol () = isRight $ mol mf
 
+testAtom : () -> Bool
+testAtom () = isRight $ atom atomStr
+
+testAtomChunks : () -> Bool
+testAtomChunks () = isRight $ trimmedChunks atomChunks atomStr
+
+testBond : () -> Bool
+testBond () = isRight $ bond bondStr
+
+testReadFloat : () -> Bool
+testReadFloat () = isJust $ read {a = Coordinate} "0.0000"
+
 export
 profile : IO ()
-profile =
+profile = do
   profileAndReport $
     MkTask "read MolFile" testMol 1000 ItIsSucc
+  profileAndReport $
+    MkTask "read atom line" testAtom 100000 ItIsSucc
+  profileAndReport $
+    MkTask "read bond line" testBond 100000 ItIsSucc
+  profileAndReport $
+    MkTask "make atom chunks" testAtomChunks 100000 ItIsSucc
+  profileAndReport $
+    MkTask "read Float" testReadFloat 1000000 ItIsSucc
