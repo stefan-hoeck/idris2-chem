@@ -40,6 +40,13 @@ average (MkClock s ns) n _ =
       avg = tot `div` cast n
    in MkClock (avg `div` scale) (avg `mod` scale)
 
+prettyDuration : Clock Duration -> String
+prettyDuration (MkClock s ns) =
+  let nano   = ns `mod` 1000
+      micro  = (ns `mod` 1000000) `div` 1000
+      milli  = ns `div` 1000000
+   in #"\#{show s} s \#{show milli} ms \#{show micro} us \#{show nano} ns"#
+
 export
 report : Result -> String
 report r =
@@ -51,8 +58,8 @@ report r =
         Result:     \#{succ}
         Start Time: \#{show r.startTime}
         End Time:   \#{show r.stopTime}
-        Duration:   \#{show dur}
-        Per run:    \#{show avg}
+        Duration:   \#{prettyDuration dur}
+        Per run:    \#{prettyDuration avg}
       """#
 
 export
