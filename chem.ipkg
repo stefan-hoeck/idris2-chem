@@ -15,6 +15,7 @@ modules = Chem
 
         , Data.Refined
 
+        , Text.Molfile
         , Text.Molfile.Float
         , Text.Molfile.Reader
         , Text.Molfile.Types
