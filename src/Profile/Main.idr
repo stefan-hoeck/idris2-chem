@@ -1,6 +1,9 @@
 module Profile.Main
 
 import Profile.Data.Refined
+import Profile.Text.Molfile
 
 main : IO ()
-main = Data.Refined.profile
+main = do
+  Refined.profile
+  Molfile.profile
