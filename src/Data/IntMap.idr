@@ -9,13 +9,17 @@ import Data.IntMap.Array
 --          Utilities
 --------------------------------------------------------------------------------
 
-private %inline %tcinline
-shift : Bits32 -> Bits32
-shift n = assert_smaller n $ prim__shr_Bits32 n 5
+private %inline
+bits : Bits32
+bits = 5
+
+private %inline
+shr : Bits32 -> Bits32 -> Bits32
+shr = prim__shr_Bits32
 
 private %inline %tcinline
-shiftl : Bits32 -> Bits32
-shiftl n = prim__shl_Bits32 n 5
+shr5 : Bits32 -> Bits32
+shr5 n = assert_smaller n $ shr n bits
 
 private %inline
 index : Bits32 -> Ix
@@ -43,7 +47,6 @@ data IntMap : (a : Type) -> Type where
   Leaf  : (k : Bits32) -> (v : a) -> IntMap a
   Node  : (children : Arr $ IntMap a) -> IntMap a
 
-
 public export %inline
 empty : IntMap a
 empty = Empty
@@ -65,8 +68,8 @@ node2 k1 k2 s1 s2 v1 v2 =
          -- the two subtrees go into the same bucket
          then Node $ new Empty $
                 \marr1 =>
-                  let sn1 = shift s1
-                      sn2 = shift s2
+                  let sn1 = shr5 s1
+                      sn2 = shr5 s2
                       (_ # marr2) = mwrite i1 marr1 (node2 k1 k2 sn1 sn2 v1 v2)
                    in freeze marr2
          -- the two subtrees go into distinct buckets
@@ -76,29 +79,35 @@ node2 k1 k2 s1 s2 v1 v2 =
                       (_ # marr3) = mwrite i2 marr2 (Leaf k2 v2)
                    in freeze marr3
 
--- k : key, s : remaining bit string, v : value
-insert' : (k,s : Bits32) -> (v : a) -> IntMap a -> IntMap a
-insert' k s v Empty     = Leaf k v
-insert' k s v (Node cs) =
-  Node $ mod s cs (insert' k (shift s) v)
-insert' k s v (Leaf k2 v2)    =
-  if k == k2 then Leaf k v else node2 k k2 s s v v2
+-- k  : key
+-- s  : remaining bit string
+-- sh : number of bits shifed so far
+-- v  : value
+insert' : (k,s,sh : Bits32) -> (v : a) -> IntMap a -> IntMap a
+insert' k _ _  v Empty     = Leaf k v
+insert' k s sh v (Node cs) =
+  Node $ mod s cs (insert' k (shr5 s) (sh + bits) v)
+insert' k s sh v (Leaf k2 v2)    =
+  if k == k2 then Leaf k v else node2 k k2 s (shr k2 sh) v v2
 
--- k : key, s : remaining bit string, v : value
-insertW' :  (k,s : Bits32)
+-- k  : key
+-- s  : remaining bit string
+-- sh : number of bits shifted so far
+-- v  : value
+insertW' :  (k,s,sh : Bits32)
          -> (f : a -> a -> a)
          -> (v : a)
          -> IntMap a
          -> IntMap a
-insertW' k s _ v Empty     = Leaf k v
-insertW' k s f v (Node cs) =
-  Node $ mod s cs (insertW' k (shift s) f v)
-insertW' k s f v (Leaf k2 v2)    =
-  if k == k2 then Leaf k (f v v2) else node2 k k2 s s v v2
+insertW' k _ _  _ v Empty     = Leaf k v
+insertW' k s sh f v (Node cs) =
+  Node $ mod s cs (insertW' k (shr5 s) (sh + bits) f v)
+insertW' k s sh f v (Leaf k2 v2)    =
+  if k == k2 then Leaf k (f v v2) else node2 k k2 s (shr k2 sh) v v2
 
 export %inline
 insert : (key : Bits32) -> (v : a) -> IntMap a -> IntMap a
-insert k = insert' k k
+insert k = insert' k k 0
 
 export %inline
 insertWith :  (f : a -> a -> a)
@@ -106,7 +115,7 @@ insertWith :  (f : a -> a -> a)
            -> (v : a)
            -> IntMap a
            -> IntMap a
-insertWith f k = insertW' k k f
+insertWith f k = insertW' k k 0 f
 
 export
 fromList : List (Bits32,a) -> IntMap a
@@ -137,7 +146,7 @@ toList (Node c)   = foldr (\m,l => toList (assert_smaller c m) ++ l) Nil c
 lookup' : (k,s : Bits32) -> (map : IntMap a) -> Maybe a
 lookup' _ _ Empty       = Nothing
 lookup' k _ (Leaf k2 v) = if k == k2 then Just v else Nothing
-lookup' k s (Node cs)   = lookup' k (shift s) (get s cs)
+lookup' k s (Node cs)   = lookup' k (shr5 s) (get s cs)
 
 export %inline
 lookup : (key : Bits32) -> (map : IntMap a) -> Maybe a

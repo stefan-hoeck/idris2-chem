@@ -7,6 +7,6 @@ import Test.Text.Molfile
 
 main : IO ()
 main = test [ Molfile.props
-            -- , IntMap.props
+            , IntMap.props
             , Array.props
             ]

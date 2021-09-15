@@ -22,6 +22,8 @@ singleton_lookup = property $ do
 insert_lookup : Property
 insert_lookup = property $ do
   ((k,v),m) <- forAll [| MkPair pair intMap |]
+  let m2 = insert k v m
+  footnote #"After insert: \#{show m2}"#
   lookup k (insert k v m) === Just v
 
 intmap_tolist : Property
