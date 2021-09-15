@@ -1,9 +1,11 @@
 module Profile.Main
 
+import Profile.Data.IntMap
 import Profile.Data.Refined
 import Profile.Text.Molfile
 
 main : IO ()
 main = do
-  Refined.profile
-  Molfile.profile
+    IntMap.profile
+--  Refined.profile
+--  Molfile.profile
