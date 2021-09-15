@@ -7,17 +7,17 @@ import Data.Vect
 import Hedgehog
 
 ix : Gen Ix
-ix = fromMaybe 0 . refine <$> bits8 (linear 0 31)
+ix = fromMaybe 0 . refine <$> bits8 (linear 0 7)
 
-vect32 : Gen (Vect 32 Char)
-vect32 = vect 32 alpha
+vect8 : Gen (Vect 8 Char)
+vect8 = vect 8 alpha
 
 array : Gen (Arr Char)
-array = map fromVect vect32
+array = map fromVect vect8
 
 fromToVect : Property
 fromToVect = property $ do
-  cs <- forAll vect32
+  cs <- forAll vect8
   cs === toVect (fromVect cs)
 
 toFromVect : Property

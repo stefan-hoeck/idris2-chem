@@ -6,7 +6,7 @@ import Data.Nat
 import Profile.Profiler
 
 pairs : List (Bits32,Bits32)
-pairs = map dup [0 .. 300]
+pairs = map dup [0 .. 60]
 
 nonEmpty : IntMap a -> Bool
 nonEmpty Empty = False
@@ -17,11 +17,11 @@ nonEmptySM m = not $ null m
 
 testFromList : () -> Bool
 testFromList () =
-  Just 127 == lookup 127 (IM.fromList pairs)
+  Just 27 == lookup 27 (IM.fromList pairs)
 
 testFromListSM : () -> Bool
 testFromListSM () =
-  Just 127 == lookup 127 (SM.fromList pairs)
+  Just 27 == lookup 27 (SM.fromList pairs)
 
 testLookup : IntMap Bits32 -> () -> Bool
 testLookup m = \_ => Just 127 == lookup 127 m
@@ -44,12 +44,12 @@ profile =
      profileAndReport $
        MkTask "fromList" testFromList 1000 ItIsSucc
      profileAndReport $
-       MkTask "fromListSM" testFromListSM 1000 ItIsSucc
+       MkTask "fromListSM" testFromListSM 100000 ItIsSucc
      profileAndReport $
-       MkTask "lookup" (testLookup im) 10000000 ItIsSucc
+       MkTask "lookup" (testLookup im) 100000 ItIsSucc
      profileAndReport $
-       MkTask "lookupSM" (testLookupSM sm) 10000000 ItIsSucc
+       MkTask "lookupSM" (testLookupSM sm) 100000 ItIsSucc
      profileAndReport $
-       MkTask "insert" (testInsert im) 10000000 ItIsSucc
+       MkTask "insert" (testInsert im) 100000 ItIsSucc
      profileAndReport $
-       MkTask "insertSM" (testInsertSM sm) 10000000 ItIsSucc
+       MkTask "insertSM" (testInsertSM sm) 100000 ItIsSucc

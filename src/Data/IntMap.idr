@@ -11,15 +11,15 @@ import Data.IntMap.Array
 
 private %inline
 bits : Bits32
-bits = 5
+bits = 3
 
 private %inline
 shr : Bits32 -> Bits32 -> Bits32
 shr = prim__shr_Bits32
 
 private %inline %tcinline
-shr5 : Bits32 -> Bits32
-shr5 n = assert_smaller n $ shr n bits
+shrb : Bits32 -> Bits32
+shrb n = assert_smaller n $ shr n bits
 
 private %inline
 index : Bits32 -> Ix
@@ -68,8 +68,8 @@ node2 k1 k2 s1 s2 v1 v2 =
          -- the two subtrees go into the same bucket
          then Node $ new Empty $
                 \marr1 =>
-                  let sn1 = shr5 s1
-                      sn2 = shr5 s2
+                  let sn1 = shrb s1
+                      sn2 = shrb s2
                       (_ # marr2) = mwrite i1 marr1 (node2 k1 k2 sn1 sn2 v1 v2)
                    in freeze marr2
          -- the two subtrees go into distinct buckets
@@ -86,7 +86,7 @@ node2 k1 k2 s1 s2 v1 v2 =
 insert' : (k,s,sh : Bits32) -> (v : a) -> IntMap a -> IntMap a
 insert' k _ _  v Empty     = Leaf k v
 insert' k s sh v (Node cs) =
-  Node $ mod s cs (insert' k (shr5 s) (sh + bits) v)
+  Node $ mod s cs (insert' k (shrb s) (sh + bits) v)
 insert' k s sh v (Leaf k2 v2)    =
   if k == k2 then Leaf k v else node2 k k2 s (shr k2 sh) v v2
 
@@ -101,7 +101,7 @@ insertW' :  (k,s,sh : Bits32)
          -> IntMap a
 insertW' k _ _  _ v Empty     = Leaf k v
 insertW' k s sh f v (Node cs) =
-  Node $ mod s cs (insertW' k (shr5 s) (sh + bits) f v)
+  Node $ mod s cs (insertW' k (shrb s) (sh + bits) f v)
 insertW' k s sh f v (Leaf k2 v2)    =
   if k == k2 then Leaf k (f v v2) else node2 k k2 s (shr k2 sh) v v2
 
@@ -146,7 +146,7 @@ toList (Node c)   = foldr (\m,l => toList (assert_smaller c m) ++ l) Nil c
 lookup' : (k,s : Bits32) -> (map : IntMap a) -> Maybe a
 lookup' _ _ Empty       = Nothing
 lookup' k _ (Leaf k2 v) = if k == k2 then Just v else Nothing
-lookup' k s (Node cs)   = lookup' k (shr5 s) (get s cs)
+lookup' k s (Node cs)   = lookup' k (shrb s) (get s cs)
 
 export %inline
 lookup : (key : Bits32) -> (map : IntMap a) -> Maybe a

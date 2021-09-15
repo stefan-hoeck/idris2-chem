@@ -1,7 +1,7 @@
 ||| Internal module for `Data.IntMap`
 |||
 ||| This provides a fixed width array (right
-||| now of size 32). Use `Ix` for safe indexing
+||| now of size 8). Use `Ix` for safe indexing
 ||| without bounds checking.
 |||
 ||| TODO: If this works out nicely, we should consider
@@ -25,7 +25,7 @@ import Text.RW
 ||| First five bits set
 public export %inline
 mask : Bits8
-mask = 0x1f
+mask = 7
 
 ||| Safe index into the arrays provided by this module.
 public export
@@ -41,7 +41,7 @@ mkIx : Bits8 -> Ix
 mkIx v = MkIx (prim__and_Bits8 v mask) (believe_me Oh)
 
 ||| Increment an `Ix` by 1 without checking the bounds.
-||| Callers must be certain that `Ix` is less than 31.
+||| Callers must be certain that `Ix` is less than 7.
 export %inline %tcinline
 unsafeInc : Ix -> Ix
 unsafeInc ix = assert_smaller ix $ MkIx (ix.value + 1) (believe_me Oh)
@@ -68,7 +68,7 @@ write_ (MkIx i _) arr va =
 
 private
 new_ : a -> ArrayData a
-new_ va = unsafePerformIO (fromPrim $ prim__newArray 32 va)
+new_ va = unsafePerformIO (fromPrim $ prim__newArray 8 va)
 
 --------------------------------------------------------------------------------
 --          Mutable Arrays
@@ -129,7 +129,7 @@ read ix (MkArr vs) = read_ ix vs
 ||| pass it to the provided linear function.
 export
 copy : (vs : Arr a) -> (f : (1 _ : MArr a) -> b) -> b
-copy as f = new (read 0 as) (go 31)
+copy as f = new (read 0 as) (go 7)
   where go : Ix -> (1 _ : MArr a) -> b
         go n ma1 =
           if n == 0 then f ma1
@@ -162,7 +162,7 @@ mod ix arr f =
 ||| using the given function.
 export
 mapping : (Ix -> a) -> Arr a
-mapping f = new (f 0) (go 31)
+mapping f = new (f 0) (go 7)
   where go : Ix -> (1 _ : MArr a) -> Arr a
         go n ma1 =
           if n == 0 then freeze ma1
@@ -185,7 +185,7 @@ unfoldr f ini =
         go n vb ma1 =
           let (vb2,va) = f vb
               (_ # ma2) = mwrite n ma1 va
-           in if n == 31 then freeze ma2
+           in if n == 7 then freeze ma2
               else go (unsafeInc n) vb2 ma2
 
 ||| Iteratively fills an array by repeatedly applying
@@ -196,7 +196,7 @@ iterate f = unfoldr (\s => (f s, s))
 
 ||| Converts a `Vect` of the correct size into an array.
 export
-fromVect : Vect 32 a -> Arr a
+fromVect : Vect 8 a -> Arr a
 fromVect (h :: t) =
   new h (go t 1)
   where go : Vect k a -> Ix -> (1 _ : MArr a) -> Arr a
@@ -205,18 +205,12 @@ fromVect (h :: t) =
           let (_ # arr2) = mwrite ix arr1 v
            in go vs (unsafeInc ix) arr2
 
-||| Converts an `Array` to a `Vect 32`.
+||| Converts an `Array` to a `Vect 8`.
 export
-toVect : Arr a -> Vect 32 a
+toVect : Arr a -> Vect 8 a
 toVect arr =
   [ read  0 arr, read  1 arr, read  2 arr, read 3  arr
   , read  4 arr, read  5 arr, read  6 arr, read 7  arr
-  , read  8 arr, read  9 arr, read 10 arr, read 11 arr
-  , read 12 arr, read 13 arr, read 14 arr, read 15 arr
-  , read 16 arr, read 17 arr, read 18 arr, read 19 arr
-  , read 20 arr, read 21 arr, read 22 arr, read 23 arr
-  , read 24 arr, read 25 arr, read 26 arr, read 27 arr
-  , read 28 arr, read 29 arr, read 30 arr, read 31 arr
   ]
 
 --------------------------------------------------------------------------------
@@ -228,7 +222,7 @@ arrEq a1 a2 = go 0
   where go : Ix -> Bool
         go n = 
           let res = read n a1 == read n a2
-           in if n == 31 then res
+           in if n == 7 then res
               else if res then go (unsafeInc n) else False
 
 arrComp : Ord a => Arr a -> Arr a -> Ordering
@@ -236,7 +230,7 @@ arrComp a1 a2 = go 0
   where go : Ix -> Ordering
         go n = 
           let res = read n a1 `compare` read n a2
-           in if n == 31 then res
+           in if n == 7 then res
               else case res of
                 EQ => go (unsafeInc n)
                 _  => res
@@ -291,10 +285,10 @@ foldlImpl f x arr = go 0 x
   where go : Ix -> a -> a
         go ix va =
           let va2 = f va (read ix arr)
-           in if ix == 31 then va2 else go (unsafeInc ix) va2
+           in if ix == 7 then va2 else go (unsafeInc ix) va2
 
 foldrImpl : (e -> a -> a) -> a -> Arr e -> a
-foldrImpl f x arr = go 31 x
+foldrImpl f x arr = go 7 x
   where go : Ix -> a -> a
         go ix va =
           let va2 = f (read ix arr) va
@@ -305,10 +299,10 @@ foldMapImpl f arr = go 1 (f $ read 0 arr)
   where go : Ix -> m -> m
         go ix v =
           let v2 = v <+> f (read ix arr)
-           in if ix == 31 then v2 else go (unsafeInc ix) v2
+           in if ix == 7 then v2 else go (unsafeInc ix) v2
 
 toListImpl : Arr a -> List a
-toListImpl arr = go 31 Nil
+toListImpl arr = go 7 Nil
   where go : Ix -> List a -> List a
         go ix as =
           let as2 = read ix arr :: as
@@ -319,7 +313,7 @@ foldlMImpl f x arr = go 0 x
   where go : Ix -> a -> m a
         go ix va = do
           va2 <- f va $ read ix arr
-          if ix == 31 then pure va2 else go (unsafeInc ix) va2
+          if ix == 7 then pure va2 else go (unsafeInc ix) va2
 
 export %inline
 Foldable Arr where
