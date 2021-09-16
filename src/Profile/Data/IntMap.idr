@@ -6,45 +6,41 @@ import Data.Nat
 import Profile.Profiler
 
 pairs : List (Bits32,Bits32)
-pairs = map dup [0 .. 60]
-
-nonEmpty : IntMap a -> Bool
-nonEmpty Empty = False
-nonEmpty _     = True
+pairs = map dup [0 .. 10000]
 
 nonEmptySM : SortedMap k v -> Bool
 nonEmptySM m = not $ null m
 
 testFromList : () -> Bool
 testFromList () =
-  Just 27 == lookup 27 (IM.fromList pairs)
+  Just 1000 == lookup 1000 (IM.fromList pairs)
 
 testFromListSM : () -> Bool
 testFromListSM () =
-  Just 27 == lookup 27 (SM.fromList pairs)
+  Just 1000 == lookup 1000 (SM.fromList pairs)
 
 testLookup : IntMap Bits32 -> () -> Bool
-testLookup m = \_ => Just 127 == lookup 127 m
+testLookup m = \_ => Just 1000 == lookup 1000 m
 
 testInsert : IntMap Bits32 -> () -> Bool
-testInsert m = \_ => nonEmpty (insert 200 200 m)
+testInsert m = \_ => nonEmpty (insert 2000 2000 m)
 
 testLookupSM : SortedMap Bits32 Bits32 -> () -> Bool
-testLookupSM m = \_ => Just 127 == lookup 127 m
+testLookupSM m = \_ => Just 1000 == lookup 1000 m
 
 testInsertSM : SortedMap Bits32 Bits32 -> () -> Bool
-testInsertSM m = \_ => nonEmptySM (insert 200 200 m)
+testInsertSM m = \_ => nonEmptySM (insert 2000 2000 m)
 
 export
 profile : IO ()
 profile = 
-  let im = IM.fromList (map dup [0 .. 1000])
-      sm = SM.fromList (map dup [0 .. 1000])
+  let im = IM.fromList (map dup [0 .. 1023])
+      sm = SM.fromList (map dup [0 .. 1023])
    in do
      profileAndReport $
        MkTask "fromList" testFromList 1000 ItIsSucc
      profileAndReport $
-       MkTask "fromListSM" testFromListSM 100000 ItIsSucc
+       MkTask "fromListSM" testFromListSM 1000 ItIsSucc
      profileAndReport $
        MkTask "lookup" (testLookup im) 100000 ItIsSucc
      profileAndReport $

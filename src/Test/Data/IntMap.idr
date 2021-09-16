@@ -29,7 +29,7 @@ insert_lookup = property $ do
 intmap_tolist : Property
 intmap_tolist = property $ do
   ps <- forAll pairs
-  SM.toList (fromList ps) === (sortBy (comparing fst) $ IM.toList (fromList ps))
+  SM.toList (fromList ps) === sortBy (comparing fst) (pairs (fromList ps))
 
 export
 props : Group
