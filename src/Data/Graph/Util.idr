@@ -22,6 +22,13 @@ delEdgeTo n m (n2,_) = update n2 (delNeighbour n) m
 delNeighbours : Node -> GraphRep e n -> List (Node,e) -> GraphRep e n
 delNeighbours = foldl . delEdgeTo
 
+addEdge : Node -> e -> Adj e n -> Adj e n
+addEdge k lbl (MkAdj l ns) = MkAdj l $ go Nil ns
+  where go : List (Node,e) -> List (Node,e) -> List (Node,e)
+        go xs []        = (k,lbl) :: xs
+        go xs (p@(k',_) :: ys) = if k' == k then (k,lbl) :: xs ++ ys
+                                 else go (p :: xs) ys
+
 toContext : (Node,Adj e n) -> Context e n
 toContext (k,MkAdj l es) = MkContext k l es
 
@@ -54,7 +61,7 @@ isEmpty = isEmpty . graph
 |||
 ||| All edges leading to `node` will be removed from the
 ||| resulting `Graph`.
-public export
+export
 match : (node : Node) -> Graph e n -> Decomp e n
 match node (MkGraph g) = case lookup node g of
   Nothing              => Empty
@@ -69,16 +76,16 @@ match node (MkGraph g) = case lookup node g of
 |||
 ||| TODO: Can we easily enforce that the edges only point
 |||       To the nodes in the list?
-public export
+export
 mkGraph : List (LNode n) -> List (LEdge e) -> Graph e n
 
 ||| A list of contexts of a graph
-public export
+export
 contexts : Graph e n -> List (Context e n)
 contexts = map toContext . pairs . graph
 
 ||| A list of all labeled nodes of a `Graph`
-public export
+export
 labNodes  : Graph e n -> List (LNode n)
 labNodes = map toLNode . pairs . graph
 
@@ -91,12 +98,12 @@ matchAny (MkGraph g) = case keysL g of
   []     => Empty
 
 ||| The number of `Node`s in a `Graph`.
-public export
+export
 order : Graph e n -> Nat
 order = length . labNodes
 
 ||| A list of all `LEdge`s in the `Graph` (in arbitrary order).
-public export
+export
 labEdges  : Graph e n -> List (LEdge e)
 labEdges = foldl (\es,c => ctxtEdges c ++ es) Nil . contexts
 
@@ -108,62 +115,71 @@ labEdges = foldl (\es,c => ctxtEdges c ++ es) Nil . contexts
 --   Behaviour is undefined if the specified 'Node' already exists
 --   in the graph.
 -- TODO
-public export
+export
 add : Context e n -> Graph e n -> Graph e n
 
 ||| The number of edges in the graph.
-public export
+export
 size : Graph e n -> Nat
 size = length . labEdges
 
 ||| Fold a function over the graph by recursively calling 'match'.
 ||| TODO
-public export
+export
 ufold : (Context e n -> c -> c) -> c -> Graph e n -> c
 
 ||| Map a function over the graph by recursively calling 'match'.
-public export
+export
 gmap : (Context e1 n1 -> Context e2 n2) -> Graph e1 n1 -> Graph e2 n2
 gmap f = ufold (\c => add (f c)) empty
 
 ||| Map a function over the 'Node' labels in a graph.
-public export
+export
 nmap : (n -> n2) -> Graph e n -> Graph e n2
 nmap f (MkGraph m) = MkGraph $ map f <$> m 
 
 ||| Map a function over the `Edge` labels in a graph.
-public export
+export
 emap : (e -> e2) -> Graph e n -> Graph e2 n
 emap f (MkGraph m) = MkGraph $ mapFst f <$> m 
 
 ||| Map functions over both the `Node` and `Edge`
 ||| labels in a graph.
-public export
+export
 nemap : (e1 -> e2) -> (n1 -> n2) -> Graph e1 n1 -> Graph e2 n2
 nemap f g (MkGraph m) = MkGraph $ bimap f g <$> m 
 
 ||| List all 'Node's in the 'Graph'.
-public export
+export
 nodes : Graph e n -> List Node
 nodes = map fst . pairs . graph 
 
 ||| List all 'Edge's in the 'Graph'.
-public export
+export
 edges : Graph e n -> List Edge
 edges = map edge . labEdges
 
 ||| `True` if the `Node` is present in the `Graph`.
-public export
+export
 gelem : Node -> Graph e n -> Bool
 gelem v = isKey v . graph
 
--- -- | Insert a 'LNode' into the 'Graph'.
--- insNode :: (DynGraph gr) => LNode a -> gr a b -> gr a b
--- insNode (v,l) = (([],v,l,[])&)
--- {-# NOINLINE [0] insNode #-}
--- 
--- -- | Insert a 'LEdge' into the 'Graph'.
--- insEdge :: (DynGraph gr) => LEdge b -> gr a b -> gr a b
+||| Insert a labeled node into the `Graph`.
+||| The behavior is undefined if the node is already
+||| in the graph.
+export
+insNode : Node -> (lbl : n) -> Graph e n -> Graph e n
+insNode v l = add (MkContext v l Nil)
+
+||| Insert a `LEdge` into the 'Graph'.
+||| If the edge points to a node not in the `Graph`, the
+||| `Graph` is returned unmodified.
+export
+insEdge : LEdge e -> Graph e n -> Graph e n
+insEdge (MkLEdge (MkEdge n1 n2 _) lbl) (MkGraph g) =
+  let g1 = update n1 (addEdge n2 lbl) g
+   in MkGraph $ update n2 (addEdge n1 lbl) g1
+
 -- insEdge (v,w,l) g = (pr,v,la,(l,w):su) & g'
 --   where
 --     (mcxt,g') = match v g
