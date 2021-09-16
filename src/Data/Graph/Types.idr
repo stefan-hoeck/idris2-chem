@@ -1,3 +1,8 @@
+||| A representation for sparse, simple, undirected
+||| labeled graphs.
+|||
+||| This module provides only the data tyes plus
+||| interface implementations.
 module Data.Graph.Types
 
 import Data.IntMap
@@ -11,14 +16,15 @@ import Generics.Derive
 --          Nodes and Edges
 --------------------------------------------------------------------------------
 
-||| A node in an undirected graph
+||| A node in an undirected graph.
 public export
 Node : Type
 Node = Bits32
 
 ||| An edge in a simple, undirected graph.
 ||| Since edges go in both directions and loops are not allowed,
-||| we can enforce without loss of generality that `n2 > n1 = True`.
+||| we can enforce without loss of generality
+||| that `n2 > n1 = True`.
 public export
 record Edge where
   constructor MkEdge
@@ -28,31 +34,23 @@ record Edge where
 
 public export
 Eq Edge where
-  MkEdge a1 a2 _ == MkEdge b1 b2 _ = a1 == b1 && a2 == b2
+  (==) = (==) `on` (\e => (e.node1, e.node2))
 
 public export
 Ord Edge where
-  compare (MkEdge a1 a2 _) (MkEdge b1 b2 _) =
-    case compare a1 b1 of
-      EQ => compare a2 b2
-      o  => o
+  compare = compare `on` (\e => (e.node1, e.node2))
+
 
 export
 Show Edge where
   showPrec p (MkEdge n1 n2 _) =
     showCon p "MkEdge" $ showArg n1 ++ showArg n2 ++ " Oh"
 
-||| Predicate that an `Edge` ends at the given `Node`.
-public export
-data EdgeTo : (n : Node) -> (e : Edge) -> Type where
-  At1 : {0 prf : _} -> EdgeTo n1 (MkEdge n1 n2 prf)
-  At2 : {0 prf : _} -> EdgeTo n2 (MkEdge n1 n2 prf)
-
 --------------------------------------------------------------------------------
 --          Labeled Nodes and Edges
 --------------------------------------------------------------------------------
 
-||| A labeled node in an undirected graph
+||| A labeled node in a graph.
 public export
 record LNode n where
   constructor MkLNode
@@ -108,11 +106,29 @@ Traversable LEdge where
 --          Context
 --------------------------------------------------------------------------------
 
+||| Adjacency info of a `Node` in a labeled graph.
+|||
+||| This consists of the node's label plus
+||| a list of all its neighboring nodes and
+||| the labels of the edges connecting them.
+|||
+||| This is what is stored in underlying `IntMap`
+||| representing the graph.
+|||
+||| TODO: Right now, we are assuming our graphs to
+|||       be sparse: In chemistry, most atoms have
+|||       less that four neighbours and almost all
+|||       of them have less than five neighbours.
+|||       Hence we use a simple `List` for the set of
+|||       neighbours. We'll have to profile this choice,
+|||       but I (hock) am pretty sure that in terms of
+|||       speed and memory consumption, `List` is
+|||       more efficient than `IntMap` here.
 public export
 record Adj e n where
   constructor MkAdj
-  label : n
-  edges : List (LEdge e)
+  label     : n
+  neighbors : List (Node, e)
 
 public export
 Functor (Adj e) where
@@ -140,22 +156,27 @@ Bifunctor Adj where
 public export
 Bifoldable Adj where
   bifoldr f g acc (MkAdj l es) =
-    foldr (\e => f e.label) (g l acc) es
+    foldr (\(_,e) => f e) (g l acc) es
   bifoldl f g acc (MkAdj l es) =
-    g (foldl (\a,e => f a e.label) acc es) l
+    g (foldl (\a,(_,e) => f a e) acc es) l
   binull _ = False
 
 public export
 Bitraversable Adj where
   bitraverse f g (MkAdj l es) =
-    [| MkAdj (g l) (traverse (traverse f) es) |]
+    [| MkAdj (g l) (traverse (\(n,e) => (n,) <$> f e) es) |]
 
+
+||| The Context of a `Node` in a labeled graph
+||| including the `Node` itself, its label, plus
+||| its direct neighbors together with the
+||| labels of the edges leading to them.
 public export
 record Context e n where
   constructor MkContext
-  node  : Node
-  label : n
-  edges : List (LEdge e)
+  node      : Node
+  label     : n
+  neighbors : List (Node, e)
 
 public export
 Functor (Context e) where
@@ -184,15 +205,15 @@ Bifunctor Context where
 public export
 Bifoldable Context where
   bifoldr f g acc (MkContext _ l es) =
-    foldr (\e => f e.label) (g l acc) es
+    foldr (\(_,e) => f e) (g l acc) es
   bifoldl f g acc (MkContext _ l es) =
-    g (foldl (\a,e => f a e.label) acc es) l
+    g (foldl (\a,(_,e) => f a e) acc es) l
   binull _ = False
 
 public export
 Bitraversable Context where
   bitraverse f g (MkContext n l es) =
-    [| MkContext (pure n) (g l) (traverse (traverse f) es) |]
+    [| MkContext (pure n) (g l) (traverse (\(n,e) => (n,) <$> f e) es) |]
 
 public export %inline
 toContext : (Node,Adj e n) -> Context e n
@@ -210,6 +231,41 @@ public export
 record Graph e n where
   constructor MkGraph
   graph : IntMap (Adj e n)
+
+public export
+Functor (Graph e) where
+  map f = record { graph $= map (map f) }
+
+public export
+Foldable (Graph e) where
+  foldl f a  = foldl (\a',adj => f a' adj.label) a . graph
+  foldr f a  = foldr (f . label) a . graph
+  foldMap  f = foldMap (f . label) . graph
+  toList     = map label . toList . graph
+  null g     = isEmpty $ graph g
+
+public export %inline
+Traversable (Graph e) where
+  traverse f (MkGraph g) = MkGraph <$> traverse (traverse f) g
+
+public export
+Bifunctor Graph where
+  bimap  f g (MkGraph m) = MkGraph $ bimap f g <$> m
+  mapFst f (MkGraph m)   = MkGraph $ mapFst f <$> m
+  mapSnd g (MkGraph m)   = MkGraph $ mapSnd g <$> m
+
+public export
+Bifoldable Graph where
+  bifoldr f g acc =
+    foldr (flip $ bifoldr f g) acc . graph
+  bifoldl f g acc =
+    foldl (bifoldl f g) acc . graph
+  binull = null
+
+public export
+Bitraversable Graph where
+  bitraverse f g (MkGraph m) =
+    [| MkGraph (traverse (bitraverse f g) m) |]
 
 --------------------------------------------------------------------------------
 --          Decomposition

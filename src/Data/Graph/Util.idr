@@ -18,8 +18,9 @@ isEmpty = isEmpty . graph
 
 ||| Decompose a `Graph` into the `Context` found
 ||| for the given node and the remaining `Graph`.
+||| TODO
 public export
-match : Node -> Graph e n -> Decomp e n
+match : Node -> Graph e n -> Maybe (Decomp e n)
 
 ||| Create a `Graph` from the list of labeled nodes and
 ||| edges.
@@ -62,6 +63,7 @@ labEdges  : Graph e n -> List (LEdge e)
 --
 --   Behaviour is undefined if the specified 'Node' already exists
 --   in the graph.
+-- TODO
 public export
 add : Context e n -> Graph e n -> Graph e n
 
@@ -71,6 +73,7 @@ size : Graph e n -> Nat
 size = length . labEdges
 
 ||| Fold a function over the graph by recursively calling 'match'.
+||| TODO
 public export
 ufold : (Context e n -> c -> c) -> c -> Graph e n -> c
 
@@ -95,26 +98,21 @@ public export
 nemap : (e1 -> e2) -> (n1 -> n2) -> Graph e1 n1 -> Graph e2 n2
 nemap f g (MkGraph m) = MkGraph $ bimap f g <$> m 
 
--- -- | List all 'Node's in the 'Graph'.
--- nodes :: (Graph gr) => gr a b -> [Node]
--- nodes = map fst . labNodes
--- 
--- -- | List all 'Edge's in the 'Graph'.
--- edges :: (Graph gr) => gr a b -> [Edge]
--- edges = map toEdge . labEdges
--- 
--- -- | List N available 'Node's, i.e. 'Node's that are not used in the 'Graph'.
--- newNodes :: (Graph gr) => Int -> gr a b -> [Node]
--- newNodes i g
---   | isEmpty g = [0..i-1]
---   | otherwise = [n+1..n+i]
---   where
---     (_,n) = nodeRange g
--- 
--- -- | 'True' if the 'Node' is present in the 'Graph'.
--- gelem :: (Graph gr) => Node -> gr a b -> Bool
--- gelem v = isJust . fst . match v
--- 
+||| List all 'Node's in the 'Graph'.
+public export
+nodes : Graph e n -> List Node
+nodes = map fst . pairs . graph 
+
+||| List all 'Edge's in the 'Graph'.
+public export
+edges : Graph e n -> List Edge
+edges = map edge . labEdges
+
+||| `True` if the `Node` is present in the `Graph`.
+public export
+gelem : Node -> Graph e n -> Bool
+gelem v = isKey v . graph
+
 -- -- | Insert a 'LNode' into the 'Graph'.
 -- insNode :: (DynGraph gr) => LNode a -> gr a b -> gr a b
 -- insNode (v,l) = (([],v,l,[])&)
@@ -435,20 +433,232 @@ nemap f g (MkGraph m) = MkGraph $ bimap f g <$> m
 -- prettyPrint :: (DynGraph gr, Show a, Show b) => gr a b -> IO ()
 -- prettyPrint = putStr . prettify
 -- 
+-- instance Graph Gr where
+--     empty           = Gr IM.empty
+-- 
+--     isEmpty (Gr g)  = IM.null g
+-- 
+--     match           = matchGr
+-- 
+--     mkGraph vs es   = insEdges es
+--                       . Gr
+--                       . IM.fromList
+--                       . map (second (\l -> (IM.empty,l,IM.empty)))
+--                       $ vs
+-- 
+--     labNodes (Gr g) = [ (node, label)
+--                             | (node, (_, label, _)) <- IM.toList g ]
+-- 
+--     noNodes   (Gr g) = IM.size g
+-- 
+--     nodeRange (Gr g) = fromMaybe (error "nodeRange of empty graph")
+--                        $ liftA2 (,) (ix (IM.minViewWithKey g))
+--                                     (ix (IM.maxViewWithKey g))
+--       where
+--         ix = fmap (fst . fst)
+-- 
+--     labEdges (Gr g) = do (node, (_, _, s)) <- IM.toList g
+--                          (next, labels)    <- IM.toList s
+--                          label             <- labels
+--                          return (node, next, label)
+-- 
+-- instance DynGraph Gr where
+--     (p, v, l, s) & (Gr g)
+--         = let !g1 = IM.insert v (preds, l, succs) g
+--               !(np, preds) = fromAdjCounting p
+--               !(ns, succs) = fromAdjCounting s
+--               !g2 = addSucc g1 v np preds
+--               !g3 = addPred g2 v ns succs
+--           in Gr g3
+-- 
+-- #if MIN_VERSION_containers (0,4,2)
+-- instance (NFData a, NFData b) => NFData (Gr a b) where
+--   rnf (Gr g) = rnf g
+-- #endif
+-- 
+-- #if MIN_VERSION_base (4,8,0)
+-- instance Bifunctor Gr where
+--   bimap = fastNEMap
+-- 
+--   first = fastNMap
+-- 
+--   second = fastEMap
+-- #endif
+-- 
+-- matchGr :: Node -> Gr a b -> Decomp Gr a b
+-- matchGr node (Gr g)
+--     = case IM.lookup node g of
+--         Nothing
+--             -> (Nothing, Gr g)
+-- 
+--         Just (p, label, s)
+--             -> let !g1 = IM.delete node g
+--                    !p' = IM.delete node p
+--                    !s' = IM.delete node s
+--                    !g2 = clearPred g1 node s'
+--                    !g3 = clearSucc g2 node p'
+--                in (Just (toAdj p', node, label, toAdj s), Gr g3)
+-- 
 -- ----------------------------------------------------------------------
--- -- Ordered Graph
+-- -- OVERRIDING FUNCTIONS
 -- ----------------------------------------------------------------------
 -- 
--- -- | OrdGr comes equipped with an Ord instance, so that graphs can be
--- --   used as e.g. Map keys.
--- newtype OrdGr gr a b = OrdGr { unOrdGr :: gr a b }
---   deriving (Read,Show)
+-- {-# RULES
+--       "insNode/Data.Graph.Inductive.PatriciaTree"  insNode = fastInsNode
+--   #-}
+-- fastInsNode :: LNode a -> Gr a b -> Gr a b
+-- fastInsNode (v, l) (Gr g) = g' `seq` Gr g'
+--   where
+--     g' = IM.insert v (IM.empty, l, IM.empty) g
 -- 
--- instance (Graph gr, Ord a, Ord b) => Eq (OrdGr gr a b) where
---   g1 == g2 = compare g1 g2 == EQ
+-- {-# RULES
+--       "insEdge/Data.Graph.Inductive.PatriciaTree"  insEdge = fastInsEdge
+--   #-}
+-- fastInsEdge :: LEdge b -> Gr a b -> Gr a b
+-- fastInsEdge (v, w, l) (Gr g) = g2 `seq` Gr g2
+--   where
+--     g1 = IM.adjust addS' v g
+--     g2 = IM.adjust addP' w g1
 -- 
--- instance (Graph gr, Ord a, Ord b) => Ord (OrdGr gr a b) where
---   compare (OrdGr g1) (OrdGr g2) =
---     (compare `on` sort . labNodes) g1 g2
---     `mappend` (compare `on` sort . labEdges) g1 g2
--- -- (&) : Context e n -> Graph e n -> Graph e n
+--     addS' (ps, l', ss) = (ps, l', IM.insertWith addLists w [l] ss)
+--     addP' (ps, l', ss) = (IM.insertWith addLists v [l] ps, l', ss)
+-- 
+-- {-# RULES
+--       "gmap/Data.Graph.Inductive.PatriciaTree"  gmap = fastGMap
+--   #-}
+-- fastGMap :: forall a b c d. (Context a b -> Context c d) -> Gr a b -> Gr c d
+-- fastGMap f (Gr g) = Gr (IM.mapWithKey f' g)
+--   where
+--     f' :: Node -> Context' a b -> Context' c d
+--     f' = ((fromContext . f) .) . toContext
+-- 
+-- {-# RULES
+--       "nmap/Data.Graph.Inductive.PatriciaTree"  nmap = fastNMap
+--   #-}
+-- fastNMap :: forall a b c. (a -> c) -> Gr a b -> Gr c b
+-- fastNMap f (Gr g) = Gr (IM.map f' g)
+--   where
+--     f' :: Context' a b -> Context' c b
+--     f' (ps, a, ss) = (ps, f a, ss)
+-- 
+-- {-# RULES
+--       "emap/Data.Graph.Inductive.PatriciaTree"  emap = fastEMap
+--   #-}
+-- fastEMap :: forall a b c. (b -> c) -> Gr a b -> Gr a c
+-- fastEMap f (Gr g) = Gr (IM.map f' g)
+--   where
+--     f' :: Context' a b -> Context' a c
+--     f' (ps, a, ss) = (IM.map (map f) ps, a, IM.map (map f) ss)
+-- 
+-- {-# RULES
+--       "nemap/Data.Graph.Inductive.PatriciaTree"  nemap = fastNEMap
+--   #-}
+-- fastNEMap :: forall a b c d. (a -> c) -> (b -> d) -> Gr a b -> Gr c d
+-- fastNEMap fn fe (Gr g) = Gr (IM.map f g)
+--   where
+--     f :: Context' a b -> Context' c d
+--     f (ps, a, ss) = (IM.map (map fe) ps, fn a, IM.map (map fe) ss)
+-- 
+-- ----------------------------------------------------------------------
+-- -- UTILITIES
+-- ----------------------------------------------------------------------
+-- 
+-- toAdj :: IntMap [b] -> Adj b
+-- toAdj = concatMap expand . IM.toList
+--   where
+--     expand (n,ls) = map (flip (,) n) ls
+-- 
+-- fromAdj :: Adj b -> IntMap [b]
+-- fromAdj = IM.fromListWith addLists . map (second (:[]) . swap)
+-- 
+-- data FromListCounting a = FromListCounting !Int !(IntMap a)
+--   deriving (Eq, Show, Read)
+-- 
+-- getFromListCounting :: FromListCounting a -> (Int, IntMap a)
+-- getFromListCounting (FromListCounting i m) = (i, m)
+-- {-# INLINE getFromListCounting #-}
+-- 
+-- fromListWithKeyCounting :: (Int -> a -> a -> a) -> [(Int, a)] -> (Int, IntMap a)
+-- fromListWithKeyCounting f = getFromListCounting . foldl' ins (FromListCounting 0 IM.empty)
+--   where
+--     ins (FromListCounting i t) (k,x) = FromListCounting (i + 1) (IM.insertWithKey f k x t)
+-- {-# INLINE fromListWithKeyCounting #-}
+-- 
+-- fromListWithCounting :: (a -> a -> a) -> [(Int, a)] -> (Int, IntMap a)
+-- fromListWithCounting f = fromListWithKeyCounting (\_ x y -> f x y)
+-- {-# INLINE fromListWithCounting #-}
+-- 
+-- fromAdjCounting :: Adj b -> (Int, IntMap [b])
+-- fromAdjCounting = fromListWithCounting addLists . map (second (:[]) . swap)
+-- 
+-- -- We use differenceWith to modify a graph more than bulkThreshold times,
+-- -- and repeated insertWith otherwise.
+-- bulkThreshold :: Int
+-- bulkThreshold = 5
+-- 
+-- toContext :: Node -> Context' a b -> Context a b
+-- toContext v (ps, a, ss) = (toAdj ps, v, a, toAdj ss)
+-- 
+-- fromContext :: Context a b -> Context' a b
+-- fromContext (ps, _, a, ss) = (fromAdj ps, a, fromAdj ss)
+-- 
+-- -- A version of @++@ where order isn't important, so @xs ++ [x]@
+-- -- becomes @x:xs@.  Used when we have to have a function of type @[a]
+-- -- -> [a] -> [a]@ but one of the lists is just going to be a single
+-- -- element (and it isn't possible to tell which).
+-- addLists :: [a] -> [a] -> [a]
+-- addLists [a] as  = a : as
+-- addLists as  [a] = a : as
+-- addLists xs  ys  = xs ++ ys
+-- 
+-- addSucc :: forall a b . GraphRep a b -> Node -> Int -> IM.IntMap [b] -> GraphRep a b
+-- addSucc g0 v numAdd xs
+--   | numAdd < bulkThreshold = foldlWithKey' go g0 xs
+--   where
+--     go :: GraphRep a b -> Node -> [b] -> GraphRep a b
+--     go g p l = IMS.adjust f p g
+--       where f (ps, l', ss) = let !ss' = IM.insertWith addLists v l ss
+--                              in (ps, l', ss')
+-- addSucc g v _ xs = IMS.differenceWith go g xs
+--   where
+--     go :: Context' a b -> [b] -> Maybe (Context' a b)
+--     go (ps, l', ss) l = let !ss' = IM.insertWith addLists v l ss
+--                         in Just (ps, l', ss')
+-- 
+-- foldlWithKey' :: (a -> IM.Key -> b -> a) -> a -> IntMap b -> a
+-- foldlWithKey' =
+-- #if MIN_VERSION_containers (0,4,2)
+--   IM.foldlWithKey'
+-- #else
+--   IM.foldWithKey . adjustFunc
+--   where
+--     adjustFunc f k b a = f a k b
+-- #endif
+-- 
+-- addPred :: forall a b . GraphRep a b -> Node -> Int -> IM.IntMap [b] -> GraphRep a b
+-- addPred g0 v numAdd xs
+--   | numAdd < bulkThreshold = foldlWithKey' go g0 xs
+--   where
+--     go :: GraphRep a b -> Node -> [b] -> GraphRep a b
+--     go g p l = IMS.adjust f p g
+--       where f (ps, l', ss) = let !ps' = IM.insertWith addLists v l ps
+--                              in (ps', l', ss)
+-- addPred g v _ xs = IMS.differenceWith go g xs
+--   where
+--     go :: Context' a b -> [b] -> Maybe (Context' a b)
+--     go (ps, l', ss) l = let !ps' = IM.insertWith addLists v l ps
+--                         in Just (ps', l', ss)
+-- 
+-- clearSucc :: forall a b x . GraphRep a b -> Node -> IM.IntMap x -> GraphRep a b
+-- clearSucc g v = IMS.differenceWith go g
+--   where
+--     go :: Context' a b -> x -> Maybe (Context' a b)
+--     go (ps, l, ss) _ = let !ss' = IM.delete v ss
+--                        in Just (ps, l, ss')
+-- 
+-- clearPred :: forall a b x . GraphRep a b -> Node -> IM.IntMap x -> GraphRep a b
+-- clearPred g v = IMS.differenceWith go g
+--   where
+--     go :: Context' a b -> x -> Maybe (Context' a b)
+--     go (ps, l, ss) _ = let !ps' = IM.delete v ps
+--                        in Just (ps', l, ss)

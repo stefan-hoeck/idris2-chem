@@ -1,6 +1,7 @@
 module Data.IntMap
 
 import Data.DPair
+import Data.Maybe
 
 %default total
 
@@ -120,9 +121,21 @@ export %inline
 lookup : (key : Bits32) -> (map : IntMap a) -> Maybe a
 lookup key = lookup' key key
 
+export %inline
+isKey : (key : Bits32) -> IntMap a -> Bool
+isKey k = isJust . lookup k
+
 --------------------------------------------------------------------------------
 --          Insert
 --------------------------------------------------------------------------------
+
+-- In case we delete something from our map, we want to make sure
+-- that no nodes with only empty children linger around.
+-- We therefore use this as a constructor for `Node` during
+-- updates.
+node : IntMap a -> IntMap a -> IntMap a -> IntMap a -> IntMap a
+node Empty Empty Empty Empty = Empty
+node c0 c1 c2 c3 = Node c0 c1 c2 c3
 
 -- create a node containing two key-value pairs.
 -- we have already verified that k1 /= k2.
@@ -142,52 +155,70 @@ node2 k1 k2 s1 s2 v1 v2 =
 -- k  : key
 -- s  : remaining bit string
 -- sh : number of bits shifted so far
-insert' : (k,s,sh : Bits32) -> (v : a) -> IntMap a -> IntMap a
-insert' k _ _  v Empty = singleton k v
+--
+-- Profiling showed that this performs well enough to make it
+-- our Jack of all trades function for inserting, updating,
+-- and deleting.
+update' :  (k,s,sh : Bits32)
+        -> (f : Maybe a -> Maybe a)
+        -> IntMap a
+        -> IntMap a
+update' k _ _  f Empty = maybe Empty (Leaf k) $ f Nothing
 
-insert' k s sh v (Leaf k2 v2) =
-  if k == k2 then singleton k v
-  else node2 k k2 s (k2 >> sh) v v2
+update' k s sh f (Leaf k2 v2) =
+  if k == k2 then maybe Empty (Leaf k) $ f (Just v2)
+  else maybe (Leaf k2 v2) (\v => node2 k k2 s (k2 >> sh) v v2) $ f Nothing
 
-insert' k s sh v (Node c0 c1 c2 c3) =
-  case s .&. mask of
-    0 => Node (insert' k (s >> bits) (sh + bits) v c0) c1 c2 c3
-    1 => Node c0 (insert' k (s >> bits) (sh + bits) v c1) c2 c3
-    2 => Node c0 c1 (insert' k (s >> bits) (sh + bits) v c2) c3
-    _ => Node c0 c1 c2 (insert' k (s >> bits) (sh + bits) v c3)
+update' k s sh f (Node c0 c1 c2 c3) =
+  let s2  = s >> bits
+      sh2 = sh + bits
+   in case s .&. mask of
+        0 => node (update' k s2 sh2 f c0) c1 c2 c3
+        1 => node c0 (update' k s2 sh2 f c1) c2 c3
+        2 => node c0 c1 (update' k s2 sh2 f c2) c3
+        _ => node c0 c1 c2 (update' k s2 sh2 f c3)
 
--- k  : key
--- s  : remaining bit string
--- sh : number of bits shifted so far
-insertWith' :  (k,s,sh : Bits32)
-            -> (f : a -> a -> a)
-            -> (v : a)
-            -> IntMap a
-            -> IntMap a
-insertWith' k _ _  _ v Empty = Leaf k v
+||| General function for updating a value at the
+||| given position. `insert`, `insertWith`, `delete`, and `update`
+||| are all implemented via this function.
+export %inline
+gupdate : (k : Bits32) -> (f : Maybe a -> Maybe a) -> IntMap a -> IntMap a
+gupdate k = update' k k 0
 
-insertWith' k s sh f v (Leaf k2 v2) =
-  if k == k2 then Leaf k $ f v v2
-  else node2 k k2 s (k2 >> sh) v v2
-
-insertWith' k s sh f v (Node c0 c1 c2 c3) =
-  case s .&. mask of
-    0 => Node (insertWith' k (s >> bits) (sh + bits) f v c0) c1 c2 c3
-    1 => Node c0 (insertWith' k (s >> bits) (sh + bits) f v c1) c2 c3
-    2 => Node c0 c1 (insertWith' k (s >> bits) (sh + bits) f v c2) c3
-    _ => Node c0 c1 c2 (insertWith' k (s >> bits) (sh + bits) f v c3)
+||| Update the value at the given position by passing it to `f`.
+||| Leaves the map unchanged if no value at the given key is found.
+export %inline
+update : (k : Bits32) -> (f : a -> a) -> IntMap a -> IntMap a
+update k = gupdate k . map
 
 export %inline
-insert : (k : Bits32) -> (v : a) -> IntMap a -> IntMap a
-insert k = insert' k k 0
+insertOrUpdate :  (k : Bits32)
+               -> (v : Lazy a)
+               -> (f : Lazy (a -> a))
+               -> IntMap a
+               -> IntMap a
+insertOrUpdate k v f = gupdate k (Just . maybe v f)
 
+||| Insert `v` at the given position. An value already existing
+||| at that position is siletly replaces by `v`.
+export %inline
+insert : (k : Bits32) -> (v : a) -> IntMap a -> IntMap a
+insert k v = gupdate k (const $ Just v) 
+
+||| Insert `v` at the given position. An value `v2` already existing
+||| at that position replaced by `f v v2`.
 export %inline
 insertWith :  (f : a -> a -> a)
            -> (k : Bits32)
            -> (v : a)
            -> IntMap a
            -> IntMap a
-insertWith f k = insertWith' k k 0 f
+insertWith f k v = gupdate k (Just . maybe v (f v))
+
+||| Delete the entry at the given position.
+export %inline
+delete : (k : Bits32) -> IntMap a -> IntMap a
+delete k = gupdate k (const Nothing)
 
 export
 pairs : IntMap a -> List (Bits32, a)

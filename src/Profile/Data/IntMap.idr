@@ -25,11 +25,17 @@ testLookup m = \_ => Just 1000 == lookup 1000 m
 testInsert : IntMap Bits32 -> () -> Bool
 testInsert m = \_ => nonEmpty (insert 2000 2000 m)
 
+testDelete : IntMap Bits32 -> () -> Bool
+testDelete m = \_ => nonEmpty (delete 1000 m)
+
 testLookupSM : SortedMap Bits32 Bits32 -> () -> Bool
 testLookupSM m = \_ => Just 1000 == lookup 1000 m
 
 testInsertSM : SortedMap Bits32 Bits32 -> () -> Bool
 testInsertSM m = \_ => nonEmptySM (insert 2000 2000 m)
+
+testDeleteSM : SortedMap Bits32 Bits32 -> () -> Bool
+testDeleteSM m = \_ => nonEmptySM (delete 1000 m)
 
 export
 profile : IO ()
@@ -49,3 +55,7 @@ profile =
        MkTask "insert" (testInsert im) 100000 ItIsSucc
      profileAndReport $
        MkTask "insertSM" (testInsertSM sm) 100000 ItIsSucc
+     profileAndReport $
+       MkTask "delete" (testDelete im) 100000 ItIsSucc
+     profileAndReport $
+       MkTask "deleteSM" (testDeleteSM sm) 100000 ItIsSucc
