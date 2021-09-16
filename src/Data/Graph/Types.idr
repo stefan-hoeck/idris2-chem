@@ -127,8 +127,8 @@ Traversable LEdge where
 public export
 record Adj e n where
   constructor MkAdj
-  label     : n
-  neighbors : List (Node, e)
+  label      : n
+  neighbours : List (Node, e)
 
 public export
 Functor (Adj e) where
@@ -174,9 +174,9 @@ Bitraversable Adj where
 public export
 record Context e n where
   constructor MkContext
-  node      : Node
-  label     : n
-  neighbors : List (Node, e)
+  node       : Node
+  label      : n
+  neighbours : List (Node, e)
 
 public export
 Functor (Context e) where
@@ -215,22 +215,19 @@ Bitraversable Context where
   bitraverse f g (MkContext n l es) =
     [| MkContext (pure n) (g l) (traverse (\(n,e) => (n,) <$> f e) es) |]
 
-public export %inline
-toContext : (Node,Adj e n) -> Context e n
-toContext (k,MkAdj l es) = MkContext k l es
-
-public export %inline
-toLNode : (Node,Adj e n) -> LNode n
-toLNode (k,MkAdj l _) = MkLNode k l
-
 --------------------------------------------------------------------------------
 --          Graph
 --------------------------------------------------------------------------------
 
+||| Internal representation of labeled graphs.
+public export
+GraphRep : (e : Type) -> (n : Type) -> Type
+GraphRep e n = IntMap (Adj e n)
+
 public export
 record Graph e n where
   constructor MkGraph
-  graph : IntMap (Adj e n)
+  graph : GraphRep e n
 
 public export
 Functor (Graph e) where
@@ -272,7 +269,6 @@ Bitraversable Graph where
 --------------------------------------------------------------------------------
 
 public export
-record Decomp e n where
-  constructor MkDecomp
-  context : Context e n
-  graph   : Graph e n
+data Decomp : (e : Type) -> (n : Type) -> Type where
+  Split : (ctxt : Context e n) -> (gr : Graph e n) -> Decomp e n
+  Empty : Decomp e n

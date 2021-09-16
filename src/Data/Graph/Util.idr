@@ -2,25 +2,67 @@
 module Data.Graph.Util
 
 import Data.IntMap
+import Data.List
+import Data.List.Lazy
+import Data.So
 import Data.Graph.Types
 
 %default total
 
+--------------------------------------------------------------------------------
+--          Internal utilities
+--------------------------------------------------------------------------------
+
+delNeighbour : Node -> Adj e n -> Adj e n
+delNeighbour n = record { neighbours $= filter ((n /=) . fst) }
+
+delEdgeTo : Node -> GraphRep e n -> (Node,e) -> GraphRep e n
+delEdgeTo n m (n2,_) = update n2 (delNeighbour n) m
+
+delNeighbours : Node -> GraphRep e n -> List (Node,e) -> GraphRep e n
+delNeighbours = foldl . delEdgeTo
+
+toContext : (Node,Adj e n) -> Context e n
+toContext (k,MkAdj l es) = MkContext k l es
+
+toLNode : (Node,Adj e n) -> LNode n
+toLNode (k,MkAdj l _) = MkLNode k l
+
+-- we return only edges to nodes greater than the node in the
+-- context to avoid returning every edge twice in `labEdges`.
+ctxtEdges : Context e n -> List (LEdge e)
+ctxtEdges (MkContext k _ ns) = go Nil ns
+  where go : List (LEdge e) -> List (Node,e) -> List (LEdge e)
+        go es Nil            = es
+        go es ((j,lbl) :: t) = case choose (j > k) of
+          Left oh => go (MkLEdge (MkEdge k j oh) lbl :: es) t
+          _       => go es t
+
+
 ||| An empty `Graph`
-public export
+export
 empty : Graph e n
 empty = MkGraph empty
 
 ||| True, if the given graph is empty
-public export
+export
 isEmpty : Graph e n -> Bool
 isEmpty = isEmpty . graph
 
 ||| Decompose a `Graph` into the `Context` found
 ||| for the given node and the remaining `Graph`.
-||| TODO
+|||
+||| All edges leading to `node` will be removed from the
+||| resulting `Graph`.
 public export
-match : Node -> Graph e n -> Maybe (Decomp e n)
+match : (node : Node) -> Graph e n -> Decomp e n
+match node (MkGraph g) = case lookup node g of
+  Nothing              => Empty
+  Just (MkAdj lbl ns)  =>
+    let g1   = MkGraph $ delNeighbours node (delete node g) ns
+        ctxt = MkContext node lbl ns
+     in Split ctxt g1
+
 
 ||| Create a `Graph` from the list of labeled nodes and
 ||| edges.
@@ -40,21 +82,23 @@ public export
 labNodes  : Graph e n -> List (LNode n)
 labNodes = map toLNode . pairs . graph
 
---  -- | Decompose a graph into the 'Context' for an arbitrarily-chosen 'Node'
---  -- and the remaining 'Graph'.
--- TODO: We should have a proof of non-emptiness on `IntMap`
---       and hence on `Graph` and use that to totally decompose
---       a graph without the need of intermediary `Maybe`s
---  matchAny  :: gr a b -> GDecomp gr a b
+||| Decompose a graph into the 'Context' for an arbitrarily-chosen 'Node'
+||| and the remaining 'Graph'.
+export
+matchAny : Graph e n -> Decomp e n
+matchAny (MkGraph g) = case keysL g of
+  k :: _ => match k (MkGraph g)
+  []     => Empty
 
 ||| The number of `Node`s in a `Graph`.
 public export
 order : Graph e n -> Nat
 order = length . labNodes
 
-||| A list of all `LEdge`s in the `Graph`.
+||| A list of all `LEdge`s in the `Graph` (in arbitrary order).
 public export
 labEdges  : Graph e n -> List (LEdge e)
+labEdges = foldl (\es,c => ctxtEdges c ++ es) Nil . contexts
 
 -- | Merge the 'Context' into the 'DynGraph'.
 --
@@ -485,20 +529,6 @@ gelem v = isKey v . graph
 --   second = fastEMap
 -- #endif
 -- 
--- matchGr :: Node -> Gr a b -> Decomp Gr a b
--- matchGr node (Gr g)
---     = case IM.lookup node g of
---         Nothing
---             -> (Nothing, Gr g)
--- 
---         Just (p, label, s)
---             -> let !g1 = IM.delete node g
---                    !p' = IM.delete node p
---                    !s' = IM.delete node s
---                    !g2 = clearPred g1 node s'
---                    !g3 = clearSucc g2 node p'
---                in (Just (toAdj p', node, label, toAdj s), Gr g3)
--- 
 -- ----------------------------------------------------------------------
 -- -- OVERRIDING FUNCTIONS
 -- ----------------------------------------------------------------------
@@ -648,17 +678,3 @@ gelem v = isKey v . graph
 --     go :: Context' a b -> [b] -> Maybe (Context' a b)
 --     go (ps, l', ss) l = let !ps' = IM.insertWith addLists v l ps
 --                         in Just (ps', l', ss)
--- 
--- clearSucc :: forall a b x . GraphRep a b -> Node -> IM.IntMap x -> GraphRep a b
--- clearSucc g v = IMS.differenceWith go g
---   where
---     go :: Context' a b -> x -> Maybe (Context' a b)
---     go (ps, l, ss) _ = let !ss' = IM.delete v ss
---                        in Just (ps, l, ss')
--- 
--- clearPred :: forall a b x . GraphRep a b -> Node -> IM.IntMap x -> GraphRep a b
--- clearPred g v = IMS.differenceWith go g
---   where
---     go :: Context' a b -> x -> Maybe (Context' a b)
---     go (ps, l, ss) _ = let !ps' = IM.delete v ps
---                        in Just (ps', l, ss)

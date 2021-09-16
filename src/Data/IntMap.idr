@@ -1,6 +1,7 @@
 module Data.IntMap
 
 import Data.DPair
+import Data.List.Lazy
 import Data.Maybe
 
 %default total
@@ -225,6 +226,20 @@ pairs : IntMap a -> List (Bits32, a)
 pairs Empty              = []
 pairs (Leaf k v)         = [(k,v)]
 pairs (Node c0 c1 c2 c3) = pairs c0 ++ pairs c1 ++ pairs c2 ++ pairs c3
+
+export
+pairsL : IntMap a -> LazyList (Bits32, a)
+pairsL Empty              = []
+pairsL (Leaf k v)         = [(k,v)]
+pairsL (Node c0 c1 c2 c3) = pairsL c0 ++ pairsL c1 ++ pairsL c2 ++ pairsL c3
+
+export
+keysL : IntMap a -> LazyList Bits32
+keysL = map fst . pairsL
+
+export
+valuesL : IntMap a -> LazyList a
+valuesL = map snd . pairsL
 
 export
 fromFoldable : Foldable f => f (Bits32, a) -> IntMap a
