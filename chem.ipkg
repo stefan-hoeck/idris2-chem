@@ -18,6 +18,7 @@ modules = Chem
         , Data.Graph.Util
 
         , Data.IntMap
+        , Data.IntMapN
         , Data.Refined
 
         , Text.Molfile

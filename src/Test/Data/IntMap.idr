@@ -2,13 +2,13 @@ module Test.Data.IntMap
 
 import Data.List
 import Data.SortedMap as SM
-import Data.IntMap as IM
+import Data.IntMapN as IM
 import Hedgehog
 
-pair : Gen (Bits32, Char)
-pair = [| MkPair (bits32 (linear 0 0xffffffff)) alpha |]
+pair : Gen (Key, Char)
+pair = [| MkPair (bits64 (linear 0 0xffffffff)) alpha |]
 
-pairs : Gen $ List (Bits32, Char)
+pairs : Gen $ List (Key, Char)
 pairs = list (linear 0 30) pair
 
 intMap : Gen $ IntMap Char

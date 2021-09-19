@@ -1,11 +1,11 @@
 module Profile.Data.IntMap
 
-import Data.IntMap as IM
+import Data.IntMapN as IM
 import Data.SortedMap as SM
 import Data.Nat
 import Profile.Profiler
 
-pairs : List (Bits32,Bits32)
+pairs : List (Key,Key)
 pairs = map dup [0 .. 10000]
 
 nonEmptySM : SortedMap k v -> Bool
@@ -19,22 +19,22 @@ testFromListSM : () -> Bool
 testFromListSM () =
   Just 1000 == lookup 1000 (SM.fromList pairs)
 
-testLookup : IntMap Bits32 -> () -> Bool
+testLookup : IntMap Key -> () -> Bool
 testLookup m = \_ => Just 1000 == lookup 1000 m
 
-testInsert : IntMap Bits32 -> () -> Bool
+testInsert : IntMap Key -> () -> Bool
 testInsert m = \_ => nonEmpty (insert 2000 2000 m)
 
-testDelete : IntMap Bits32 -> () -> Bool
+testDelete : IntMap Key -> () -> Bool
 testDelete m = \_ => nonEmpty (delete 1000 m)
 
-testLookupSM : SortedMap Bits32 Bits32 -> () -> Bool
+testLookupSM : SortedMap Key Key -> () -> Bool
 testLookupSM m = \_ => Just 1000 == lookup 1000 m
 
-testInsertSM : SortedMap Bits32 Bits32 -> () -> Bool
+testInsertSM : SortedMap Key Key -> () -> Bool
 testInsertSM m = \_ => nonEmptySM (insert 2000 2000 m)
 
-testDeleteSM : SortedMap Bits32 Bits32 -> () -> Bool
+testDeleteSM : SortedMap Key Key -> () -> Bool
 testDeleteSM m = \_ => nonEmptySM (delete 1000 m)
 
 export
