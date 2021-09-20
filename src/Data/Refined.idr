@@ -122,7 +122,7 @@ rwIntegral dt reader writer tpe =
       -- this has to be namespaced
       -- to avoid disambiguities when being used
       -- in `read`
-      refineNS  = var $ NS ns (UN "refine")
+      refineNS  = var $ NS ns (UN $ Basic "refine")
    in refinedIntegralDflt dt tpe >>
       declare
         [ INamespace EmptyFC ns
