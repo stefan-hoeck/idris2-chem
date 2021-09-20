@@ -105,10 +105,10 @@ treeLookup k (Branch3 t1 k1 t2 k2 t3) with (lte k k1)
 
 insert' : Key -> v -> Tree n v -> InsertRes n v
 insert' k v t@(Leaf k' v') with (lte k k')
-  _ | 0 with (gte k k')
-    _ | 0 = I1 (Leaf k v)
-    _ | _ = I2 t k' (Leaf k v)
-  _ | _ = I2 (Leaf k v) k t
+  _ | 0 = I2 t k' (Leaf k v)
+  _ | _ with (eq k k')
+    _ | 0 = I2 (Leaf k v) k t
+    _ | _ = I1 $ Leaf k v
 
 insert' k v (Branch2 t1 k' t2) with (lte k k')
   _ | 0 with (insert' k v t2)
@@ -129,6 +129,48 @@ insert' k v (Branch3 t1 k1 t2 k2 t3) with (lte k k1)
   _ | _ with (insert' k v t1)
     _ | I1 t1'   = I1 (Branch3 t1' k1 t2 k2 t3)
     _ | I2 a b c = I2 (Branch2 a b c) k1 (Branch2 t2 k2 t3)
+
+insertWith' : (f : v -> v -> v) -> Key -> v -> Tree n v -> InsertRes n v
+insertWith' f k v t@(Leaf k' v') with (lte k k')
+  _ | 0 = I2 t k' (Leaf k v)
+  _ | _ with (eq k k')
+    _ | 0 = I2 (Leaf k v) k t
+    _ | _ = I1 $ Leaf k (f v v')
+
+insertWith' f k v (Branch2 t1 k' t2) with (lte k k')
+  _ | 0 with (insertWith' f k v t2)
+    _ | I1 t2'   = I1 (Branch2 t1 k' t2')
+    _ | I2 a b c = I1 (Branch3 t1 k' a b c)
+  _ | _ with (insertWith' f k v t1)
+    _ | I1 t1'   = I1 (Branch2 t1' k' t2)
+    _ | I2 a b c = I1 (Branch3 a b c k' t2)
+
+insertWith' f k v (Branch3 t1 k1 t2 k2 t3) with (lte k k1)
+  _ | 0 with (lte k k2)
+    _ | 0 with (insertWith' f k v t3)
+      _ | I1 t3'   = I1 (Branch3 t1 k1 t2 k2 t3')
+      _ | I2 a b c = I2 (Branch2 t1 k1 t2) k2 (Branch2 a b c)
+    _ | _ with (insertWith' f k v t2)
+      _ | I1 t2'   = I1 (Branch3 t1 k1 t2' k2 t3)
+      _ | I2 a b c = I2 (Branch2 t1 k1 a) b (Branch2 c k2 t3)
+  _ | _ with (insertWith' f k v t1)
+    _ | I1 t1'   = I1 (Branch3 t1' k1 t2 k2 t3)
+    _ | I2 a b c = I2 (Branch2 a b c) k1 (Branch2 t2 k2 t3)
+
+update' : (f : v -> v) -> Key -> Tree n v -> Tree n v
+update' f k t@(Leaf k' v') with (eq k k')
+  _ | 0 = t
+  _ | _ = Leaf k' (f v')
+
+update' f k (Branch2 t1 k' t2) with (lte k k')
+  _ | 0 = Branch2 t1 k' (update' f k t2)
+  _ | _ = Branch2 (update' f k t1) k' t2
+
+update' f k (Branch3 t1 k1 t2 k2 t3) with (lte k k1)
+  _ | 0 with (lte k k2)
+    _ | 0 = Branch3 t1 k1 t2 k2 (update' f k t3)
+    _ | _ = Branch3 t1 k1 (update' f k t2) k2 t3
+  _ | _ = Branch3 (update' f k t1) k1 t2 k2 t3
 
 delete' : Key -> Tree n v -> DeleteRes n v
 delete' k t@(Leaf k' v) with (eq k k')
@@ -204,6 +246,18 @@ insert k v (M x) with (insert' k v x)
   _ | I2 y z w = M $ Branch2 y z w
 
 export
+insertWith : (f : v -> v -> v) -> (k : Key) -> v -> IntMap v -> IntMap v
+insertWith _ k v Empty = M (Leaf k v)
+insertWith f k v (M x) with (insertWith' f k v x)
+  _ | I1 y     = M y
+  _ | I2 y z w = M $ Branch2 y z w
+
+export
+update : (k : Key) -> (f : v -> v) -> IntMap v -> IntMap v
+update _ _ Empty = Empty
+update k f (M x) = M $ update' f k x
+
+export
 singleton : Key -> v -> IntMap v 
 singleton k v = M (Leaf k v)
 
@@ -244,3 +298,10 @@ Eq v => Eq (IntMap v) where
 export
 Show v => Show (IntMap v) where
   showPrec p m = showCon p "fromList" $ showArg (pairs m)
+
+export
+Functor IntMap where
+  map _ Empty = Empty
+  map f (M $ Leaf k x) = M $ Leaf k (f x)
+  map f (M $ Branch2 x y z) = M $ Branch2 (map f x) y (map f z)
+  map f (M $ Branch3 x y z w v) = M $ Branch3 (map f x) y (map f z) w (map f v)

@@ -1,7 +1,7 @@
 ||| A representation for sparse, simple, undirected
 ||| labeled graphs.
 |||
-||| This module provides only the data tyes plus
+||| This module provides only the data types plus
 ||| interface implementations.
 module Data.Graph.Types
 
@@ -114,16 +114,6 @@ Traversable LEdge where
 |||
 ||| This is what is stored in underlying `IntMap`
 ||| representing the graph.
-|||
-||| TODO: Right now, we are assuming our graphs to
-|||       be sparse: In chemistry, most atoms have
-|||       less that four neighbours and almost all
-|||       of them have less than five neighbours.
-|||       Hence we use a simple `List` for the set of
-|||       neighbours. We'll have to profile this choice,
-|||       but I (hock) am pretty sure that in terms of
-|||       speed and memory consumption, `List` is
-|||       more efficient than `IntMap` here.
 public export
 record Adj e n where
   constructor MkAdj
