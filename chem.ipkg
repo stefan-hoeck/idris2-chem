@@ -3,10 +3,10 @@ package chem
 authors    = "stefan-hoeck"
 version    = 0.1.0
 sourcedir  = "src"
-depends    = base         >= 0.4.0
-           , contrib      >= 0.4.0
-           , elab-util    >= 0.3.1
-           , sop          >= 0.4.0
+depends    = base         >= 0.5.1
+           , contrib      >= 0.5.1
+           , elab-util    >= 0.5.0
+           , sop          >= 0.5.0
 
 modules = Chem
         , Chem.Element
@@ -18,10 +18,10 @@ modules = Chem
         , Data.Graph.Util
 
         , Data.IntMap
-        , Data.IntMapN
         , Data.Refined
 
         , Text.Molfile
         , Text.Molfile.Float
         , Text.Molfile.Reader
         , Text.Molfile.Types
+        , Text.RW

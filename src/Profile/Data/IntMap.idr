@@ -1,6 +1,6 @@
 module Profile.Data.IntMap
 
-import Data.IntMapN as IM
+import Data.IntMap as IM
 import Data.SortedMap as SM
 import Data.Nat
 import Profile.Profiler

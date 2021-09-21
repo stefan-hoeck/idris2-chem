@@ -19,7 +19,7 @@ import Generics.Derive
 ||| A node in an undirected graph.
 public export
 Node : Type
-Node = Bits32
+Node = Bits64
 
 ||| An edge in a simple, undirected graph.
 ||| Since edges go in both directions and loops are not allowed,
@@ -39,7 +39,6 @@ Eq Edge where
 public export
 Ord Edge where
   compare = compare `on` (\e => (e.node1, e.node2))
-
 
 export
 Show Edge where
@@ -118,7 +117,7 @@ public export
 record Adj e n where
   constructor MkAdj
   label      : n
-  neighbours : List (Node, e)
+  neighbours : IntMap e
 
 public export
 Functor (Adj e) where
@@ -139,22 +138,19 @@ Traversable (Adj e) where
 
 public export
 Bifunctor Adj where
-  bimap  f g (MkAdj l es) = MkAdj (g l) (map f <$> es)
-  mapFst f (MkAdj l es)   = MkAdj l (map f <$> es)
+  bimap  f g (MkAdj l es) = MkAdj (g l) (map f es)
+  mapFst f (MkAdj l es)   = MkAdj l (map f es)
   mapSnd g (MkAdj l es)   = MkAdj (g l) es
 
 public export
 Bifoldable Adj where
-  bifoldr f g acc (MkAdj l es) =
-    foldr (\(_,e) => f e) (g l acc) es
-  bifoldl f g acc (MkAdj l es) =
-    g (foldl (\a,(_,e) => f a e) acc es) l
-  binull _ = False
+  bifoldr f g acc (MkAdj l es) = foldr f (g l acc) es
+  bifoldl f g acc (MkAdj l es) = g (foldl f acc es) l
+  binull                       _ = False
 
 public export
 Bitraversable Adj where
-  bitraverse f g (MkAdj l es) =
-    [| MkAdj (g l) (traverse (\(n,e) => (n,) <$> f e) es) |]
+  bitraverse f g (MkAdj l es) = [| MkAdj (g l) (traverse f es) |]
 
 
 ||| The Context of a `Node` in a labeled graph
@@ -166,7 +162,7 @@ record Context e n where
   constructor MkContext
   node       : Node
   label      : n
-  neighbours : List (Node, e)
+  neighbours : IntMap e 
 
 public export
 Functor (Context e) where
@@ -188,22 +184,20 @@ Traversable (Context e) where
 
 public export
 Bifunctor Context where
-  bimap  f g (MkContext n l es) = MkContext n (g l) (map f <$> es)
-  mapFst f (MkContext n l es)   = MkContext n l (map f <$> es)
+  bimap  f g (MkContext n l es) = MkContext n (g l) (map f es)
+  mapFst f (MkContext n l es)   = MkContext n l (map f es)
   mapSnd g (MkContext n l es)   = MkContext n (g l) es
 
 public export
 Bifoldable Context where
-  bifoldr f g acc (MkContext _ l es) =
-    foldr (\(_,e) => f e) (g l acc) es
-  bifoldl f g acc (MkContext _ l es) =
-    g (foldl (\a,(_,e) => f a e) acc es) l
-  binull _ = False
+  bifoldr f g acc (MkContext _ l es) = foldr f (g l acc) es
+  bifoldl f g acc (MkContext _ l es) = g (foldl f acc es) l
+  binull _                           = False
 
 public export
 Bitraversable Context where
   bitraverse f g (MkContext n l es) =
-    [| MkContext (pure n) (g l) (traverse (\(n,e) => (n,) <$> f e) es) |]
+    [| MkContext (pure n) (g l) (traverse f es) |]
 
 --------------------------------------------------------------------------------
 --          Graph
