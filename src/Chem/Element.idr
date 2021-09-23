@@ -19,7 +19,7 @@ data Elem =
   | Fr | Ra | Ac
             | Th | Pa | U  | Np | Pu | Am | Cm
             | Bk | Cf | Es | Fm | Md | No | Lr
-                 | Rf | Db | Sg | Bh | Hs | Mt | Ds | Rg | Cn | Uut | Fl | Uup | Lv | Uus | Uuo
+                 | Rf | Db | Sg | Bh | Hs | Mt | Ds | Rg | Cn | Nh | Fl | Mc | Lv | Ts | Og
 
 --------------------------------------------------------------------------------
 --          Conversion from and to AtomicNr
@@ -139,12 +139,12 @@ atomicNr Mt  = 109
 atomicNr Ds  = 110
 atomicNr Rg  = 111
 atomicNr Cn  = 112
-atomicNr Uut = 113
+atomicNr Nh  = 113
 atomicNr Fl  = 114
-atomicNr Uup = 115
+atomicNr Mc  = 115
 atomicNr Lv  = 116
-atomicNr Uus = 117
-atomicNr Uuo = 118
+atomicNr Ts  = 117
+atomicNr Og  = 118
 
 public export
 fromAtomicNr : AtomicNr -> Elem
@@ -260,12 +260,12 @@ fromAtomicNr 109 = Mt
 fromAtomicNr 110 = Ds
 fromAtomicNr 111 = Rg
 fromAtomicNr 112 = Cn
-fromAtomicNr 113 = Uut
+fromAtomicNr 113 = Nh
 fromAtomicNr 114 = Fl
-fromAtomicNr 115 = Uup
+fromAtomicNr 115 = Mc
 fromAtomicNr 116 = Lv
-fromAtomicNr 117 = Uus
-fromAtomicNr 118 = Uuo
+fromAtomicNr 117 = Ts 
+fromAtomicNr 118 = Og 
 
 -- this is just an additional measure of safety:
 -- if we ever increase the valid range of atomic numbers
@@ -398,12 +398,12 @@ fromSymbol "Mt"  = Just Mt
 fromSymbol "Ds"  = Just Ds
 fromSymbol "Rg"  = Just Rg
 fromSymbol "Cn"  = Just Cn
-fromSymbol "Uut" = Just Uut
+fromSymbol "Nh"  = Just Nh
 fromSymbol "Fl"  = Just Fl
-fromSymbol "Uup" = Just Uup
+fromSymbol "Mc"  = Just Mc
 fromSymbol "Lv"  = Just Lv
-fromSymbol "Uus" = Just Uus
-fromSymbol "Uuo" = Just Uuo
+fromSymbol "Ts"  = Just Ts
+fromSymbol "Og"  = Just Og
 fromSymbol _     = Nothing
 
 public export
@@ -520,16 +520,20 @@ symbol Mt  = "Mt"
 symbol Ds  = "Ds"
 symbol Rg  = "Rg"
 symbol Cn  = "Cn"
-symbol Uut = "Uut"
+symbol Nh  = "Nh"
 symbol Fl  = "Fl"
-symbol Uup = "Uup"
+symbol Mc  = "Mc"
 symbol Lv  = "Lv"
-symbol Uus = "Uus"
-symbol Uuo = "Uuo"
+symbol Ts  = "Ts"
+symbol Og  = "Og"
 
 public export
-readE : String -> Either String Elem
-readE = mkReadE fromSymbol "Elem"
+readMsg : String -> Either String Elem
+readMsg = mkReadE fromSymbol "Elem"
+
+public export
+readE : String -> (String -> err) -> Either err Elem
+readE s f = maybe (Left $ f s) Right $ fromSymbol s
 
 public export %inline
 write : Elem -> String

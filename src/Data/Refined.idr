@@ -53,7 +53,7 @@ public export
 readInt : Eq a => Num a => Cast String a => String -> Maybe a
 readInt s   =
   let res = cast {to = a} s
-   in if res == 0 && any ('0' /=) s then Nothing else Just res
+   in if res == 0 && (any ('0' /=) s || s == "") then Nothing else Just res
 
 ||| Like `readInt`, but the number can be prefixed
 ||| with a single optional '+'.
@@ -127,8 +127,16 @@ rwIntegral dt reader writer tpe =
       declare
         [ INamespace EmptyFC ns
           `[ public export
-             readE : String -> Either String ~(t)
-             readE = mkReadE (\s => ~(reader) s >>= ~(refineNS)) ~(nameStr)
+             read : String -> Maybe ~(t)
+             read s = ~(reader) s >>= ~(refineNS)
+
+             public export
+             readE : (String -> err) -> String -> Either err ~(t)
+             readE f s = maybe (Left $ f s) Right $ read s
+
+             public export
+             readMsg : String -> Either String ~(t)
+             readMsg = mkReadE read ~(nameStr)
 
              public export
              write : ~(t) -> String

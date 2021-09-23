@@ -258,15 +258,15 @@ testBond : () -> Bool
 testBond () = isRight $ bond bondStr
 
 testReadFloat : () -> Bool
-testReadFloat () = isRight $ the (Either String Coordinate) (readE "-2.8343")
+testReadFloat () = isRight $ the (Either String Coordinate) (readMsg "-2.8343")
 
 testReadAtomSymbol : () -> Bool
 testReadAtomSymbol () =
-  isRight $ the (Either String AtomSymbol) (readE "C")
+  isRight $ the (Either String AtomSymbol) (readMsg "C")
 
 testReadMassDiff : () -> Bool
 testReadMassDiff () =
-  isRight $ the (Either String MassDiff) (readE "1")
+  isRight $ the (Either String MassDiff) (readMsg "1")
 
 export
 profile : IO ()

@@ -5,6 +5,7 @@ import Data.IntMap
 import Data.Maybe
 import Data.List
 import Data.So
+import Data.String
 import Data.Graph.Types
 
 %default total
@@ -42,7 +43,7 @@ toLNode (k,MkAdj l _) = MkLNode k l
 ctxtEdges : Context e n -> List (LEdge e)
 ctxtEdges (MkContext k _ ns) = go Nil (pairs ns)
   where go : List (LEdge e) -> List (Node,e) -> List (LEdge e)
-        go es Nil            = es
+        go es Nil            = reverse es
         go es ((j,lbl) :: t) = case choose (j > k) of
           Left oh => go (MkLEdge (MkEdge k j oh) lbl :: es) t
           _       => go es t
@@ -121,7 +122,7 @@ order = length . labNodes
 ||| A list of all `LEdge`s in the `Graph` (in lexicographic order).
 export
 labEdges  : Graph e n -> List (LEdge e)
-labEdges = foldl (\es,c => ctxtEdges c ++ es) Nil . contexts
+labEdges = foldMap ctxtEdges . contexts
 
 ||| List all 'Edge's in the 'Graph'.
 export
@@ -293,3 +294,27 @@ Show e => Show n => Show (Graph e n) where
   showPrec p g =
     showCon p "mkGraph" $
     showArg (labNodes g) ++ showArg (labEdges g)
+
+pl : Nat -> Node -> String
+pl n = padLeft n ' ' . show
+
+
+export
+pretty : (e -> String) -> (n -> String) -> Graph e n -> String
+pretty de dn g = case matchAny g of
+  Empty                     => "empty graph"
+  Split (MkContext n _ _) _ =>
+    let ns     = labNodes g
+        es     = labEdges g
+        maxLen = length $ show n
+     in unlines $
+          "Nodes:"   :: map (dispNode maxLen) ns ++
+          "\nEdges:" :: map (dispEdge maxLen) es
+
+  where dispNode : Nat -> LNode n -> String
+        dispNode k (MkLNode n1 l) =
+          #"  \#{pl k n1} :> \#{dn l}"#
+
+        dispEdge : Nat -> LEdge e -> String
+        dispEdge k (MkLEdge (MkEdge n1 n2 _) l) =
+          #"  \#{pl k n1} <> \#{pl k n2} :> \#{de l}"#

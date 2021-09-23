@@ -19,3 +19,4 @@ modules = Test.Chem.Element
         , Test.Data.Graph
         , Test.Data.IntMap
         , Test.Text.Molfile
+        , Test.Text.Smiles.Parser

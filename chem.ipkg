@@ -18,10 +18,18 @@ modules = Chem
         , Data.Graph.Util
 
         , Data.IntMap
+        , Data.List.Suffix
         , Data.Refined
 
         , Text.Molfile
         , Text.Molfile.Float
         , Text.Molfile.Reader
         , Text.Molfile.Types
+
+        , Text.Parser.Util
         , Text.RW
+
+        , Text.Smiles
+        , Text.Smiles.Parser
+        , Text.Smiles.Types
+        , Text.Smiles.Writer

@@ -60,11 +60,11 @@ read s = case split ('.' ==) s of
   _           => Nothing
 
 public export
-readE :  {minPre,maxPre : _}
-      -> {wpost : _}
-      -> String
-      -> Either String (Float minPre maxPre wpost)
-readE = mkReadE read "Float"
+readMsg :  {minPre,maxPre : _}
+        -> {wpost : _}
+        -> String
+        -> Either String (Float minPre maxPre wpost)
+readMsg = mkReadE read "Float"
 
 
 public export

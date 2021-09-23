@@ -55,7 +55,7 @@ export
 counts : String -> Either String Counts
 counts s = do
   [a,b,_,_,c,_,_,_,_,_,_,v] <- trimmedChunks countChunks s
-  [| MkCounts (readE a) (readE b) (readE c) (readE v) |]
+  [| MkCounts (readMsg a) (readMsg b) (readMsg c) (readMsg v) |]
 
 ||| Chunks of an atom line. See `atom` for a description
 ||| of the format and types of chunks.
@@ -81,9 +81,9 @@ export
 atom : String -> Either String Atom
 atom s = do
   [x,y,z,a,d,c,s,h,b,v,h0,_,_,m,n,e] <- trimmedChunks atomChunks s
-  [| MkAtom (readE x) (readE y) (readE z) (readE a) (readE d) (readE c)
-            (readE s) (readE h) (readE b) (readE v) (readE h0)
-            (readE m) (readE n) (readE e) |]
+  [| MkAtom (readMsg x) (readMsg y) (readMsg z) (readMsg a) (readMsg d) (readMsg c)
+            (readMsg s) (readMsg h) (readMsg b) (readMsg v) (readMsg h0)
+            (readMsg m) (readMsg n) (readMsg e) |]
 
 ||| Chunks of a bond line. See `bond` for a description
 ||| of the format and types of chunks.
@@ -105,7 +105,7 @@ export
 bond : String -> Either String Bond
 bond s = do
   [r1,r2,t,ss,r,_,c] <- trimmedChunks bondChunks s
-  [| MkBond (readE r1) (readE r2) (readE t) (readE ss) (readE r) (readE c) |]
+  [| MkBond (readMsg r1) (readMsg r2) (readMsg t) (readMsg ss) (readMsg r) (readMsg c) |]
 
 readN :  {n : _}
       -> (String -> Either String a)
@@ -124,16 +124,16 @@ readProps : List String -> Either String (List Property)
 readProps []         = Left "Unexpected end of mol file"
 readProps ["M  END"] = Right []
 readProps (x :: xs)  = do
-  p1 <- readE x
+  p1 <- readMsg x
   t  <- readProps xs
   pure $ p1 :: t
 
 
 molLines : List String -> Either String MolFile
 molLines (n :: i :: c :: cnt :: t) = do
-  name    <- readE n
-  info    <- readE i
-  comm    <- readE c
+  name    <- readMsg n
+  info    <- readMsg i
+  comm    <- readMsg c
   cnts    <- counts cnt
   (as,t1) <- readN atom t
   (bs,t2) <- readN bond t1

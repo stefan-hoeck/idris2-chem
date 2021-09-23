@@ -42,8 +42,8 @@ record MolLine where
 
 namespace MolLine
   public export
-  readE : String -> Either String MolLine
-  readE = mkReadE refine "MolLine"
+  readMsg : String -> Either String MolLine
+  readMsg = mkReadE refine "MolLine"
 
   public export %inline
   write : MolLine -> String
@@ -76,8 +76,8 @@ namespace MolVersion
   write V3000 = "v3000"
 
   public export
-  readE : String -> Either String MolVersion
-  readE = mkReadE read "MolVersion"
+  readMsg : String -> Either String MolVersion
+  readMsg = mkReadE read "MolVersion"
 
 ------------------------------
 -- ChiralFlag
@@ -100,8 +100,8 @@ namespace ChiralFlag
   write Chiral    = "1"
 
   public export
-  readE : String -> Either String ChiralFlag
-  readE = mkReadE read "ChiralFlag"
+  readMsg : String -> Either String ChiralFlag
+  readMsg = mkReadE read "ChiralFlag"
 
 
 ------------------------------
@@ -167,8 +167,8 @@ namespace AtomSymbol
   write RSharp = "R#"
 
   public export
-  readE : String -> Either String AtomSymbol
-  readE = mkReadE read "AtomSymbol"
+  readMsg : String -> Either String AtomSymbol
+  readMsg = mkReadE read "AtomSymbol"
 
 export %inline
 Show AtomSymbol where
@@ -203,8 +203,8 @@ namespace StereoParity
   write AnyStereo  = "3"
 
   public export
-  readE : String -> Either String StereoParity
-  readE = mkReadE read "StereoParity"
+  readMsg : String -> Either String StereoParity
+  readMsg = mkReadE read "StereoParity"
 
 ------------------------------
 -- StereoCareBox
@@ -228,8 +228,8 @@ namespace StereoCareBox
   write MatchStereo  = "1"
 
   public export
-  readE : String -> Either String StereoCareBox
-  readE = mkReadE read "StereoCareBox"
+  readMsg : String -> Either String StereoCareBox
+  readMsg = mkReadE read "StereoCareBox"
 
 ------------------------------
 -- Valence
@@ -274,8 +274,8 @@ namespace Valence
   write (MkValence n _) = show n
 
   public export
-  readE : String -> Either String Valence
-  readE = mkReadE read "Valence"
+  readMsg : String -> Either String Valence
+  readMsg = mkReadE read "Valence"
 
 ------------------------------
 -- H0Designator
@@ -299,8 +299,8 @@ namespace H0Designator
   write NoHAllowed     = "1"
 
   public export
-  readE : String -> Either String H0Designator
-  readE = mkReadE read "H0Designator"
+  readMsg : String -> Either String H0Designator
+  readMsg = mkReadE read "H0Designator"
 
 ------------------------------
 -- AtomCharge
@@ -342,8 +342,8 @@ namespace AtomCharge
   read _   = Nothing
 
   public export
-  readE : String -> Either String AtomCharge
-  readE = mkReadE read "AtomCharge"
+  readMsg : String -> Either String AtomCharge
+  readMsg = mkReadE read "AtomCharge"
 
   public export
   write : AtomCharge -> String
@@ -374,8 +374,8 @@ namespace InvRetentionFlag
   write ConfigRetained = "2"
 
   public export
-  readE : String -> Either String InvRetentionFlag
-  readE = mkReadE read "InvRetentionFlag"
+  readMsg : String -> Either String InvRetentionFlag
+  readMsg = mkReadE read "InvRetentionFlag"
 
 ------------------------------
 -- ExactChangeFlag
@@ -398,8 +398,8 @@ namespace ExactChangeFlag
   write ExactChange       = "1"
 
   public export
-  readE : String -> Either String ExactChangeFlag
-  readE = mkReadE read "ExactChangeFlag"
+  readMsg : String -> Either String ExactChangeFlag
+  readMsg = mkReadE read "ExactChangeFlag"
 
 ------------------------------
 -- MassDiff
@@ -445,8 +445,8 @@ namespace HydrogenCount
   read s   = readInt s >>= refineSo HC . (\x => x - 1)
 
   public export
-  readE : String -> Either String HydrogenCount
-  readE = mkReadE read "HydrogenCount"
+  readMsg : String -> Either String HydrogenCount
+  readMsg = mkReadE read "HydrogenCount"
 
   public export
   write : HydrogenCount -> String
@@ -535,8 +535,8 @@ namespace BondType
   write AnyBond       = "8"
 
   public export
-  readE : String -> Either String BondType
-  readE = mkReadE read "BondType"
+  readMsg : String -> Either String BondType
+  readMsg = mkReadE read "BondType"
 
 ------------------------------
 -- BondStereo
@@ -566,8 +566,8 @@ namespace BondStereo
   write Down         = "6"
 
   public export
-  readE : String -> Either String BondStereo
-  readE = mkReadE read "BondStereo"
+  readMsg : String -> Either String BondStereo
+  readMsg = mkReadE read "BondStereo"
 
 ------------------------------
 -- BondTopo
@@ -593,8 +593,8 @@ namespace BondTopo
   write Chain       = "2"
 
   public export
-  readE : String -> Either String BondTopo
-  readE = mkReadE read "BondTopo"
+  readMsg : String -> Either String BondTopo
+  readMsg = mkReadE read "BondTopo"
 
 ------------------------------
 -- ReactingCenterStatus
@@ -641,8 +641,8 @@ namespace ReactingCenterStatus
   write CenterBMBAndOC  = "13"
 
   public export
-  readE : String -> Either String ReactingCenterStatus
-  readE = mkReadE read "ReactingCenterStatus"
+  readMsg : String -> Either String ReactingCenterStatus
+  readMsg = mkReadE read "ReactingCenterStatus"
 
 %runElab derive "ReactingCenterStatus" [Generic,Meta,Eq,Show]
 
@@ -698,8 +698,8 @@ namespace Radical
   write Triplet   = "3"
 
   public export
-  readE : String -> Either String Radical
-  readE = mkReadE read "Radical"
+  readMsg : String -> Either String Radical
+  readMsg = mkReadE read "Radical"
 
 ------------------------------
 -- Property
@@ -737,7 +737,7 @@ rpairs re s = go n 9
   where go : (k : Nat) -> (pos : Int) -> Either String (Vect k (AtomRef, a))
         go 0     pos = if cast pos == length s then Right [] else Left "Unexpected end of line"
         go (S k) pos = do
-          ar <- readE . ltrim $ strSubstr pos 4 s
+          ar <- readMsg . ltrim $ strSubstr pos 4 s
           va <- re . ltrim $ strSubstr (pos + 4) 4 s
           t  <- go k $ pos + 8
           pure $ (ar,va) :: t
@@ -747,7 +747,7 @@ readN8 :  (re : String -> Either String a)
        -> String
        -> Either String b
 readN8 re f s = do
-  c  <- readE . ltrim $ strSubstr 6 3 s
+  c  <- readMsg . ltrim $ strSubstr 6 3 s
   ps <- rpairs re s
   pure $ f c ps
 
@@ -759,11 +759,11 @@ namespace Property
   write (Rad c pairs) = "M  RAD" ++ writeN8 c pairs write
 
   public export
-  readE : String -> Either String Property
-  readE s = case strSubstr 0 6 s of
-    "M  CHG" => readN8 readE Chg s
-    "M  ISO" => readN8 readE Iso s
-    "M  RAD" => readN8 readE Rad s
+  readMsg : String -> Either String Property
+  readMsg s = case strSubstr 0 6 s of
+    "M  CHG" => readN8 readMsg Chg s
+    "M  ISO" => readN8 readMsg Iso s
+    "M  RAD" => readN8 readMsg Rad s
     s        => Left $ #"Not a valid Property: \#{s}"#
 
 --------------------------------------------------------------------------------
