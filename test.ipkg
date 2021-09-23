@@ -16,4 +16,6 @@ depends    = base         >= 0.5.1
 
 modules = Test.Chem.Element
         , Test.Chem.Types
+        , Test.Data.Graph
+        , Test.Data.IntMap
         , Test.Text.Molfile

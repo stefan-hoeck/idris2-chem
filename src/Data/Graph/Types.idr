@@ -8,6 +8,7 @@ module Data.Graph.Types
 import Data.IntMap
 import Data.So
 import Generics.Derive
+import Language.Reflection.Refined.Util
 
 %default total
 %language ElabReflection
@@ -15,6 +16,8 @@ import Generics.Derive
 --------------------------------------------------------------------------------
 --          Nodes and Edges
 --------------------------------------------------------------------------------
+
+infixl 4 :>, <>
 
 ||| A node in an undirected graph.
 public export
@@ -33,6 +36,19 @@ record Edge where
   0 prf : So (node2 > node1)
 
 public export
+mkEdge : Node -> Node -> Maybe Edge
+mkEdge k j =
+  ((\p => MkEdge k j p) <$> maybeSo (j > k)) <|>
+  ((\p => MkEdge j k p) <$> maybeSo (k > j))
+
+public export %inline
+(<>) :  (i : Node)
+     -> (j : Node)
+     -> {auto 0 prf : So (j > i)}
+     -> Edge
+i <> j = MkEdge i j prf
+
+public export
 Eq Edge where
   (==) = (==) `on` (\e => (e.node1, e.node2))
 
@@ -43,7 +59,7 @@ Ord Edge where
 export
 Show Edge where
   showPrec p (MkEdge n1 n2 _) =
-    showCon p "MkEdge" $ showArg n1 ++ showArg n2 ++ " Oh"
+    showCon p #"\#{show n1} <> \#{show n2}"# ""
 
 --------------------------------------------------------------------------------
 --          Labeled Nodes and Edges
@@ -56,7 +72,17 @@ record LNode n where
   node  : Node
   label : n
 
-%runElab derive "LNode" [Generic,Meta,Eq,Ord,Show]
+%runElab derive "LNode" [Generic,Meta,Eq]
+
+export
+Show n => Show (LNode n) where
+  showPrec p (MkLNode k l) =
+    showCon p #"\#{show k} :> \#{show l}"# ""
+
+namespace LNode
+  public export %inline
+  (:>) : Node -> n -> LNode n
+  (:>) = MkLNode
 
 public export %inline
 Functor LNode where
@@ -83,6 +109,16 @@ record LEdge e where
   label : e
 
 %runElab derive "LEdge" [Generic,Meta,Eq,Ord,Show]
+
+export
+Show e => Show (LEdge e) where
+  showPrec p (MkLEdge ed l) =
+    showCon p #"\#{show ed} :> \#{show l}"# ""
+
+namespace LEdge
+  public export %inline
+  (:>) : Edge -> e -> LEdge e
+  (:>) = MkLEdge
 
 public export %inline
 Functor LEdge where
@@ -118,6 +154,8 @@ record Adj e n where
   constructor MkAdj
   label      : n
   neighbours : IntMap e
+
+%runElab derive "Adj" [Generic,Meta,Eq,Show]
 
 public export
 Functor (Adj e) where
@@ -163,6 +201,8 @@ record Context e n where
   node       : Node
   label      : n
   neighbours : IntMap e 
+
+%runElab derive "Context" [Generic,Meta,Eq,Show]
 
 public export
 Functor (Context e) where
@@ -212,6 +252,10 @@ public export
 record Graph e n where
   constructor MkGraph
   graph : GraphRep e n
+
+export
+Eq e => Eq n => Eq (Graph e n) where
+  (==) = (==) `on` graph
 
 public export
 Functor (Graph e) where

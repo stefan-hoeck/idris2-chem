@@ -47,16 +47,9 @@ ctxtEdges (MkContext k _ ns) = go Nil (pairs ns)
           Left oh => go (MkLEdge (MkEdge k j oh) lbl :: es) t
           _       => go es t
 
-
-||| An empty `Graph`
-export
-empty : Graph e n
-empty = MkGraph empty
-
-||| True, if the given graph is empty
-export
-isEmpty : Graph e n -> Bool
-isEmpty = isEmpty . graph
+--------------------------------------------------------------------------------
+--          Decomposing Graphs
+--------------------------------------------------------------------------------
 
 ||| Decompose a `Graph` into the `Context` found
 ||| for the given node and the remaining `Graph`.
@@ -72,6 +65,23 @@ match node (MkGraph g) = case lookup node g of
         ctxt = MkContext node lbl ns
      in Split ctxt g1
 
+||| Decompose a graph into the `Context` for the largest `Node`
+||| and the remaining `Graph`.
+export
+matchAny : Graph e n -> Decomp e n
+matchAny (MkGraph g) = case decomp g of
+  Done                   => Empty
+  Dec k (MkAdj lbl ns) m =>
+    Split (MkContext k lbl ns) (MkGraph $ delNeighbours k m ns)
+
+--------------------------------------------------------------------------------
+--          Inspecting Graphs
+--------------------------------------------------------------------------------
+
+||| True, if the given graph is empty
+export
+isEmpty : Graph e n -> Bool
+isEmpty = isEmpty . graph
 
 ||| A list of contexts of a graph
 export
@@ -83,14 +93,25 @@ export
 labNodes  : Graph e n -> List (LNode n)
 labNodes = map toLNode . pairs . graph
 
-||| Decompose a graph into the 'Context' for the largest node
-||| and the remaining 'Graph'.
+||| Find the label for a `Node`.
 export
-matchAny : Graph e n -> Decomp e n
-matchAny (MkGraph g) = case decomp g of
-  Done                   => Empty
-  Dec k (MkAdj lbl ns) m =>
-    Split (MkContext k lbl ns) (MkGraph $ delNeighbours k m ns)
+lab : Graph e n -> Node -> Maybe n
+lab (MkGraph m) v = label <$> lookup v m
+
+||| Find the label for an `Edge`.
+export
+elab : Graph e n -> Node -> Node -> Maybe e
+elab (MkGraph g) k j = lookup k g >>= lookup j . neighbours
+
+||| List all 'Node's in the 'Graph'.
+export
+nodes : Graph e n -> List Node
+nodes = map fst . pairs . graph
+
+||| `True` if the `Node` is present in the `Graph`.
+export
+gelem : Node -> Graph e n -> Bool
+gelem v = isJust . lookup v . graph
 
 ||| The number of `Node`s in a `Graph`.
 export
@@ -102,7 +123,51 @@ export
 labEdges  : Graph e n -> List (LEdge e)
 labEdges = foldl (\es,c => ctxtEdges c ++ es) Nil . contexts
 
-||| Merge the 'Context' into the 'DynGraph'.
+||| List all 'Edge's in the 'Graph'.
+export
+edges : Graph e n -> List Edge
+edges = map edge . labEdges
+
+||| The number of edges in the graph.
+export
+size : Graph e n -> Nat
+size = length . labEdges
+
+||| Find the labelled links to a `Node`.
+export
+lneighbours : Graph e n -> Node -> List (Node, e)
+lneighbours (MkGraph g) k = maybe Nil (pairs . neighbours) $ lookup k g
+
+||| Find the neighbours for a 'Node'.
+export
+neighbours : Graph e n -> Node -> List Node
+neighbours g = map fst . lneighbours g
+
+||| The degree of the `Node`.
+export
+deg : Graph e n -> Node -> Nat
+deg g = length . lneighbours g
+
+||| Checks if there is an undirected edge between two nodes.
+export
+hasNeighbour : Graph e n -> Node -> Node -> Bool
+hasNeighbour g k = isJust . elab g k
+
+||| Checks if there is an edge between two nodes.
+export
+hasEdge : Graph e n -> Edge -> Bool
+hasEdge g (MkEdge k j _) = hasNeighbour g k j
+
+||| Checks if there is a labelled edge between two nodes.
+export
+hasLEdge : Eq e => Graph e n -> LEdge e -> Bool
+hasLEdge g (MkLEdge (MkEdge k j _) le) = maybe False (le ==) $ elab g k j
+
+--------------------------------------------------------------------------------
+--          Modifying Graphs
+--------------------------------------------------------------------------------
+
+||| Merge the `Context` into the `DynGraph`.
 |||
 ||| Context adjacencies should only refer to either a Node already
 ||| in a graph.
@@ -113,13 +178,7 @@ export
 add : Context e n -> Graph e n -> Graph e n
 add (MkContext k lbl ns) (MkGraph m) =
   let m1 = insert k (MkAdj lbl ns) m
-   in MkGraph $ addEdgesTo k m ns
-
-
-||| The number of edges in the graph.
-export
-size : Graph e n -> Nat
-size = length . labEdges
+   in MkGraph $ addEdgesTo k m1 ns
 
 ||| Fold a function over the graph by recursively calling 'match'.
 export
@@ -128,41 +187,10 @@ ufold f acc g = case matchAny g of
   Split ctxt gr => f ctxt (ufold f acc $ assert_smaller g gr)
   Empty         => acc
 
-||| Map a function over the graph by recursively calling 'match'.
+||| Map a function over the graph by recursively calling `match`.
 export
 gmap : (Context e1 n1 -> Context e2 n2) -> Graph e1 n1 -> Graph e2 n2
-gmap f = ufold (\c => add (f c)) empty
-
-||| Map a function over the 'Node' labels in a graph.
-export
-nmap : (n -> n2) -> Graph e n -> Graph e n2
-nmap f (MkGraph m) = MkGraph $ map f <$> m
-
-||| Map a function over the `Edge` labels in a graph.
-export
-emap : (e -> e2) -> Graph e n -> Graph e2 n
-emap f (MkGraph m) = MkGraph $ mapFst f <$> m
-
-||| Map functions over both the `Node` and `Edge`
-||| labels in a graph.
-export
-nemap : (e1 -> e2) -> (n1 -> n2) -> Graph e1 n1 -> Graph e2 n2
-nemap f g (MkGraph m) = MkGraph $ bimap f g <$> m
-
-||| List all 'Node's in the 'Graph'.
-export
-nodes : Graph e n -> List Node
-nodes = map fst . pairs . graph
-
-||| List all 'Edge's in the 'Graph'.
-export
-edges : Graph e n -> List Edge
-edges = map edge . labEdges
-
-||| `True` if the `Node` is present in the `Graph`.
-export
-gelem : Node -> Graph e n -> Bool
-gelem v = isJust . lookup v . graph
+gmap f = ufold (\c => add (f c)) (MkGraph empty)
 
 ||| Insert a labeled node into the `Graph`.
 ||| The behavior is undefined if the node is already
@@ -190,15 +218,6 @@ export
 insEdges : List (LEdge e) -> Graph e n -> Graph e n
 insEdges es g = foldl (flip insEdge) g es
 
-||| Create a `Graph` from the list of labeled nodes and
-||| edges.
-|||
-||| TODO: Can we easily enforce that the edges only point
-|||       To the nodes in the list?
-export
-mkGraph : List (LNode n) -> List (LEdge e) -> Graph e n
-mkGraph ns es = insEdges es (insNodes ns empty)
-
 ||| Remove a 'Node' from the 'Graph'.
 export
 delNode : Node -> Graph e n -> Graph e n
@@ -223,7 +242,6 @@ export
 delEdges : List Edge -> Graph e n -> Graph e n
 delEdges es g = foldl (flip delEdge) g es
 
-
 ||| Returns the subgraph only containing the labelled nodes which
 ||| satisfy the given predicate.
 export
@@ -242,48 +260,36 @@ export
 labfilter : (n -> Bool) -> Graph e n -> Graph e n
 labfilter f = labnfilter (f . label)
 
+--------------------------------------------------------------------------------
+--          Creating Graphs
+--------------------------------------------------------------------------------
+
+||| An empty `Graph`
+export
+empty : Graph e n
+empty = MkGraph empty
+
+||| Create a `Graph` from the list of labeled nodes and
+||| edges.
+|||
+||| TODO: Can we easily enforce that the edges only point
+|||       To the nodes in the list?
+export
+mkGraph : List (LNode n) -> List (LEdge e) -> Graph e n
+mkGraph ns es = insEdges es (insNodes ns empty)
+
 -- ||| Returns the subgraph induced by the supplied nodes.
 -- export
 -- subgraph : List Node -> Graph e n -> Graph e n
 -- subgraph vs = let vs' = IntSet.fromList vs
 --                in nfilter (`IntSet.member` vs')
 
-||| Find the label for a `Node`.
-export
-lab : Graph e n -> Node -> Maybe n
-lab (MkGraph m) v = label <$> lookup v m
+--------------------------------------------------------------------------------
+--          Displaying Graphs
+--------------------------------------------------------------------------------
 
-||| Find the labelled links to a `Node`.
 export
-lneighbours : Graph e n -> Node -> List (Node, e)
-lneighbours (MkGraph g) k = maybe Nil (pairs . neighbours) $ lookup k g
-
-||| Find the neighbours for a 'Node'.
-export
-neighbours : Graph e n -> Node -> List Node
-neighbours g = map fst . lneighbours g
-
-||| The degree of the `Node`.
-export
-deg : Graph e n -> Node -> Nat
-deg g = length . lneighbours g
-
-||| Find the label for an `Edge`.
-export
-elab : Graph e n -> Node -> Node -> Maybe e
-elab (MkGraph g) k j = lookup k g >>= lookup j . neighbours
-
-||| Checks if there is a labelled edge between two nodes.
-export
-hasLEdge : Eq e => Graph e n -> LEdge e -> Bool
-hasLEdge g (MkLEdge (MkEdge k j _) le) = maybe False (le ==) $ elab g k j
-
-||| Checks if there is an undirected edge between two nodes.
-export
-hasNeighbour : Graph e n -> Node -> Node -> Bool
-hasNeighbour g k = isJust . elab g k
-
-||| Checks if there is an edge between two nodes.
-export
-hasEdge : Graph e n -> Edge -> Bool
-hasEdge g (MkEdge k j _) = hasNeighbour g k j
+Show e => Show n => Show (Graph e n) where
+  showPrec p g =
+    showCon p "mkGraph" $
+    showArg (labNodes g) ++ showArg (labEdges g)
