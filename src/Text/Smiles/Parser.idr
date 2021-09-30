@@ -195,11 +195,13 @@ atom cs            = bracket cs
 --------------------------------------------------------------------------------
 
 bnd : (cs : List Char) -> ResI cs Err (Maybe Bond)
-bnd ('=' :: t) = y t (Just Dbl)
-bnd ('-' :: t) = y t (Just Sngl)
-bnd (':' :: t) = y t (Just Arom)
-bnd ('#' :: t) = y t (Just Trpl)
-bnd ('$' :: t) = y t (Just Quad)
+bnd ('='  :: t) = y t (Just Dbl)
+bnd ('-'  :: t) = y t (Just Sngl)
+bnd (':'  :: t) = y t (Just Arom)
+bnd ('#'  :: t) = y t (Just Trpl)
+bnd ('$'  :: t) = y t (Just Quad)
+bnd ('/'  :: t) = y t Nothing
+bnd ('\\' :: t) = y t Nothing
 bnd cs         = y cs Nothing
 
 dob : (cs : List Char) -> ResI cs Err DotOrBond

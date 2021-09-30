@@ -4,9 +4,7 @@ import Data.List1
 import Data.Nat
 import Data.String
 import Profile.Profiler
-import Text.Smiles.Parser
-import Text.Smiles.Types
-import Text.Smiles.Writer
+import Text.Smiles
 
 mol : String
 mol = "C[C@@H]1CCCN(C1)C(=O)[C@@H](C)Oc2ccccc2"
