@@ -104,10 +104,11 @@ at _     [] impossible
 --          Exercise 4
 --------------------------------------------------------------------------------
 
-data IsSucc : (n : Nat) -> Type where
-  IsIsSucc : IsSucc (S n)
+-- I call it `MyIsSucc`, so it doesn't conflict with `Data.Nat.IsSucc`
+data MyIsSucc : (n : Nat) -> Type where
+  IsIsSucc : MyIsSucc (S n)
 
-safePred : (n : Nat) -> {auto 0 prf : IsSucc n} -> Nat
+safePred : (n : Nat) -> {auto 0 prf : MyIsSucc n} -> Nat
 safePred (S k) = k
 safePred 0 impossible
 
