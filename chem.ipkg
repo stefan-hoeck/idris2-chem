@@ -16,6 +16,7 @@ modules = Chem
         , Data.Graph
         , Data.Graph.Types
         , Data.Graph.Util
+        , Data.Graph.GraphAlgorithms
 
         , Data.IntMap
         , Data.List.Suffix
