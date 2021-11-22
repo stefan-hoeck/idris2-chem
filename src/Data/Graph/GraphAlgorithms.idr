@@ -57,6 +57,8 @@ Path = List Node
 ||| Unlabeled
 RTree : Type
 RTree = List Path
+ -- TODO: might need show instance?
+
 
 -- 1.1 dfs
 ||| Depth First search
@@ -71,8 +73,8 @@ dfs : List Node -> Graph e n -> List Node
 dfs []        _ = []
 dfs (v :: vs) g = if isEmpty g then [] else
   case match v g of
-    Split c g' => v :: dfs (?trd c ++ vs) g'
-    Empty => dfs vs g
+    Split c g' => v :: dfs ((keys $ neighbours c) ++ vs) g'
+    Empty      => dfs vs g
 
 
 -- 1.2 bfs
@@ -85,25 +87,41 @@ bfs : List Node -> Graph e n -> List Node
 bfs []        _ = []
 bfs (v :: vs) g = if isEmpty g then [] else
   case match v g of
-    Split c g' => v :: bfs (vs ++ ?trb c) g'
+    Split c g' => v :: bfs (vs ++ (keys $ neighbours c)) g'
     Empty => bfs vs g
 
 
 -- Spanning Trees --------------------------------------------------------------
 
--- TODO: Function implementation
+df : List Node -> Graph e n -> (List (MWTree Node), Graph e n)
+df []        g = ([],g)
+df (v :: vs) g = if isEmpty g then ([],empty) else 
+    case match v g of
+      Split c g' => ?tras-- (Br v (f :: f'), g2)
+      Empty      => df vs g
+ --       where
+ --dfhelp : Node -> Context e n -> Graph e n -> (MWTree Node, Graph e n)
+ --dfhelp v c g = 
+ --           let (f, g1) = df (keys $ neighbours c) g
+ --               (f',g2) = df vs g1
+ --           in  (Br v (f :: f') ,g2)
+
+
+||| Depth first spanning forest
+dff : List Node -> Graph e n -> List (MWTree Node)
+dff vs g = fst (df vs g)
 
 
 
 -- Root Path Tree --------------------------------------------------------------
 
-
+-- TODO: Not checked correct result
 -- breadth first algorithm for constructing the root-path tree
 bf : List Path -> Graph e n -> RTree
 bf []                _  = []
 bf (p@(v :: _) :: ps) g = if isEmpty g then [] else
   case match v g of
-    Split c g' => p :: bf (ps ++ map ?df ?fg) g'
+    Split c g' => p :: bf (ps ++ map (\x => x :: p) (keys $ neighbours c)) g'
     Empty      => bf ps g
 bf (p :: ps)          g = bf ps g
 
@@ -119,15 +137,12 @@ bft v = bf [[v]]
 ||| Shortest Path
 export
 esp : Node -> Node -> Graph e n -> Path
---esp s t = firt (\(v::_) => v == t) . bft s
---  where firt : (a -> Bool) -> List a -> a
---        firt p = head . ?ilter p
-
 
 -- Minimum spanning tree -------------------------------------------------------
 
 ||| Minimal spanning tree
 ||| TODO: They did not do this for an unlabeled graph
+|||       Not sure if this makes sense
 mst : Node -> Graph e n -> RTree
 
 
@@ -138,84 +153,7 @@ indep : Graph e n -> List Node
 
 
 ||| Maximum clique problem but for undirected graphs
+||| Groups all subgraphs Nodes
 ||| TODO: Does this make sense?
 dep : Graph e n -> List (List Node)
 
-
-
--- Labeled Graphs --------------------------------------------------------------
-
-||| Representation of a list of nodes
-||| unlabeled
-LPath : Type -> Type
-LPath a = List (LNode a)
-
-||| Root Path tree
-||| Unlabeled
-LRTree : Type -> Type
-LRTree a = List (LPath a)
--- TODO: Instances missing for heap ordering
-
-getPath : Node -> LRTree a -> Path
-
-
--- Search ----------------------------------------------------------------------
--- 1.1 dfs 
-||| Depth First search
-|||
-||| Requires a list of all nodes of the graph
-||| to make sure that all nodes are visited.
-|||
-||| Output:
-||| List of nodes in depth first order
-export
-dfsL : List (LNode a) -> Graph e n -> List (LNode a)
-dfsL []        _ = []
-dfsL (v :: vs) g = if isEmpty g then [] else
-  case match ?dv g of
-    Split c g' => v :: dfsL (?trdL c ++ vs) g'
-    Empty => dfsL vs g
-
-
--- 1.2 bfs
-||| Breadth First Search
-|||
-||| Output:
-||| List of nodes in breadth first order
-export
-bfsL : List (LNode a) -> Graph e n -> List (LNode a)
-bfsL []        _ = []
-bfsL (v :: vs) g = if isEmpty g then [] else
-  case match ?bv g of
-    Split c g' => v :: bfsL (vs ++ ?trbL c) g'
-    Empty => bfsL vs g
-
--- Spanning Trees --------------------------------------------------------------
-
--- Minimum spanning tree 
-
-
-||| Minimal spanning tree
-||| TODO: They did not do this for an unlabeled graph
-mstL : LNode a -> Graph e n -> LRTree a
-
--- Shortest Path ---------------------------------------------------------------
-
--- 3. esp
-||| Shortest Path
-export
-espL : LNode a -> LNode a -> Graph e n -> LPath a
-
-
--- Node sets -------------------------------------------------------------------
-
-||| Finding the largest independent node sets
-indepL : Graph e n -> List (LNode a)
-
-
-||| Maximum clique problem but for undirected graphs
-||| This function would group all nodes
-||| which are connected to each other
-||| List of subgraphs
-||| TODO: Does this make sense?
-depL : Graph e n -> List (List (LNode a))
