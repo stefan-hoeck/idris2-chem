@@ -1,27 +1,3 @@
-||| Implementations according to
-|||
-||| Inductive Graphs and Functional Graph Algorithms
-||| Martn Erwig
-|||
-||| Structure:
-|||
-||| 0. General: Postorder
-|||
-||| 1. Nodes in order visited
-||| 1.1 Depth-first search
-||| 1.2 Breadth-first search
-||| 
-||| 2. Spanning trees / spanning forest
-||| 2.1 Depth-first spanning tree
-||| 2.2 Breadth-first spanning tree
-||| 2.3 Minimal spanning tree
-|||
-||| 3. Shortest Path
-|||
-||| 4. Independent node sets
-|||
-||| For both, unlabeled & labeled (Parts A & B)
-|||
 module Data.Graph.GraphAlgorithms
 
 import Data.Bifoldable
@@ -37,6 +13,7 @@ import Data.Graph.Util
 -- General ---------------------------------------------------------------------
 
 -- Multi-way tree
+public export
 data MWTree a = Br a (List (MWTree a))
 
 ||| Postorder traversal
@@ -48,13 +25,17 @@ postorder (Br v ts) = concatMap postorder ts ++ [v]
 
 -- A. Unlabeled Graphs ---------------------------------------------------------
 
+-- TODO: Make own module for RootPaths
+
 ||| Representation of a list of nodes
 ||| unlabeled
+public export
 Path : Type
 Path = List Node
 
 ||| Root Path tree
 ||| Unlabeled
+public export
 RTree : Type
 RTree = List Path
  -- TODO: might need show instance?
@@ -75,6 +56,8 @@ dfs (v :: vs) g = if isEmpty g then [] else
   case match v g of
     Split c g' => v :: dfs ((keys $ neighbours c) ++ vs) g'
     Empty      => dfs vs g
+dfs [] x = ?dfs_rhs_1
+dfs (y :: xs) x = ?dfs_rhs_2
 
 
 -- 1.2 bfs

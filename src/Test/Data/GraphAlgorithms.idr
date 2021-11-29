@@ -5,6 +5,7 @@ import Data.Graph.GraphAlgorithms
 import Text.Smiles
 import Hedgehog
 import Data.Vect
+import Data.List
 
 %default total
 
@@ -23,11 +24,12 @@ import Data.Vect
 --  disconnected graphs
 --  isomeric forms
 -- Note: All the following Smiles strings were read successfully! :D
-smilesSelection : Vect 2 String
+smilesSelection : Vect 3 String
 smilesSelection = [
     "CCOCC" -- Diethylether
    --,"C1CCCCC1" -- Cyclohexane
    --,"CC(=CCCC(=CCO)C)C" --Geraniol
+   ,"CC1(C2CCC1(C(=O)C2)C)C" --Camphor
    --,"C1COCCC1N2CCNCC2" -- 1-(Oxan-4-yl)piperazine
    --,"[NH4+].[NH4+].Cl[Cu-2](Cl)(Cl)Cl" --Ammonium cupric chloride
    --,"C1=CC=C2C(=C1)C(=CN2)CC(C(=O)O)N" -- Tryptohpane
@@ -36,7 +38,7 @@ smilesSelection = [
    --,"COc1ccc(CN2C(=O)c3ccc4c5ccc6C(=O)N(Cc7ccc(OC)cc7)C(=O)c8ccc(c9ccc(C2=O)c3c49)c5c68)cc1" --CAS 83524-75-8
    ]
 
-graphs : Vect 2 (Graph Bond Atom) 
+graphs : Vect 3 (Graph Bond Atom) 
 graphs = map (escRes . parse) smilesSelection
   where
     escRes : Result -> Graph Bond Atom
@@ -52,8 +54,6 @@ showAlgoResults = do
   putStrLn $ show $ map (\g => dfs (nodes g) g) graphs
   putStrLn "BFS"
   putStrLn $ show $ map (\g => bfs (nodes g) g) graphs
-  --putStrLn "BFT"
-  --putStrLn $ show $ map (\g => bft ?sdf g) graphs
 
 
 -- TODO: How to write a property test?
