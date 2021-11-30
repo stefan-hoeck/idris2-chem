@@ -5,7 +5,6 @@ import Data.IntMap
 import Data.Graph.Types
 import Data.Graph.Util
 
-
 -- TODO: Disabled as discussed for the time being
 -- %default total
 
@@ -19,6 +18,7 @@ data MWTree a = Br a (List (MWTree a))
 ||| Postorder traversal
 ||| Visits the nodes of all subtrees before the root
 export
+-- TODO: Change this to O(n)
 postorder : MWTree a -> List a
 postorder (Br v ts) = concatMap postorder ts ++ [v]
 
@@ -133,7 +133,12 @@ mst : Node -> Graph e n -> RTree
 
 ||| Finding the largest independent node sets
 indep : Graph e n -> List Node
+indep empty = []
+indep g = let vs = nodes g
+              m  = max (map (deg g) vs)
+              v = ?first (\v => ?ddff) vs
 
+          in ?indep_rhs
 
 ||| Maximum clique problem but for undirected graphs
 ||| Groups all subgraphs Nodes

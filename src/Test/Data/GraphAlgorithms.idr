@@ -1,5 +1,6 @@
 module Test.Data.GraphAlgorithms
 
+import Data.Graph.Types
 import Data.Graph.GraphAlgorithms
 
 import Text.Smiles
@@ -12,6 +13,45 @@ import Data.List
 --------------------------------------------------------------------------------
 --      Generators
 --------------------------------------------------------------------------------
+
+record Probability where
+  constructor MkProbability
+  value : Nat
+  0 prf : So (value <= 100 && value >= 0)
+
+-- General Graph building
+nodes : (nNodes : Hedgehog.Range Bits64) -> Gen (List Node)
+nodes nNodes = map (\n => [1..n]) $ bits64 nNodes  
+
+edges : (nodes: List Node) -> List Edge
+edges []        = []
+edges (v :: []) = []
+edges (v :: vs) = (++) (edges vs) $ ?dfgh (MkEdge v) vs
+ -- TODO: Idea was to use map but the proof requires something more
+
+
+randomEdges : Probability -> List Edge -> Gen (List Edge)
+randomEdges p es =
+  let n = length es
+      bl = list (linear 0 n) $ frequency [
+             (value p            , pure True),
+             (minus 100 (value p), pure False)]
+  in map (map fst . filter snd) $ zip es <$> bl
+
+
+-- TODO: Graph building or unlabeled graphs?
+
+
+graph : Gen (Graph Edge Node)
+graph = ?sdf $ MkGraph ?asdf
+
+-- Rest Pending
+-- Don't forget postorder improvemen-- Don't forget postorder improvementt
+
+
+
+
+
 
 -- TODO: Is that about how it could be done?
          -- Should I use generators from the first function?
