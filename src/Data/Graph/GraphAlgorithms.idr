@@ -18,9 +18,8 @@ data MWTree a = Br a (List (MWTree a))
 ||| Postorder traversal
 ||| Visits the nodes of all subtrees before the root
 export
--- TODO: Change this to O(n)
 postorder : MWTree a -> List a
-postorder (Br v ts) = concatMap postorder ts ++ [v]
+postorder (Br v ts) = reverse $ v :: concatMap postorder ts
 
 
 -- A. Unlabeled Graphs ---------------------------------------------------------
