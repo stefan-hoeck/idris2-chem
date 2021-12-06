@@ -261,6 +261,38 @@ export
 labfilter : (n -> Bool) -> Graph e n -> Graph e n
 labfilter f = labnfilter (f . label)
 
+
+
+
+||| Insert a labeled node into the `Graph`.
+||| The behavior is undefined if the node is already
+||| in the graph.
+export
+insuNode : Node -> Graph e () -> Graph e ()
+insuNode v (MkGraph m) = MkGraph $ insert v (MkAdj () empty) m
+
+||| Insert a `LEdge` into the 'Graph'.
+||| Behavior is undefined if the edge does not
+||| connect two nodes already in the graph.
+export
+insuEdge : Edge -> Graph () n -> Graph () n
+insuEdge (MkEdge n1 n2 _) (MkGraph g) = -- MkGraph $ update n2 (addEdge n2 ?dsf) ?df
+   let g1 = update n1 (addEdge n2 ()) g
+   in MkGraph $ update n2 (addEdge n1 ()) g1
+
+||| Insert multiple `LNode`s into the `Graph`.
+export
+insuNodes : List Node -> Graph e () -> Graph e ()
+insuNodes vs g = foldl (\g2,n => insuNode n g2 ) g vs 
+
+
+||| Insert multiple `Edge`s into the `Graph`.
+export
+insuEdges : List Edge -> Graph () n -> Graph () n
+insuEdges es g = foldl (flip insuEdge) g es
+
+
+
 --------------------------------------------------------------------------------
 --          Creating Graphs
 --------------------------------------------------------------------------------
@@ -284,6 +316,13 @@ mkGraph ns es = insEdges es (insNodes ns empty)
 -- subgraph : List Node -> Graph e n -> Graph e n
 -- subgraph vs = let vs' = IntSet.fromList vs
 --                in nfilter (`IntSet.member` vs')
+
+
+export
+||| unlabeled graph
+mkuGraph : List Node -> List Edge -> Graph () ()
+mkuGraph ns es = insuEdges es (insuNodes ns empty)
+
 
 --------------------------------------------------------------------------------
 --          Displaying Graphs

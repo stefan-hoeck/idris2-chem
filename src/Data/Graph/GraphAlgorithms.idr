@@ -55,8 +55,6 @@ dfs (v :: vs) g = if isEmpty g then [] else
   case match v g of
     Split c g' => v :: dfs ((keys $ neighbours c) ++ vs) g'
     Empty      => dfs vs g
-dfs [] x = ?dfs_rhs_1
-dfs (y :: xs) x = ?dfs_rhs_2
 
 
 -- 1.2 bfs
@@ -133,11 +131,6 @@ mst : Node -> Graph e n -> RTree
 ||| Finding the largest independent node sets
 indep : Graph e n -> List Node
 indep empty = []
-indep g = let vs = nodes g
-              m  = max (map (deg g) vs)
-              v = ?first (\v => ?ddff) vs
-
-          in ?indep_rhs
 
 ||| Maximum clique problem but for undirected graphs
 ||| Groups all subgraphs Nodes
