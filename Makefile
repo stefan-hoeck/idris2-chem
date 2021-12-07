@@ -56,3 +56,7 @@ repl:
 .PHONY: develop
 develop:
 	find -name "*.idr" | entr -d idris2 --typecheck ${lib_pkg}
+
+.PHONY: test-develop
+test-develop:
+	find -name "*.idr" | entr -d idris2 --typecheck ${test_pkg}
