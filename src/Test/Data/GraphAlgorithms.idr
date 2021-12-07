@@ -14,16 +14,11 @@ import Data.List
 --      Generators
 --------------------------------------------------------------------------------
 
-record Probability where
-  constructor MkProbability
-  value : Nat
-  0 prf : So (value <= 100 && value >= 0)
+Probability : Type
+Probability = Nat
 
 probabilities : Gen Probability
-probabilities = believe_me MkProbability <$> nat (linear 0 100)
--- TODO: I'm sorry for using it Stefan! (psch!) I mean Master!
---       Ok seriously now, I want to provide the proof that it is
---       correct, but forgot how to (my brain is melting right now).
+probabilities = nat (linear 0 100)
   
 -- General Graph building
 nodes : (nNodes : Hedgehog.Range Bits64) -> Gen (List Node)
@@ -39,12 +34,11 @@ edges (v :: vs) = (++) (edges vs) $ mapMaybe (mkEdge v) vs
 ||| Randomly removes edges from a list of edges
 randomEdges : Probability -> List Edge -> Gen (List Edge)
 randomEdges p es =
-  let n = length es
-      bl = list (linear 0 n) $ frequency [
-             (value p            , pure True),
-             (minus 100 (value p), pure False)]
-  in map (map fst . filter snd) $ zip es <$> bl
-
+  let ves = Vect.fromList es
+      bl  = vect (length es) $ frequency [
+             (p          , pure True),
+             (minus 100 p, pure False)]
+   in map fst . filter snd . toList <$> [| zip (pure ves) bl |]
 
 graph : Gen (Graph () ())
 graph = let ns    = nodes (linear 1 20)
