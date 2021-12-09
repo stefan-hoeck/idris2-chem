@@ -6,7 +6,7 @@ import Data.Graph.Types
 import Data.Graph.Util
 
 -- TODO: Disabled as discussed for the time being
--- %default total
+%default total
 
 
 -- General ---------------------------------------------------------------------
@@ -17,14 +17,12 @@ data MWTree a = Br a (List (MWTree a))
 
 ||| Postorder traversal
 ||| Visits the nodes of all subtrees before the root
-export
+partial export
 postorder : MWTree a -> List a
 postorder (Br v ts) = reverse $ v :: concatMap postorder ts
 
 
 -- A. Unlabeled Graphs ---------------------------------------------------------
-
--- TODO: Make own module for RootPaths
 
 ||| Representation of a list of nodes
 ||| unlabeled
@@ -37,7 +35,6 @@ Path = List Node
 public export
 RTree : Type
 RTree = List Path
- -- TODO: might need show instance?
 
 
 -- 1.1 dfs
@@ -48,7 +45,7 @@ RTree = List Path
 |||
 ||| Output:
 ||| List of nodes in depth first order
-export
+partial export
 dfs : List Node -> Graph e n -> List Node
 dfs []        _ = []
 dfs (v :: vs) g = if isEmpty g then [] else
@@ -62,7 +59,7 @@ dfs (v :: vs) g = if isEmpty g then [] else
 |||
 ||| Output:
 ||| List of nodes in breadth first order
-export
+partial export
 bfs : List Node -> Graph e n -> List Node
 bfs []        _ = []
 bfs (v :: vs) g = if isEmpty g then [] else
@@ -72,22 +69,23 @@ bfs (v :: vs) g = if isEmpty g then [] else
 
 
 -- Spanning Trees --------------------------------------------------------------
-
+partial
 df : List Node -> Graph e n -> (List (MWTree Node), Graph e n)
 df []        g = ([],g)
 df (v :: vs) g = if isEmpty g then ([],empty) else 
     case match v g of
-      Split c g' => ?tras-- (Br v (f :: f'), g2)
       Empty      => df vs g
- --       where
- --dfhelp : Node -> Context e n -> Graph e n -> (MWTree Node, Graph e n)
- --dfhelp v c g = 
- --           let (f, g1) = df (keys $ neighbours c) g
- --               (f',g2) = df vs g1
- --           in  (Br v (f :: f') ,g2)
+      Split c g' => dfhelp v c g
+        where
+    partial
+    dfhelp : Node -> Context e n -> Graph e n -> (List (MWTree Node), Graph e n)
+    dfhelp v c g = let (f,g1) = df (keys $ neighbours c) g
+                       (f',g2) = df vs g1
+                   in (Br v f :: f', g2) -- (Br v (f :: f') ,g2)
 
 
 ||| Depth first spanning forest
+partial export
 dff : List Node -> Graph e n -> List (MWTree Node)
 dff vs g = fst (df vs g)
 
@@ -97,6 +95,7 @@ dff vs g = fst (df vs g)
 
 -- TODO: Not checked correct result
 -- breadth first algorithm for constructing the root-path tree
+partial
 bf : List Path -> Graph e n -> RTree
 bf []                _  = []
 bf (p@(v :: _) :: ps) g = if isEmpty g then [] else
@@ -109,7 +108,7 @@ bf (p :: ps)          g = bf ps g
 ||| Breadth first algorithm
 ||| Output
 ||| Root-path tree (list of lists actually)
-export
+partial export
 bft : Node -> Graph e n -> RTree
 bft v = bf [[v]] 
 
