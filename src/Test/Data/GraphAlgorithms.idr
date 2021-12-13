@@ -31,7 +31,7 @@ edges []        = []
 edges (v :: []) = []
 edges (v :: vs) = (++) (edges vs) $ mapMaybe (mkEdge v) vs
 
-||| Randomly removes edges from a list of edges
+-- Randomly removes edges from a list of edges
 randomEdges : Probability -> List Edge -> Gen (List Edge)
 randomEdges p es =
   let ves = Vect.fromList es
@@ -48,9 +48,54 @@ graph = let ns    = nodes (linear 1 20)
 
 
 
--- TODO: Is that about how it could be done?
-         -- Should I use generators from the first function?
 
+edgelist : List Edge
+edgelist = maybe Prelude.Nil id $ traverse (uncurry mkEdge)
+             [(1,2),(1,4),(1,6),(2,3),(3,5),(3,11),(4,5),(6,7),(6,8),(8,9),(8,10)]
+
+unitTestGraph : Graph () ()
+unitTestGraph = mkuGraph [1..11] edgelist 
+
+-- Tests
+
+partial
+emptyTest : Property
+emptyTest = property $ [] === dfs [] unitTestGraph
+
+
+partial
+testdfs : Property
+testdfs = let g   = unitTestGraph
+              ns  = (nodes g)
+              res = [1,2,3,5,4,11,6,7,8,9,10]
+          in property $ (===) res $ dfs ns g
+
+
+partial
+testbfs : Property
+testbfs = let g   = unitTestGraph
+              ns  = (nodes g)
+              res = [1,2,4,6,3,5,7,8,11,9,10]
+          in property $ (===) res $ bfs ns g
+
+partial
+-- TODO: No Eq or Show instance for MWTree
+testdff : Property
+--testdff = let g   = unitTestGraph
+--              ns  = nodes g
+--              res = []
+--          in property $ (===) res $ dff ns g
+
+
+partial export
+props : Group
+props = MkGroup "Graph Algorithms"
+          [ ("dfs", testdfs)
+--          , ("bfs", testbfs) -- Failing
+--          , ("dff", testdff) -- Missing instance
+          ]
+
+-- TODO: Remove the following? -------------------------------------------------
 -- Generation of test graphs using smiles strings
 -- Should cover compound types:
 --  linear
@@ -58,7 +103,7 @@ graph = let ns    = nodes (linear 1 20)
 --  aromatic
 --  disconnected graphs
 --  isomeric forms
--- Note: All the following Smiles strings were read successfully! :D
+-- Note: All the following Smiles strings were read successfully.
 --smilesSelection : Vect 3 String
 --smilesSelection = [
 --    "CCOCC" -- Diethylether
@@ -90,16 +135,3 @@ graph = let ns    = nodes (linear 1 20)
 --  putStrLn "BFS"
 --  putStrLn $ show $ map (\g => bfs (nodes g) g) graphs
 
-
--- TODO: How to write a property test?
---prop_dfs : Property
-
-
-
-
-
-
--- Function to test wether the smiles reading failed somewhere
---export
---testSmilesReading : IO ()
---testSmilesReading = putStrLn $ show $ any isEmpty $ graphs 
