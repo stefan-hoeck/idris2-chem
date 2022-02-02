@@ -125,3 +125,8 @@ export
 ullmann : Task n eq vq et vt -> Maybe (Vect n Node)
 ullmann ta = init ta >>= step ta
 
+
+
+
+
+

@@ -38,4 +38,3 @@ modules = Chem
         , Data.SubGraph.Ullmann
         , Data.SubGraph.UllmannImp
         , Data.SubGraph.Comparison
-        , Data.SubGraph.CompatibilityMatrix
