@@ -7,10 +7,6 @@ import Control.Monad.State
 %default total
 
 -------------------------------------------------------------------------------
--- Notes:
--- This implementation is influenced by CDK's Ullmann algorithm's 
--- use of the CompatibilityMatrix (base/isomorphism/.../CompatibilityMatrix.java
-
 -- TODO: Description of functionaliy / concept of 
 --       how this works ('full support' principle)
 -------------------------------------------------------------------------------
