@@ -10,21 +10,21 @@ module Data.SubGraph.Comparison
 ||| functions for the detection of subgraph
 ||| isomorphisms
 public export
-Matcher : (a : Type) -> Type
-Matcher a = a -> a -> Bool
+Matcher : (a : Type) -> (b : Type) -> Type
+Matcher a b = a -> b -> Bool
 
 -- Matcher logic
 public export
-always : Matcher a
+always : Matcher a b
 
 public export
-never : Matcher a
+never : Matcher a b
 
 public export
-(&&) : Matcher a -> Matcher a -> Matcher a
+(&&) : Matcher a b -> Matcher a b -> Matcher a b
 
 public export
-(||) : Matcher a -> Matcher a -> Matcher a
+(||) : Matcher a b -> Matcher a b -> Matcher a b
 
 public export
-not : Matcher a -> Matcher a
+not : Matcher a b -> Matcher a b
