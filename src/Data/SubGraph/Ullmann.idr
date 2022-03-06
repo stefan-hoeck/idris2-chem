@@ -1,6 +1,14 @@
 module Data.SubGraph.Ullmann
 
+------------------------------------------------------------------------------
+-- References
+-- Ullmann [2010]: Bit-Vector Algorithms for Binary Constraint Satisfaction
+--                 and Subgraph Isomorphism
+--                 Julian R. Ullmann, King's College London, 2010
+
+
 import Data.Graph
+
 import Data.Vect
 import Data.List
 import Data.IntMap
@@ -124,7 +132,6 @@ step ta (r :: rs) = select ta (ctxt r) (trgs r) rs
 export
 ullmann : Task n eq vq et vt -> Maybe (Vect n Node)
 ullmann ta = init ta >>= step ta
-
 
 
 
