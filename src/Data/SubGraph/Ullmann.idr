@@ -5,9 +5,11 @@ module Data.SubGraph.Ullmann
 -- Ullmann [2010]: Bit-Vector Algorithms for Binary Constraint Satisfaction
 --                 and Subgraph Isomorphism
 --                 Julian R. Ullmann, King's College London, 2010
+--
+-- Lecoutre [200]: 
 
 
-import Control.Monad.State
+import Data.Vect
 import Data.Graph
 import Data.SubGraph.Comparison
 import Data.SubGraph.CompatibilityMatrix
@@ -77,34 +79,102 @@ record Settings where
 ||| Refer to Ullmann [2010]
 prematch : Settings -> CompatibilityMatrix rows cols 
          -> CompatibilityMatrix rows cols
-
+-- TODO: At-Hoeck
+--       Should the prematched compatibility matrix type be changed?
+--       This would enforce the use of properly prepared conmpatibility
+--       matrices. Altough this is not really necessary for the backtrackSearch
+--       as it will just not find a match if the CompatibilityMatrix is
+--       already invalid
 
 -- Search procedure  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .   
--- TODO: Depends on choose procedure too...
-search : Int
+-- TODO: Depends on choose procedure ...
+||| Backtrack search algorithm (depth-first)
+||| Uses a 
+backtrackSearch : Settings -> CompatibilityMatrix rs cs 
+                -> (n ** Vect n (CompatibilityMatrix rs cs))
+-- Recursion over rows of CM
+--  1. Elective instantiation (v (of Vj)) (choose method)
+--  2. Domain reduction
+--   if consistent then
+--       if terminal (depth = rs && valid CM (TODO: Validation wrapper type?)) -> add CM to result
+--       else eval next row
+--   if any row no 1 -> empty domain -> Backtrack (depth = 1 -> terminate)
+--
+--        
+-- TODO: How to store available domain values (read them from vector?
+--       Or should we keep a separate list where we can read them directly
+--       allowing us to maintain short lists -> less lookup time
 
 
 -- Elective instantiation  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
 -- TODO: Input missing -> which values possible
 --       Output refinement -> provide proof of valid value
 --
---       chose can just take the next value or it can use something like
---       dom/wdeg (requires some tracking in the search algorithm) Lecoutre [200]
-choose : Settings -> Nat
+-- Options:
+--     - Binary branching
+--     - dom/wdeg
+choose : Settings -> Maybe Nat
+-- TODO: Return type should baybe be an own type to represent:
+--         - Terminal to check in the search
+--         - Just the value to instantiate
+-- As described in Ullmann 2010
+-- 1. If all domains are single valued -> return & eval terminal
+-- 2. Loop over multivalued variables & instantiate next variable
+--        If dom/wdeg -> score computations & selection (Lecoutre)
+--        otherwise just take this one
+--3. eval terminal
+
 
 
 -- Dimensionality reduction . .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+
+-- TODO: This section needs proper types. However, the representation or
+--       handling of domains must first be specified. I did not think about
+--       that enough yet.
+
+
+||| Removal of value u as soon as it becomes unsupported.
+|||    Mij[u] * Dj = 0
+||| Mij : Predicate result matrix
+||| Mij[u] : Row corresponding to Vi = Di
+||| u   : Value of domain Di
+||| Di  : Domain of variable Vi
+|||
+||| TODO: This is an incomplete part of the mathematical concept present
+|||       in Ullmann and not exactly how it would be represented
+|||       here. Note: Needs further work to properly understand it.
+|||
+||| TODO: I do not understand the Domains correctly. I thought the values
+|||       still available in the compatibility matrix woul correspond to the
+|||       values still present in the domain Di. But what is Dj then? I guess
+|||       those are the values Vi that werent assigned to anything yet so
+|||       it corresponds to a column in the compatibility matrix.
+|||
+||| Ullmann [2010]
 directReduction : Int
+
+
+||| Accumulation of supported values (B) with
+||| subsequent assignment to Di
+|||
 cumulativeReduction : Int
+
+
+||| "Curtailed" reduction: Only reduces a domain at most once
+||| per TODO (iteration? what exactly)
+||| Has more elective instantiations and less domain reductions.
 forwardChecking : Int
-
-
 
 
 
 -- Algorithm invocation -------------------------------------------------------
 
-ullmannImp : {s : Settings} -> Bool
+ullmannImp : {s : Settings} -> (n ** Vect n (CompatibilityMatrix rs cs))
+-- 1. init CM
+-- 2. prematch
+-- 3. search procedure
+
+
 
 public export
 -- TODO: Output types:
@@ -118,7 +188,7 @@ ullmann :  Query qes qvs
         -> Match qes tes
         -> Match qvs tvs
         -> Bool
-ullmann q t me mv = ullmannImp {s = MkSettings q t me mv}
+ullmann q t me mv = ?outputCalc $ ullmannImp {s = MkSettings q t me mv}
 
 
 
