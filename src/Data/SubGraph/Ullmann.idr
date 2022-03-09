@@ -6,7 +6,11 @@ module Data.SubGraph.Ullmann
 --                 and Subgraph Isomorphism
 --                 Julian R. Ullmann, King's College London, 2010
 --
--- Lecoutre [200]: 
+-- Lecoutre [2009]: Reasoning from last conflict(s) in constraing programming
+--                  Christophe Lecoutre et al., Elsevier, 2009
+--
+-- Boussemart []: Boosting Systematic search by weighting constraints
+--                Frederic Boussemart et al., ??, ??
 
 
 import Data.Vect
