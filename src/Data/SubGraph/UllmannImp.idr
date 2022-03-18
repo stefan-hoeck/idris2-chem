@@ -52,6 +52,7 @@ import Data.IntMap
 
 
 -- TODO: Handle Partial
+-- TODO: Change to 'Settings =>'
 
 -- Data types and their functins ----------------------------------------------
 
@@ -111,20 +112,20 @@ record Settings where
 ||| Representation of the query vertice indice used to access
 ||| a specific vertex in the graph or a row in the mapping.
 Vq : Type
-Vq = Bits64
+Vq = Node
 ||| Representation of the target vertice indice used to access
 ||| a specific vertex in the target graph or a value mapped to
 ||| in a domain of the mapping.
 Vt : Type
-Vt = Bits64
+Vt = Node
 
 
 ||| Retreive all indices of the vertices in the query graph
 getQueryVertices : Settings -> List Vq
-getQueryVertices s = keys $ graph $ query s
+getQueryVertices s = nodes $ query s -- keys $ graph $ query s
 ||| Retreive all indices of the vertices in the target graph
 getTargetVertices : Settings -> List Vt
-getTargetVertices s = keys $ graph $ target s
+getTargetVertices s = nodes $ query s -- keys $ graph $ target s
 
 
 -- Mapping
@@ -160,10 +161,11 @@ getCodomain : (row : Vq) -> Mapping -> Codomain
 -- TODO
 
 ||| Returns the size of a domain
+-- TODO: Unnecessary alias. But useful for my comprehension for now (remove?)
 domainCardinality : Domain -> Nat
-domainCardinality = foldl (\acc,_ => plus 1 acc) 0 
+domainCardinality = length
 codomainCardinality : Codomain -> Nat
-codomainCardinality = foldl (\acc,_ => plus 1 acc) 0
+codomainCardinality = length
 
 ||| Used to represent that a type needs to meet certain
 ||| restrictions to be used. In the case of a mapping,
@@ -174,10 +176,56 @@ codomainCardinality = foldl (\acc,_ => plus 1 acc) 0
 data Prematched a = MkPrematched a
 
 
-
 -- Algorithm utility functions ------------------------------------------------
 
 -- Prematching
+
+
+
+||| Compares a target vertex with a query vertex using their Node
+||| indices
+vertexInvar : Settings -> Vq -> Vt -> Bool
+vertexInvar s q' t' = fromMaybe False $ 
+    (vertexMatcher s) <$> (lab (query s) q') <*> (lab (target s) t')
+
+||| TODO: Move utility module
+||| Works like deletyBy in Data.List but is forced to delete
+||| an occurence. If it fails, then it wont return the shortened list.
+forcedDelete : (a -> b -> Bool) -> a -> List b -> Maybe (List b)
+forcedDelete _ _ [] = Nothing
+forcedDelete f a (b :: bs) = 
+     if f a b then Just bs else map ((::) b) $ forcedDelete f a bs 
+
+
+||| Evaluates whether vertex q can be mapped to t by comparing their edges.
+||| To yield a positive result, the following criteria must be fulfilled:
+|||   - degree:  A subgraph isomorphism requires that a target vertex t has
+|||              equal or more edges to adjacent vertices than vertex q.
+|||   - label:   For labeled graphs, as the ones here, it is also necessary
+|||              compare the availability of enough edges with matching labels
+|||              in the target graph. This is done using the provided function
+|||              in the settings. To make sure, that no edge is mapped to
+|||              multiple times (ensure injective mapping), a list of edges
+|||              is used where the ones already being mapped to are removed.
+edgeCoverage : Settings -> Vq -> Vt -> Bool
+edgeCoverage s q t = 
+   let qry  = query s
+       trg  = target s
+       -- List of edge labels to compare
+       qEL  = traverse (\n => elab qry q n) $ neighbours qry q
+       tEL  = traverse (\n => elab trg t n) $ neighbours trg t
+   in fromMaybe False $ matchEdges (edgeMatcher s) <$> qEL <*> tEL
+   where 
+     -- Searches a matching edge of List 2 for each edge in List 1
+     -- Does not match the same edge twice (removes it)
+     matchEdges : Match e1 e2 -> List e1 -> List e2 -> Bool
+     matchEdges _ []         _  = True
+     matchEdges _ _          [] = False
+     matchEdges f (qe :: qes) tes = 
+       case forcedDelete f qe tes of
+          Nothing => False
+          Just tesRem => matchEdges f qes tesRem
+
 
 ||| The initial mapping is build by comparing all vertices in the query (Vq)
 ||| with the available vertices in the target (Vt). For a vertice t in Vt
@@ -195,11 +243,20 @@ data Prematched a = MkPrematched a
 |||
 ||| Further verification is possible, by also applying the predicates above
 ||| to adjacent vertices
+|||
+||| -> TODO: I need Vq to be the type of the querys vertices
 contextMatch : Settings -> Mapping
 contextMatch s = 
-    let dom   = getQueryVertices s
-        codom = getTargetVertices s
-    in foldl ?gf ?empty dom
+    let dom   = nodes $ query s
+        codom = nodes $ target s
+    in foldl (\m,q => ?insertCodomainToDomainMappingContainer $ 
+               foldl (\cd,t => if vertexInvar s q t
+                               then ?ifTrueAddToCodomain $ edgeCoverage s q t
+                               else ?doNotAddToCodomain
+                     )
+               ?emptycodom codom) 
+       ?emptyMapping dom
+    
 -- 1. Match vertices
 -- 2. Match edge type coverage with numbers present
 
