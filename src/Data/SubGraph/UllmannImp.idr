@@ -46,6 +46,7 @@ module Data.SubGraph.UllmannImp
 
 import Data.Graph
 import Data.Vect
+import Data.IntMap
 
 %default total
 
@@ -110,40 +111,59 @@ record Settings where
 ||| Representation of the query vertice indice used to access
 ||| a specific vertex in the graph or a row in the mapping.
 Vq : Type
+Vq = Bits64
 ||| Representation of the target vertice indice used to access
 ||| a specific vertex in the target graph or a value mapped to
 ||| in a domain of the mapping.
 Vt : Type
--- Val and key actually the same underlying type as they 
--- both represent vertice indices
+Vt = Bits64
 
 
 ||| Retreive all indices of the vertices in the query graph
 getQueryVertices : Settings -> List Vq
+getQueryVertices s = keys $ graph $ query s
 ||| Retreive all indices of the vertices in the target graph
 getTargetVertices : Settings -> List Vt
+getTargetVertices s = keys $ graph $ target s
 
+
+-- Mapping
 
 ||| Mapping : A construct describing the correspondence of a vertex in the query 
 |||           and a vertex in the target. A mapping of a vertex in the query
 |||           can yield multiple feasible vertices in the target. These feasible
 |||            M(q) |-> Dq
 Mapping : Type
+-- TODO
 
-||| This domain type should represent a collection of values
-||| that correspond to a domain or codomain.
-|||
-||| Its primary use in this algorithm is to store the vertice indices
-||| for elective instantiation and advance of the row search. 
+||| Represents a collection of values that correspond to the domain V Vq.
 |||
 ||| TODO: Something other than a list might be more beneficial for a mapping row
 ||| TODO: Sorting might be beneficial for elective instantiation (e.g. degree).
 Domain : Type
-Domain = List Vt
+Domain = List Vq
 
+||| This domain type should represent a collection of values
+||| that correspond to a codomain.
+|||
+||| Its primary use in this algorithm is to store the vertice indices
+||| for elective instantiation and advance of the row search. 
+Codomain : Type
+Codomain = List Vt
+
+||| Retrieve the values that are being mapped to the codomain
+||| equivalent to getQueryVertices
+getDomain : Mapping -> Domain
+-- TODO
 ||| Retreive the values mapped to by a vertice in the query
-getCodomain : (row : Vq) -> Mapping -> Domain
+getCodomain : (row : Vq) -> Mapping -> Codomain
+-- TODO
 
+||| Returns the size of a domain
+domainCardinality : Domain -> Nat
+domainCardinality = foldl (\acc,_ => plus 1 acc) 0 
+codomainCardinality : Codomain -> Nat
+codomainCardinality = foldl (\acc,_ => plus 1 acc) 0
 
 ||| Used to represent that a type needs to meet certain
 ||| restrictions to be used. In the case of a mapping,
@@ -151,7 +171,6 @@ getCodomain : (row : Vq) -> Mapping -> Domain
 ||| feasibilities which makes sure, that only vertices
 ||| which fulfill the required predicates (t) are present in
 ||| the codomains for m(q) |-> t.
-||| TODO: Not a good describtion
 data Prematched a = MkPrematched a
 
 
@@ -177,6 +196,10 @@ data Prematched a = MkPrematched a
 ||| Further verification is possible, by also applying the predicates above
 ||| to adjacent vertices
 contextMatch : Settings -> Mapping
+contextMatch s = 
+    let dom   = getQueryVertices s
+        codom = getTargetVertices s
+    in foldl ?gf ?empty dom
 -- 1. Match vertices
 -- 2. Match edge type coverage with numbers present
 
@@ -185,7 +208,7 @@ contextMatch : Settings -> Mapping
 prematch : Settings -> Prematched Mapping
 prematch = MkPrematched . contextMatch
 
--- Search algorithm
+-- Instantiation & reduction
 
 ||| Selects a value from a domain to set as vertex t for m(q) |-> t.
 ||| To make sure that each value is only chosen once (all different 
@@ -193,9 +216,15 @@ prematch = MkPrematched . contextMatch
 |||
 ||| Different methods can be applied, currently, a simple enumeration
 ||| is performed.
-electiveInst : Domain -> Maybe (Vt, Domain)
+electiveInst : Codomain -> Maybe (Vt, Codomain)
 electiveInst []        = Nothing
 electiveInst (x :: xs) = Just (x, xs)
+
+
+||| Removes all target vertices t mapped to by query vertex q from 
+||| the codimain Cq, except for the instantiated vertex 'inst'
+setInst : (row : Vq) -> (inst : Vt) -> Mapping -> Mapping
+-- TODO
 
 ||| Removes the instantiated value (inst : Vt) from all rows
 ||| specified by the input argument. These rows correspond to
@@ -209,22 +238,67 @@ electiveInst (x :: xs) = Just (x, xs)
 ||| It is also possible to reach SubGraphIsomorphism if all codomains are
 ||| Single valued after domainReduction (if a codomain becomes single valued
 ||| due to the domain reduction, then this is called implied instantiation).
-domainReduction : (inst : Vt) -> (rows : List Vq) -> Mapping -> Mapping
+domainReduction : (inst : Vt) -> (rows : Domain) -> Mapping -> Mapping
 domainReduction _ []        m = m
 domainReduction v (r :: rs) m = domainReduction v rs (removeKey v r m)
   where removeKey : (inst : Vt) -> (row : Vq) -> Mapping -> Mapping
 
+-- Isomorphism test
 
 ||| This function evaluates what the current mapping represents.
 ||| The describtion of the MappingHealth lists all possible states
-||| and the criteria for its selection
+||| and the criteria for its selection.
+|||
+||| The evaluation works as followed:
+||| 1. Each row (q) is checked whether its codomain Cq is empty.
+|||    If it isn't, then it's values are added to an accumulator.
+|||    The recursion is not interrupted to return 'Intermediate'
+|||    upon finding multiple values in one codomain, since a
+|||    domain reduction could have yielded an empty domain in a
+|||    later q (or row).
+||| 2. Once all rows were iterated, the accumulator is searched
+|||    for a codomain value t with multiple occurences in the
+|||    mapping. Since subgraph isomorphism is injective, no t
+|||    is allowed to be present twice in a mapping. If all
+|||    values of the codomain are only present once, the sum
+|||    of their occurences is compared to the cardinality of
+|||    the domain. If both are equal, then each value q of the
+|||    domain is mapped to one value in the codomain, thus
+|||    representing a valid subgraph isomophism (actually a graph
+|||    isomorphism if the codomain cardinality is the same as 
+|||    the domains cardinality).
+|||    
+|||    The previously described two steps are currently combined
+|||    to one. By accumulating the numbers, if the number of
+|||    occurences is not equal to the domain cardinality, then it
+|||    is no isomorphism and therefore an Intermediate.
+|||
+|||    TODO: Is there a data type that would be quicker to check
+|||          the number of occurences as a map? I think of a
+|||          sorted tree or map which is ordered by descending
+|||          number of occurences. This would allow us to 
+|||          check the first element for its value. However,
+|||          since we have to check the whole number anyway, it
+|||          might not really be more efficient anyway.
+|||
+|||    TODO: Should I draw the domain cardinality from the settings?
+|||          Not sure if Idris realises, that it stays the same
+|||          over the whole process (altough it seems to be smarter
+|||          than I am (very specialized tough)).
 isIsomorphism : Mapping -> MappingHealth
+isIsomorphism m = go empty (getDomain m) m
+   where
+     go : IntMap Nat -> (rows : Domain) -> Mapping -> MappingHealth
+     go acc []        m = if (==) (domainCardinality (getDomain m)) 
+                             $ foldl plus Z acc 
+                          then SubGraphIsomorphism else Intermediate
+     go acc (r :: rs) m = case getCodomain r m of
+            [] => EmptyCodomain
+            cd => go (foldl (\a,t => insertWith plus t 1 a) acc cd) rs m
+
 
 -- Search algorithm
 
--- initRow to initialize new rows
--- rowSearch to continue with next domain value
---           or next row depending on matching result
 ||| Tries to electively instantiate a target vertex t for a
 ||| query vertex q (first element in rows) and evaluate whether
 ||| it is possible to find a subgraph isomorphism from it.
@@ -241,7 +315,7 @@ isIsomorphism : Mapping -> MappingHealth
 ||| it must be matched to make sure that the next value in the codomain
 ||| is tried.
 partial
-rowSearch : (rows : List Vq) -> Domain -> Mapping -> Maybe Mapping
+rowSearch : (rows : List Vq) -> Codomain -> Mapping -> Maybe Mapping
 
 ||| Retreives the codomain Cq for the current vertex q
 ||| and initiates the elective search for a mapping 
@@ -260,7 +334,7 @@ initRow (r :: rs) m = rowSearch (r :: rs) (getCodomain r m) m
 rowSearch Nil _ _ = Nothing
 rowSearch (r :: rs) dom m = do
   (vj, domRem) <- electiveInst dom
-  mReduced     <- pure $ domainReduction vj rs m
+  mReduced     <- pure $ domainReduction vj rs $ setInst r vj m
   healthRM     <- pure $ isIsomorphism mReduced
   case healthRM of
        Intermediate        => case initRow rs m of
@@ -280,7 +354,7 @@ rowSearch (r :: rs) dom m = do
 ||| initiated.
 partial
 ullmannImp : (s : Settings) -> Maybe Mapping
-ullmannImp s = let (MkPrematched m) = prematch s
+ullmannImp s = let (MkPrematched m) := prematch s
                in case isIsomorphism m of
                        Intermediate => initRow (getQueryVertices s) m
                        EmptyCodomain => Nothing
