@@ -109,6 +109,8 @@ record Settings where
 
 -- Mapping of the query to the target
 
+-- TODO: No safety that Vq can be accidentally replaced with a value from Vt
+
 ||| Representation of the query vertice indice used to access
 ||| a specific vertex in the graph or a row in the mapping.
 Vq : Type
@@ -226,6 +228,11 @@ edgeCoverage s q t =
           Nothing => False
           Just tesRem => matchEdges f qes tesRem
 
+||| Adds a vertex t to a codomain
+addToCodomain : Vt -> Codomain -> Codomain
+
+||| Adds a codomain to a mapping for a specific Vq
+addToMapping : Vq -> Codomain -> (m : Mapping) -> Mapping
 
 ||| The initial mapping is build by comparing all vertices in the query (Vq)
 ||| with the available vertices in the target (Vt). For a vertice t in Vt
@@ -249,16 +256,16 @@ contextMatch : Settings -> Mapping
 contextMatch s = 
     let dom   = nodes $ query s
         codom = nodes $ target s
-    in foldl (\m,q => ?insertCodomainToDomainMappingContainer $ 
+    in foldl (\m,q => addToMapping q {m = m} $ 
                foldl (\cd,t => if vertexInvar s q t
-                               then ?ifTrueAddToCodomain $ edgeCoverage s q t
-                               else ?doNotAddToCodomain
+                               then if edgeCoverage s q t 
+                                    then addToCodomain t cd  -- All satisfied
+                                    else cd
+                               else cd -- Not satisfied vertexInvar
                      )
                ?emptycodom codom) 
        ?emptyMapping dom
     
--- 1. Match vertices
--- 2. Match edge type coverage with numbers present
 
 ||| Function which applies all necessary predicates for
 ||| building the mapping
