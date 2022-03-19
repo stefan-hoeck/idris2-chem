@@ -123,11 +123,11 @@ Vt = Node
 
 
 ||| Retreive all indices of the vertices in the query graph
-getQueryVertices : Settings -> List Vq
-getQueryVertices s = nodes $ query s -- keys $ graph $ query s
+getQueryVertices : (s : Settings) => List Vq
+getQueryVertices = nodes $ query s-- keys $ graph $ query s
 ||| Retreive all indices of the vertices in the target graph
-getTargetVertices : Settings -> List Vt
-getTargetVertices s = nodes $ query s -- keys $ graph $ target s
+getTargetVertices : (s : Settings) => List Vt
+getTargetVertices = nodes $ query s -- keys $ graph $ target s
 
 
 -- Mapping
@@ -186,8 +186,8 @@ data Prematched a = MkPrematched a
 
 ||| Compares a target vertex with a query vertex using their Node
 ||| indices
-vertexInvar : Settings -> Vq -> Vt -> Bool
-vertexInvar s q' t' = fromMaybe False $ 
+vertexInvar : (s : Settings) => Vq -> Vt -> Bool
+vertexInvar q' t' = fromMaybe False $ 
     (vertexMatcher s) <$> (lab (query s) q') <*> (lab (target s) t')
 
 ||| TODO: Move utility module
@@ -209,8 +209,8 @@ forcedDelete f a (b :: bs) =
 |||              in the settings. To make sure, that no edge is mapped to
 |||              multiple times (ensure injective mapping), a list of edges
 |||              is used where the ones already being mapped to are removed.
-edgeCoverage : Settings -> Vq -> Vt -> Bool
-edgeCoverage s q t = 
+edgeCoverage : (s : Settings) => Vq -> Vt -> Bool
+edgeCoverage q t = 
    let qry  = query s
        trg  = target s
        -- List of edge labels to compare
@@ -252,13 +252,13 @@ addToMapping : Vq -> Codomain -> (m : Mapping) -> Mapping
 ||| to adjacent vertices
 |||
 ||| -> TODO: I need Vq to be the type of the querys vertices
-contextMatch : Settings -> Mapping
-contextMatch s = 
+contextMatch : (s : Settings) => Mapping
+contextMatch = 
     let dom   = nodes $ query s
         codom = nodes $ target s
     in foldl (\m,q => addToMapping q {m = m} $ 
-               foldl (\cd,t => if vertexInvar s q t
-                               then if edgeCoverage s q t 
+               foldl (\cd,t => if vertexInvar q t
+                               then if edgeCoverage q t 
                                     then addToCodomain t cd  -- All satisfied
                                     else cd
                                else cd -- Not satisfied vertexInvar
@@ -269,8 +269,8 @@ contextMatch s =
 
 ||| Function which applies all necessary predicates for
 ||| building the mapping
-prematch : Settings -> Prematched Mapping
-prematch = MkPrematched . contextMatch
+prematch : (s : Settings) => Prematched Mapping
+prematch = MkPrematched $ contextMatch
 
 -- Instantiation & reduction
 
@@ -418,9 +418,9 @@ rowSearch (r :: rs) dom m = do
 ||| initiated.
 partial
 ullmannImp : (s : Settings) -> Maybe Mapping
-ullmannImp s = let (MkPrematched m) := prematch s
+ullmannImp s = let (MkPrematched m) := prematch
                in case isIsomorphism m of
-                       Intermediate => initRow (getQueryVertices s) m
+                       Intermediate => initRow getQueryVertices m
                        EmptyCodomain => Nothing
                        SubGraphIsomorphism => Just m
 
