@@ -20,3 +20,4 @@ modules = Test.Chem.Element
         , Test.Data.IntMap
         , Test.Text.Molfile
         , Test.Text.Smiles.Parser
+        , Test.Data.SubGraph
