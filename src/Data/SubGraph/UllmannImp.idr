@@ -45,6 +45,7 @@ module Data.SubGraph.UllmannImp
 
 
 import Data.Graph
+import Data.List
 import Data.Vect
 import Data.IntMap
 
@@ -113,31 +114,29 @@ record Settings where
 
 ||| Representation of the query vertice indice used to access
 ||| a specific vertex in the graph or a row in the mapping.
-Vq : Type
-Vq = Node
+record Vq where
+  constructor MkVq
+  vq : Node
+
+Eq Vq where
+  MkVq q1 == MkVq q2 = q1 == q2
+
 ||| Representation of the target vertice indice used to access
 ||| a specific vertex in the target graph or a value mapped to
 ||| in a domain of the mapping.
-Vt : Type
-Vt = Node
-
+record Vt where
+  constructor MkVt
+  vt : Node
 
 ||| Retreive all indices of the vertices in the query graph
 getQueryVertices : (s : Settings) => List Vq
-getQueryVertices = nodes $ query s-- keys $ graph $ query s
+getQueryVertices = map MkVq $ nodes $ query s
 ||| Retreive all indices of the vertices in the target graph
 getTargetVertices : (s : Settings) => List Vt
-getTargetVertices = nodes $ query s -- keys $ graph $ target s
+getTargetVertices = map MkVt $ nodes $ target s
 
 
 -- Mapping
-
-||| Mapping : A construct describing the correspondence of a vertex in the query 
-|||           and a vertex in the target. A mapping of a vertex in the query
-|||           can yield multiple feasible vertices in the target. These feasible
-|||            M(q) |-> Dq
-Mapping : Type
--- TODO
 
 ||| Represents a collection of values that correspond to the domain V Vq.
 |||
@@ -154,13 +153,10 @@ Domain = List Vq
 Codomain : Type
 Codomain = List Vt
 
-||| Retrieve the values that are being mapped to the codomain
-||| equivalent to getQueryVertices
-getDomain : Mapping -> Domain
--- TODO
-||| Retreive the values mapped to by a vertice in the query
-getCodomain : (row : Vq) -> Mapping -> Codomain
--- TODO
+emptyDomain : Domain
+emptyDomain = []
+emptyCodomain : Codomain
+emptyCodomain = []
 
 ||| Returns the size of a domain
 -- TODO: Unnecessary alias. But useful for my comprehension for now (remove?)
@@ -168,6 +164,29 @@ domainCardinality : Domain -> Nat
 domainCardinality = length
 codomainCardinality : Codomain -> Nat
 codomainCardinality = length
+||| Mapping : A construct describing the correspondence of a vertex in the query 
+|||           and a vertex in the target. A mapping of a vertex in the query
+|||           can yield multiple feasible vertices in the target. These feasible
+|||            M(q) |-> Dq
+record Mapping where
+  constructor MkMapping
+  domain  : Domain
+  mapping : List (Vq, Codomain)
+
+emptyMapping : Mapping
+emptyMapping = MkMapping emptyDomain []
+
+||| Retrieve the values that are being mapped to the codomain
+||| equivalent to getQueryVertices
+getDomain : Mapping -> Domain
+getDomain (MkMapping dom _) = dom
+
+||| Retreive the values mapped to by a vertice in the query
+getCodomain : (row : Vq) -> Mapping -> Codomain
+getCodomain q m = case Data.List.find ((==) q . fst) (mapping m) of
+                       Nothing => [] -- TODO: A proof that it's present... To remove the maybe
+                       Just x => snd x
+
 
 ||| Used to represent that a type needs to meet certain
 ||| restrictions to be used. In the case of a mapping,
@@ -187,7 +206,7 @@ data Prematched a = MkPrematched a
 ||| Compares a target vertex with a query vertex using their Node
 ||| indices
 vertexInvar : (s : Settings) => Vq -> Vt -> Bool
-vertexInvar q' t' = fromMaybe False $ 
+vertexInvar (MkVq q') (MkVt t') = fromMaybe False $ 
     (vertexMatcher s) <$> (lab (query s) q') <*> (lab (target s) t')
 
 ||| TODO: Move utility module
@@ -210,7 +229,7 @@ forcedDelete f a (b :: bs) =
 |||              multiple times (ensure injective mapping), a list of edges
 |||              is used where the ones already being mapped to are removed.
 edgeCoverage : (s : Settings) => Vq -> Vt -> Bool
-edgeCoverage q t = 
+edgeCoverage (MkVq q) (MkVt t) = 
    let qry  = query s
        trg  = target s
        -- List of edge labels to compare
@@ -250,21 +269,16 @@ addToMapping : Vq -> Codomain -> (m : Mapping) -> Mapping
 |||
 ||| Further verification is possible, by also applying the predicates above
 ||| to adjacent vertices
-|||
-||| -> TODO: I need Vq to be the type of the querys vertices
 contextMatch : (s : Settings) => Mapping
-contextMatch = 
-    let dom   = nodes $ query s
-        codom = nodes $ target s
-    in foldl (\m,q => addToMapping q {m = m} $ 
-               foldl (\cd,t => if vertexInvar q t
-                               then if edgeCoverage q t 
-                                    then addToCodomain t cd  -- All satisfied
-                                    else cd
-                               else cd -- Not satisfied vertexInvar
-                     )
-               ?emptycodom codom) 
-       ?emptyMapping dom
+contextMatch =
+    let dom   = getQueryVertices
+        codom = getTargetVertices
+    in foldl (\m, q => addToMapping q {m = m} $
+               foldl (\cd,t => if vertexInvar q t && edgeCoverage q t 
+                               then addToCodomain t cd 
+                               else cd)
+                emptyCodomain codom)
+             emptyMapping dom 
     
 
 ||| Function which applies all necessary predicates for
@@ -302,6 +316,14 @@ setInst : (row : Vq) -> (inst : Vt) -> Mapping -> Mapping
 ||| It is also possible to reach SubGraphIsomorphism if all codomains are
 ||| Single valued after domainReduction (if a codomain becomes single valued
 ||| due to the domain reduction, then this is called implied instantiation).
+|||
+|||
+||| TODO: In the cdk, they are also checking adjacent vertices for their
+|||       support (do they still have enough adjacent vertices with corr,
+|||       edges?). See: base/isomorphism/src/main/.../UllmannState.java 
+|||       function ~> refine
+|||       They are continuing this refinement process for as long as there
+|||       are changes to the mapping in an iteration.
 domainReduction : (inst : Vt) -> (rows : Domain) -> Mapping -> Mapping
 domainReduction _ []        m = m
 domainReduction v (r :: rs) m = domainReduction v rs (removeKey v r m)
@@ -358,7 +380,7 @@ isIsomorphism m = go empty (getDomain m) m
                           then SubGraphIsomorphism else Intermediate
      go acc (r :: rs) m = case getCodomain r m of
             [] => EmptyCodomain
-            cd => go (foldl (\a,t => insertWith plus t 1 a) acc cd) rs m
+            cd => go (foldl (\a, (MkVt t) => insertWith plus t 1 a) acc cd) rs m
 
 
 -- Search algorithm
