@@ -119,7 +119,7 @@ record Vq where
   vq : Node
 
 Eq Vq where
-  MkVq q1 == MkVq q2 = q1 == q2
+  (==) = (==) `on` vq
 
 ||| Representation of the target vertice indice used to access
 ||| a specific vertex in the target graph or a value mapped to
@@ -127,6 +127,9 @@ Eq Vq where
 record Vt where
   constructor MkVt
   vt : Node
+
+Eq Vt where
+  (==) = (==) `on` vt
 
 ||| Retreive all indices of the vertices in the query graph
 getQueryVertices : (s : Settings) => List Vq
