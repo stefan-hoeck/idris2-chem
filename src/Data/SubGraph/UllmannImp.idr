@@ -110,8 +110,6 @@ record Settings where
 
 -- Mapping of the query to the target
 
--- TODO: No safety that Vq can be accidentally replaced with a value from Vt
-
 ||| Representation of the query vertice indice used to access
 ||| a specific vertex in the graph or a row in the mapping.
 record Vq where
@@ -153,20 +151,22 @@ Domain = List Vq
 |||
 ||| Its primary use in this algorithm is to store the vertice indices
 ||| for elective instantiation and advance of the row search. 
-Codomain : Type
-Codomain = List Vt
+||| TODO: Need a way to make sure that only Vts can be used for the construction
+|||       Or is the constructor for codomains enough?
+record Codomain where
+  constructor MkCodomain
+  value : IntMap ()
 
 emptyDomain : Domain
 emptyDomain = []
 emptyCodomain : Codomain
-emptyCodomain = []
+emptyCodomain = MkCodomain empty
 
 ||| Returns the size of a domain
--- TODO: Unnecessary alias. But useful for my comprehension for now (remove?)
 domainCardinality : Domain -> Nat
 domainCardinality = length
 codomainCardinality : Codomain -> Nat
-codomainCardinality = length
+codomainCardinality (MkCodomain c) = foldl (\acc,_ => acc + 1) Z c
 ||| Mapping : A construct describing the correspondence of a vertex in the query 
 |||           and a vertex in the target. A mapping of a vertex in the query
 |||           can yield multiple feasible vertices in the target. These feasible
@@ -174,7 +174,7 @@ codomainCardinality = length
 record Mapping where
   constructor MkMapping
   domain  : Domain
-  mapping : List (Vq, Codomain)
+  mapping : List (IntMap ())
 
 emptyMapping : Mapping
 emptyMapping = MkMapping emptyDomain []
@@ -185,10 +185,15 @@ getDomain : Mapping -> Domain
 getDomain (MkMapping dom _) = dom
 
 ||| Retreive the values mapped to by a vertice in the query
+||| TODO: Not an optimal implementation. A proof that ensures the presence of
+|||       every element in the list being present in the IntMap would be beneficial
+|||       to remove the Maybe context
 getCodomain : (row : Vq) -> Mapping -> Codomain
-getCodomain q m = case Data.List.find ((==) q . fst) (mapping m) of
-                       Nothing => [] -- TODO: A proof that it's present... To remove the maybe
-                       Just x => snd x
+getCodomain q (MkMapping dom codom) = go dom codom
+  where go : List Vq -> List (IntMap ()) -> Codomain
+        go [] _  = emptyCodomain -- TODO: Questionable
+        go _  [] = emptyCodomain
+        go (q :: qs) (c :: cs) = MkCodomain c
 
 
 ||| Used to represent that a type needs to meet certain
@@ -252,9 +257,11 @@ edgeCoverage (MkVq q) (MkVt t) =
 
 ||| Adds a vertex t to a codomain
 addToCodomain : Vt -> Codomain -> Codomain
+addToCodomain (MkVt t) (MkCodomain c) = MkCodomain $ insert t () c
 
 ||| Adds a codomain to a mapping for a specific Vq
 addToMapping : Vq -> Codomain -> (m : Mapping) -> Mapping
+addToMapping q (MkCodomain c) (MkMapping dom cs) = MkMapping (q :: dom) (c :: cs)
 
 ||| The initial mapping is build by comparing all vertices in the query (Vq)
 ||| with the available vertices in the target (Vt). For a vertice t in Vt
@@ -298,14 +305,22 @@ prematch = MkPrematched $ contextMatch
 ||| Different methods can be applied, currently, a simple enumeration
 ||| is performed.
 electiveInst : Codomain -> Maybe (Vt, Codomain)
-electiveInst []        = Nothing
-electiveInst (x :: xs) = Just (x, xs)
-
+electiveInst (MkCodomain c) = 
+   let k = head' $ keys c
+   in map (\t => (MkVt t, MkCodomain $ delete t c)) k
 
 ||| Removes all target vertices t mapped to by query vertex q from 
 ||| the codimain Cq, except for the instantiated vertex 'inst'
 setInst : (row : Vq) -> (inst : Vt) -> Mapping -> Mapping
--- TODO
+setInst q (MkVt t) (MkMapping dom cs) = MkMapping dom $ gp q dom cs
+ where
+   gp : Vq -> List Vq -> List (IntMap ()) -> List (IntMap ())
+   gp _ []  cs = cs
+   gp _ _   [] = []
+   gp q (q' :: dom) (c :: cs) = 
+     if q == q' then singleton t () :: cs -- Replace with t only 
+                else c :: gp q dom cs     -- continue to search
+
 
 ||| Removes the instantiated value (inst : Vt) from all rows
 ||| specified by the input argument. These rows correspond to
@@ -375,15 +390,27 @@ domainReduction v (r :: rs) m = domainReduction v rs (removeKey v r m)
 |||          over the whole process (altough it seems to be smarter
 |||          than I am (very specialized tough)).
 isIsomorphism : Mapping -> MappingHealth
-isIsomorphism m = go empty (getDomain m) m
+isIsomorphism m = go empty m (mapping m)
    where
-     go : IntMap Nat -> (rows : Domain) -> Mapping -> MappingHealth
-     go acc []        m = if (==) (domainCardinality (getDomain m)) 
-                             $ foldl plus Z acc 
+     go : IntMap Nat -> Mapping -> List (IntMap ()) -> MappingHealth
+     go acc m []        = if domainCardinality (getDomain m) == foldl plus Z acc
                           then SubGraphIsomorphism else Intermediate
-     go acc (r :: rs) m = case getCodomain r m of
-            [] => EmptyCodomain
-            cd => go (foldl (\a, (MkVt t) => insertWith plus t 1 a) acc cd) rs m
+     go acc m (c :: cs) = if isEmpty c
+                then EmptyCodomain
+                else go (foldl (\a,t => insertWith plus t 1 a) acc (keys c)) m cs
+
+ -- Old implementation (TODO: to remove)
+ --  where
+ --    go : IntMap Nat -> (rows : Domain) -> Mapping -> MappingHealth
+ --    go acc []        m = if (==) (domainCardinality (getDomain m)) 
+ --                            $ foldl plus Z acc 
+ --                         then SubGraphIsomorphism else Intermediate
+ --    go acc (r :: rs) m = case getCodomain r m of
+ --           empty => EmptyCodomain
+ --           cd => go (foldl (\a, (MkVt t) => insertWith plus t 1 a) acc cd) rs m
+
+          -- TODO: This implementation can be changed as we can just
+          ---      decompose the mapping by its list structure
 
 
 -- Search algorithm
