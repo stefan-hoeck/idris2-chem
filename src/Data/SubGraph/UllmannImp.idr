@@ -77,6 +77,7 @@ import Data.IntMap
 ||| vertices. In this case, the mapping is classified as 'Intermediate'
 ||| as it can yield in an 'EmptyCodomain' or 'SubGraphIsomorphism' upon
 ||| continuation of the search algorithm.
+public export
 data MappingHealth = SubGraphIsomorphism
                    | EmptyCodomain
                    | Intermediate
@@ -84,14 +85,17 @@ data MappingHealth = SubGraphIsomorphism
 
 
 ||| The query is the subgraph to be matched with a target.
+public export
 Query : (qEdge : Type) -> (qVertex : Type) -> Type
 Query e v = Graph e v
 
 ||| Molecule matched against the query.
+public export
 Target : (tEdge : Type) -> (tVertex : Type) -> Type
 Target e v = Graph e v
 
 ||| Definition of the matching function type
+public export
 Match : Type -> Type -> Type
 Match a b = a -> b -> Bool 
 
@@ -100,6 +104,7 @@ Match a b = a -> b -> Bool
 ||| provided. To make sure that all functionality is available,
 ||| the 'Settings' record type groups all necessary functionality
 ||| and input data in one value.
+public export
 record Settings where
   constructor MkSettings
   query         : Query qe qv
@@ -112,6 +117,7 @@ record Settings where
 
 ||| Representation of the query vertice indice used to access
 ||| a specific vertex in the graph or a row in the mapping.
+public export
 record Vq where
   constructor MkVq
   vq : Node
@@ -153,6 +159,7 @@ Domain = List Vq
 ||| for elective instantiation and advance of the row search. 
 ||| TODO: Need a way to make sure that only Vts can be used for the construction
 |||       Or is the constructor for codomains enough?
+public export
 record Codomain where
   constructor MkCodomain
   value : IntMap ()
@@ -171,6 +178,7 @@ codomainCardinality (MkCodomain c) = foldl (\acc,_ => acc + 1) Z c
 |||           and a vertex in the target. A mapping of a vertex in the query
 |||           can yield multiple feasible vertices in the target. These feasible
 |||            M(q) |-> Dq
+public export
 record Mapping where
   constructor MkMapping
   domain  : Domain
@@ -468,7 +476,7 @@ rowSearch (r :: rs) dom m = do
 ||| to the possible target vertices. It initially checks the
 ||| whether a SubGraphIsomorphism is possible. If not, no search is
 ||| initiated.
-partial
+partial public export
 ullmannImp : (s : Settings) -> Maybe Mapping
 ullmannImp s = let (MkPrematched m) := prematch
                in case isIsomorphism m of
