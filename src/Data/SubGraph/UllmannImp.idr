@@ -1,5 +1,3 @@
-module Data.SubGraph.UllmannImp
-
 -- Naming Convention
 --
 -- The following abbreviations and definitions will be used througout the 
@@ -201,8 +199,8 @@ getCodomain q (MkMapping dom codom) = go dom codom
   where go : List Vq -> List (IntMap ()) -> Codomain
         go [] _  = emptyCodomain -- TODO: Questionable
         go _  [] = emptyCodomain
-        go (q :: qs) (c :: cs) = MkCodomain c
-
+        go (q' :: qs) (c :: cs) = if q == q' then MkCodomain c
+                                             else go qs cs
 
 ||| Used to represent that a type needs to meet certain
 ||| restrictions to be used. In the case of a mapping,
@@ -330,6 +328,7 @@ setInst q (MkVt t) (MkMapping dom cs) = MkMapping dom $ gp q dom cs
                 else c :: gp q dom cs     -- continue to search
 
 
+
 ||| Removes the instantiated value (inst : Vt) from all rows
 ||| specified by the input argument. These rows correspond to
 ||| all subsequent rows from the one the instantiation took place.
@@ -351,9 +350,17 @@ setInst q (MkVt t) (MkMapping dom cs) = MkMapping dom $ gp q dom cs
 |||       They are continuing this refinement process for as long as there
 |||       are changes to the mapping in an iteration.
 domainReduction : (inst : Vt) -> (rows : Domain) -> Mapping -> Mapping
-domainReduction _ []        m = m
-domainReduction v (r :: rs) m = domainReduction v rs (removeKey v r m)
-  where removeKey : (inst : Vt) -> (row : Vq) -> Mapping -> Mapping
+domainReduction (MkVt t) rm (MkMapping dom codom) = MkMapping dom $ go rm dom codom
+  where go :  (remDom : Domain) -> (mapDom : Domain) 
+           -> (codoms : List (IntMap ())) -> List (IntMap ())
+        go [] _  cs = cs
+        go _  [] cs = cs
+        go _  _  [] = []
+        go (r' :: rrem) (r :: rs) (c :: cs) = 
+          if r' == r
+          then delete t c :: go rrem rs cs -- remove the specified key from the codomain c
+          else c :: go (r' :: rrem) rs cs -- No change as before stated rows
+
 
 -- Isomorphism test
 
