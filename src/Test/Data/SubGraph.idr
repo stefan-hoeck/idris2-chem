@@ -5,7 +5,6 @@ import Data.SubGraph.Ullmann
 import Data.Vect
 import Data.List
 
-
 %default total
 
 -- Type alias
@@ -80,3 +79,4 @@ ullmannUnitTests =
   where toStr : Either String (List (Nat, String)) -> String
         toStr (Left s)  = s
         toStr (Right l) = foldl (\a,(i,s) => a ++ (show i) ++ ". " ++ s ++ "\n" ) "" l
+

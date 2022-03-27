@@ -14,3 +14,4 @@ main = do
             , IntMap.props
             , Parser.props
             , Molfile.props
+            ]
