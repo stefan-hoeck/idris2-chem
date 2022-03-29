@@ -41,6 +41,7 @@
 -- m(q)    : Maping of a vertice q in the query to a vertex t in the
 --           target graph m(q) |-> t
 
+module Data.SubGraph.UllmannImp
 
 import Data.Graph
 import Data.List
