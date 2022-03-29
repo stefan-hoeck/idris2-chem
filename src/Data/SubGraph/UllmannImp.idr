@@ -446,7 +446,7 @@ isIsomorphism m = go empty m (mapping m)
 ||| When retrieving the return value of the next q (next row), then
 ||| it must be matched to make sure that the next value in the codomain
 ||| is tried.
-partial
+covering
 rowSearch : (rows : List Vq) -> Codomain -> Mapping -> Maybe Mapping
 
 ||| Retreives the codomain Cq for the current vertex q
@@ -458,7 +458,7 @@ rowSearch : (rows : List Vq) -> Codomain -> Mapping -> Maybe Mapping
 ||| since an 'Intermediate' mapping should not be encountered
 ||| at this stage.
 ||| TODO: Different return type to represent this error
-partial
+covering
 initRow : (rows : List Vq) -> Mapping -> Maybe Mapping
 initRow []        _ = Nothing
 initRow (r :: rs) m = rowSearch (r :: rs) (getCodomain r m) m
@@ -476,7 +476,6 @@ rowSearch (r :: rs) dom m = do
        SubGraphIsomorphism => Just mReduced
  
 
-
 -- Accessor function ----------------------------------------------------------
 
 ||| Ulmann algorithm derived implementation to match a query 
@@ -484,7 +483,7 @@ rowSearch (r :: rs) dom m = do
 ||| to the possible target vertices. It initially checks the
 ||| whether a SubGraphIsomorphism is possible. If not, no search is
 ||| initiated.
-partial public export
+covering public export
 ullmannImp : (s : Settings) -> Maybe Mapping
 ullmannImp s = let (MkPrematched m) := prematch
                in case isIsomorphism m of
