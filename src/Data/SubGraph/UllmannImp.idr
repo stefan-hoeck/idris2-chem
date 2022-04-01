@@ -52,7 +52,6 @@ import Data.IntMap
 
 
 -- TODO: Handle Partial
--- TODO: Change to 'Settings =>'
 
 -- Data types and their functins ----------------------------------------------
 
@@ -104,7 +103,7 @@ Match a b = a -> b -> Bool
 ||| the 'Settings' record type groups all necessary functionality
 ||| and input data in one value.
 public export
-record Settings where
+record Settings qe qv where
   constructor MkSettings
   query         : Query qe qv
   target        : Target te tv
@@ -117,12 +116,12 @@ record Settings where
 ||| Representation of the query vertice indice used to access
 ||| a specific vertex in the graph or a row in the mapping.
 public export
-record Vq where
+record Vq qe qv where
   constructor MkVq
-  vq : Node
+  vq : Context qe qv
 
-Eq Vq where
-  (==) = (==) `on` vq
+Eq (Vq qe qv) where
+  MkVq a == MkVq b = node a == node b
 
 ||| Representation of the target vertice indice used to access
 ||| a specific vertex in the target graph or a value mapped to
@@ -135,10 +134,10 @@ Eq Vt where
   (==) = (==) `on` vt
 
 ||| Retreive all indices of the vertices in the query graph
-getQueryVertices : (s : Settings) => List Vq
-getQueryVertices = map MkVq $ nodes $ query s
+getQueryVertices : (s : Settings qe qv) => List (Vq qe qv)
+getQueryVertices = map MkVq $ contexts $ query s
 ||| Retreive all indices of the vertices in the target graph
-getTargetVertices : (s : Settings) => List Vt
+getTargetVertices : (s : Settings qe qv) => List Vt
 getTargetVertices = map MkVt $ nodes $ target s
 
 
@@ -148,8 +147,8 @@ getTargetVertices = map MkVt $ nodes $ target s
 |||
 ||| TODO: Something other than a list might be more beneficial for a mapping row
 ||| TODO: Sorting might be beneficial for elective instantiation (e.g. degree).
-Domain : Type
-Domain = List Vq
+Domain : Type -> Type -> Type
+Domain qe qv = List (Vq qe qv)
 
 ||| This domain type should represent a collection of values
 ||| that correspond to a codomain.
@@ -163,13 +162,13 @@ record Codomain where
   constructor MkCodomain
   value : IntMap ()
 
-emptyDomain : Domain
+emptyDomain : Domain _ _ 
 emptyDomain = []
 emptyCodomain : Codomain
 emptyCodomain = MkCodomain empty
 
 ||| Returns the size of a domain
-domainCardinality : Domain -> Nat
+domainCardinality : Domain _ _ -> Nat
 domainCardinality = length
 codomainCardinality : Codomain -> Nat
 codomainCardinality (MkCodomain c) = foldl (\acc,_ => acc + 1) Z c
@@ -178,30 +177,29 @@ codomainCardinality (MkCodomain c) = foldl (\acc,_ => acc + 1) Z c
 |||           can yield multiple feasible vertices in the target. These feasible
 |||            M(q) |-> Dq
 public export
-record Mapping where
+record Mapping qe qv where
   constructor MkMapping
-  domain  : Domain
-  mapping : List (IntMap ())
+  -- domain  : Domain qe qv
+  mapping : List (Vq qe qv, IntMap ())
 
-emptyMapping : Mapping
-emptyMapping = MkMapping emptyDomain []
+emptyMapping : Mapping qe qv
+emptyMapping = MkMapping []
 
 ||| Retrieve the values that are being mapped to the codomain
 ||| equivalent to getQueryVertices
-getDomain : Mapping -> Domain
-getDomain (MkMapping dom _) = dom
+getDomain : Mapping qe qv -> Domain qe qv
+getDomain (MkMapping cs) = map fst cs
 
 ||| Retreive the values mapped to by a vertice in the query
 ||| TODO: Not an optimal implementation. A proof that ensures the presence of
 |||       every element in the list being present in the IntMap would be beneficial
 |||       to remove the Maybe context
-getCodomain : (row : Vq) -> Mapping -> Codomain
-getCodomain q (MkMapping dom codom) = go dom codom
-  where go : List Vq -> List (IntMap ()) -> Codomain
-        go [] _  = emptyCodomain -- TODO: Questionable
-        go _  [] = emptyCodomain
-        go (q' :: qs) (c :: cs) = if q == q' then MkCodomain c
-                                             else go qs cs
+getCodomain : (row : Vq qe qv) -> Mapping qe qv -> Codomain
+getCodomain q (MkMapping codom) = go codom
+  where go : List (Vq qe qv, IntMap ()) -> Codomain
+        go [] = emptyCodomain  -- TODO: Should that be this way?
+        go ((q',c) :: cs) = if q == q' then MkCodomain c
+                                       else go cs
 
 ||| Used to represent that a type needs to meet certain
 ||| restrictions to be used. In the case of a mapping,
@@ -220,9 +218,9 @@ data Prematched a = MkPrematched a
 
 ||| Compares a target vertex with a query vertex using their Node
 ||| indices
-vertexInvar : (s : Settings) => Vq -> Vt -> Bool
+vertexInvar : (s : Settings qe qv) => (Vq qe qv) -> Vt -> Bool
 vertexInvar (MkVq q') (MkVt t') = fromMaybe False $ 
-    (vertexMatcher s) <$> (lab (query s) q') <*> (lab (target s) t')
+    (vertexMatcher s) <$> (lab (query s) (node q')) <*> (lab (target s) t')
 
 ||| TODO: Move utility module
 ||| Works like deletyBy in Data.List but is forced to delete
@@ -243,14 +241,12 @@ forcedDelete f a (b :: bs) =
 |||              in the settings. To make sure, that no edge is mapped to
 |||              multiple times (ensure injective mapping), a list of edges
 |||              is used where the ones already being mapped to are removed.
-edgeCoverage : (s : Settings) => Vq -> Vt -> Bool
+edgeCoverage : (s : Settings qe qv) => (Vq qe qv) -> Vt -> Bool
 edgeCoverage (MkVq q) (MkVt t) = 
-   let qry  = query s
-       trg  = target s
        -- List of edge labels to compare
-       qEL  = traverse (\n => elab qry q n) $ neighbours qry q
-       tEL  = traverse (\n => elab trg t n) $ neighbours trg t
-   in fromMaybe False $ matchEdges (edgeMatcher s) <$> qEL <*> tEL
+   let qEL  = map snd $ lneighbours (query s) (node q)
+       tEL  = map snd $ lneighbours (target s) t
+   in matchEdges (edgeMatcher s) qEL tEL
    where 
      -- Searches a matching edge of List 2 for each edge in List 1
      -- Does not match the same edge twice (removes it)
@@ -267,8 +263,8 @@ addToCodomain : Vt -> Codomain -> Codomain
 addToCodomain (MkVt t) (MkCodomain c) = MkCodomain $ insert t () c
 
 ||| Adds a codomain to a mapping for a specific Vq
-addToMapping : Vq -> Codomain -> (m : Mapping) -> Mapping
-addToMapping q (MkCodomain c) (MkMapping dom cs) = MkMapping (q :: dom) (c :: cs)
+addToMapping : (Vq qe qv) -> Codomain -> (m : Mapping qe qv) -> Mapping qe qv
+addToMapping q (MkCodomain c) (MkMapping cs) = MkMapping ((q,c) :: cs)
 
 ||| The initial mapping is build by comparing all vertices in the query (Vq)
 ||| with the available vertices in the target (Vt). For a vertice t in Vt
@@ -286,12 +282,12 @@ addToMapping q (MkCodomain c) (MkMapping dom cs) = MkMapping (q :: dom) (c :: cs
 |||
 ||| Further verification is possible, by also applying the predicates above
 ||| to adjacent vertices
-contextMatch : (s : Settings) => Mapping
+contextMatch : (s : Settings qe qv) => Mapping qe qv
 contextMatch =
-    let dom   = getQueryVertices
-        codom = getTargetVertices
+    let dom   = getQueryVertices {s = s}
+        codom = getTargetVertices {s = s}
     in foldl (\m, q => addToMapping q {m = m} $
-               foldl (\cd,t => if vertexInvar q t && edgeCoverage q t 
+               foldl (\cd,t => if vertexInvar {s = s} q t && edgeCoverage {s = s} q t 
                                then addToCodomain t cd 
                                else cd)
                 emptyCodomain codom)
@@ -300,8 +296,8 @@ contextMatch =
 
 ||| Function which applies all necessary predicates for
 ||| building the mapping
-prematch : (s : Settings) => Prematched Mapping
-prematch = MkPrematched $ contextMatch
+prematch : (s : Settings qe qv) => Prematched (Mapping qe qv)
+prematch = MkPrematched $ contextMatch {s = s}
 
 -- Instantiation & reduction
 
@@ -318,15 +314,14 @@ electiveInst (MkCodomain c) =
 
 ||| Removes all target vertices t mapped to by query vertex q from 
 ||| the codimain Cq, except for the instantiated vertex 'inst'
-setInst : (row : Vq) -> (inst : Vt) -> Mapping -> Mapping
-setInst q (MkVt t) (MkMapping dom cs) = MkMapping dom $ gp q dom cs
+setInst : (row : (Vq qe qv)) -> (inst : Vt) -> Mapping qe qv -> Mapping qe qv
+setInst q (MkVt t) (MkMapping cods) = MkMapping $ gp q cods
  where
-   gp : Vq -> List Vq -> List (IntMap ()) -> List (IntMap ())
-   gp _ []  cs = cs
-   gp _ _   [] = []
-   gp q (q' :: dom) (c :: cs) = 
-     if q == q' then singleton t () :: cs -- Replace with t only 
-                else c :: gp q dom cs     -- continue to search
+   gp : (Vq qe qv) -> List (Vq qe qv, IntMap ()) -> List (Vq qe qv, IntMap ())
+   gp _  [] = []
+   gp qi ((q',ci) :: cs) =   -- qi represents the query vertex with the instantiated value t
+       if q' == qi then (qi, singleton t ()) :: cs
+                   else (q',ci) :: gp qi cs  -- Not i, continue search
 
 
 
@@ -342,25 +337,22 @@ setInst q (MkVt t) (MkMapping dom cs) = MkMapping dom $ gp q dom cs
 ||| It is also possible to reach SubGraphIsomorphism if all codomains are
 ||| Single valued after domainReduction (if a codomain becomes single valued
 ||| due to the domain reduction, then this is called implied instantiation).
-|||
-|||
-||| TODO: In the cdk, they are also checking adjacent vertices for their
-|||       support (do they still have enough adjacent vertices with corr,
-|||       edges?). See: base/isomorphism/src/main/.../UllmannState.java 
-|||       function ~> refine
-|||       They are continuing this refinement process for as long as there
-|||       are changes to the mapping in an iteration.
-domainReduction : (inst : Vt) -> (rows : Domain) -> Mapping -> Mapping
-domainReduction (MkVt t) rm (MkMapping dom codom) = MkMapping dom $ go rm dom codom
-  where go :  (remDom : Domain) -> (mapDom : Domain) 
-           -> (codoms : List (IntMap ())) -> List (IntMap ())
-        go [] _  cs = cs
-        go _  [] cs = cs
-        go _  _  [] = []
-        go (r' :: rrem) (r :: rs) (c :: cs) = 
-          if r' == r
-          then delete t c :: go rrem rs cs -- remove the specified key from the codomain c
-          else c :: go (r' :: rrem) rs cs -- No change as before stated rows
+domainReduction : (inst : Vt) -> (rows : Domain qe qv) -> Mapping qe qv -> Mapping qe qv
+-- TODO: Implement
+
+-- using the refined procedure
+
+
+--domainReduction (MkVt t) rm (MkMapping dom codom) = MkMapping dom $ ?oukk go rm dom codom
+  --where go :  (remDom : Domain qe qv) 
+           -- -> (codoms : List (Vq qe qv, IntMap ())) -> List (Vq qe qv, IntMap ())
+        --go [] _  cs = cs
+        --go _  [] cs = cs
+        --go _  _  [] = []
+        --go (r' :: rrem) (r :: rs) (c :: cs) = 
+          --if r' == r
+          --then delete t c :: go rrem rs cs -- remove the specified key from the codomain c
+          --else c :: go (r' :: rrem) rs cs -- No change as before stated rows
 
 
 -- Isomorphism test
@@ -405,28 +397,15 @@ domainReduction (MkVt t) rm (MkMapping dom codom) = MkMapping dom $ go rm dom co
 |||          Not sure if Idris realises, that it stays the same
 |||          over the whole process (altough it seems to be smarter
 |||          than I am (very specialized tough)).
-isIsomorphism : Mapping -> MappingHealth
+isIsomorphism : Mapping qe qv -> MappingHealth
 isIsomorphism m = go empty m (mapping m)
    where
-     go : IntMap Nat -> Mapping -> List (IntMap ()) -> MappingHealth
+     go : IntMap Nat -> Mapping qe qv -> List (Vq qe qv, IntMap ()) -> MappingHealth
      go acc m []        = if domainCardinality (getDomain m) == foldl plus Z acc
                           then SubGraphIsomorphism else Intermediate
-     go acc m (c :: cs) = if isEmpty c
+     go acc m ((_,c) :: cs) = if isEmpty c
                 then EmptyCodomain
                 else go (foldl (\a,t => insertWith plus t 1 a) acc (keys c)) m cs
-
- -- Old implementation (TODO: to remove)
- --  where
- --    go : IntMap Nat -> (rows : Domain) -> Mapping -> MappingHealth
- --    go acc []        m = if (==) (domainCardinality (getDomain m)) 
- --                            $ foldl plus Z acc 
- --                         then SubGraphIsomorphism else Intermediate
- --    go acc (r :: rs) m = case getCodomain r m of
- --           empty => EmptyCodomain
- --           cd => go (foldl (\a, (MkVt t) => insertWith plus t 1 a) acc cd) rs m
-
-          -- TODO: This implementation can be changed as we can just
-          ---      decompose the mapping by its list structure
 
 
 -- Search algorithm
@@ -447,7 +426,7 @@ isIsomorphism m = go empty m (mapping m)
 ||| it must be matched to make sure that the next value in the codomain
 ||| is tried.
 covering
-rowSearch : (rows : List Vq) -> Codomain -> Mapping -> Maybe Mapping
+rowSearch : (rows : List (Vq qe qv)) -> Codomain -> (Mapping qe qv) -> Maybe (Mapping qe qv)
 
 ||| Retreives the codomain Cq for the current vertex q
 ||| and initiates the elective search for a mapping 
@@ -459,7 +438,7 @@ rowSearch : (rows : List Vq) -> Codomain -> Mapping -> Maybe Mapping
 ||| at this stage.
 ||| TODO: Different return type to represent this error
 covering
-initRow : (rows : List Vq) -> Mapping -> Maybe Mapping
+initRow : (rows : List (Vq qe qv)) -> (Mapping qe qv) -> Maybe (Mapping qe qv)
 initRow []        _ = Nothing
 initRow (r :: rs) m = rowSearch (r :: rs) (getCodomain r m) m
 
@@ -484,10 +463,10 @@ rowSearch (r :: rs) dom m = do
 ||| whether a SubGraphIsomorphism is possible. If not, no search is
 ||| initiated.
 covering public export
-ullmannImp : (s : Settings) -> Maybe Mapping
-ullmannImp s = let (MkPrematched m) := prematch
+ullmannImp : (s : Settings qe qv) -> Maybe (Mapping qe qv)
+ullmannImp s = let (MkPrematched m) := prematch {s = s}
                in case isIsomorphism m of
-                       Intermediate => initRow getQueryVertices m
+                       Intermediate => initRow (getQueryVertices {s = s}) m
                        EmptyCodomain => Nothing
                        SubGraphIsomorphism => Just m
 
