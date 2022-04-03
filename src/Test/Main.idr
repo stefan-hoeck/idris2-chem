@@ -8,9 +8,10 @@ import Test.Text.Smiles.Parser
 import Test.Data.SubGraph
 
 main : IO ()
-main = test [ Graph.props 
+main = do
+       _ <- testUllImp
+       test [ Graph.props 
             , IntMap.props
             , Parser.props
             , Molfile.props
-            -- , SubGraph.props
             ]
