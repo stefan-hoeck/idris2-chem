@@ -50,7 +50,6 @@ makeTask :   BondMatcher
 makeTask pe pv q t = MkTask pe pv (fromList $ contexts q) t
 
 
-
 parseToEither : String -> Either String (Graph Bond Atom)
 parseToEither s = case parse s of
   End x => Right x
