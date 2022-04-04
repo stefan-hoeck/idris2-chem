@@ -14,8 +14,6 @@ props = MkGroup "Graph Properties" []
 
 -- Test the functionality -----------------------------------------------------
 
-mp : Graph Bond Atom
-mp = empty 
 
 mGraph : String -> Maybe (Graph Bond Atom)
 mGraph t = case parse t of
