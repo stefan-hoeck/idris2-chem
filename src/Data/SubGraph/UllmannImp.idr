@@ -182,7 +182,6 @@ codomainCardinality (MkCodomain c) = foldl (\acc,_ => acc + 1) Z c
 public export
 record Mapping qe qv te tv where
   constructor MkMapping
-  -- domain  : Domain qe qv
   mapping : List (Vq qe qv, Codomain te tv)
 
 emptyMapping : Mapping qe qv te tv
@@ -203,6 +202,7 @@ getCodomain q = go . mapping
         go [] = emptyCodomain
         go ((q',c) :: xs) = if q == q' then c
                                        else go xs
+
 
 ||| Used to represent that a type needs to meet certain
 ||| restrictions to be used. In the case of a mapping,
@@ -305,15 +305,6 @@ contextMatch =
           ) emptyMapping dom
 
 
-    -- let dom   = getQueryVertices {s = s}
-    --    codom = getTargetVertices {s = s}
-    -- in foldl (\m, q => addToMapping q {m = m} $
-    --           foldl (\cd,t => if vertexInvar {s = s} q t && edgeCoverage {s = s} q t 
-    --                           then addToCodomain t cd 
-    --                           else cd)
-    --            emptyCodomain codom)
-    --         emptyMapping dom 
-    
 
 ||| Function which applies all necessary predicates for
 ||| building the mapping
@@ -344,6 +335,8 @@ setInst q t (MkMapping ms) =  MkMapping $ gp q ms
        if q' == qi then (q', addToCodomain t emptyCodomain) :: cs
                    else (q',ci) :: gp qi cs
 
+
+
 -- Domain reduction
 
 
@@ -362,11 +355,118 @@ allDifferentInst inst rm (MkMapping ms) = MkMapping  $ go rm ms
           then (q,removeFromCodomain inst c) :: go rs cs -- remove the specified key from the codomain c
           else (q,c) :: go (r :: rs) cs -- No change as before stated rows
 
-||| Reduction of the domains of neighboring (or adjacent) codomains
-||| TODO: Description
-||| Direct -> immediately removes the values which can't map the target
-||| Starts with the just instantiated domain and continues there...
-directReduction : Mapping qe qv te tv -> Mapping qe qv te tv
+-- Direct reduction helper functions
+
+-- Modifies one codomain according to the passed function
+-- TODO: Something similar to this stuff could be used to
+--       make some code below obsolete. But it is usually
+--       returning some special value so this needs work.
+modifyCodomain : (Codomain te tv -> Codomain te tv) 
+               -> (Vq qe qv -> Bool) -> List (Vq qe qv, Codomain te tv)
+               -> List (Vq qe qv, Codomain te tv)
+modifyCodomain f eqQ m = go m
+  where go :  List (Vq qe qv, Codomain te tv) 
+           -> List (Vq qe qv, Codomain te tv)
+        go []        = []
+        go ((q',c) :: xs) = if eqQ q' 
+            then ((q', f c) :: xs)
+            else (q',c) :: go xs
+
+
+
+-- More readable type signatures (temporary)
+-- References (the RedVts must be adjacent with
+-- a specific bond to any of these)
+RefVts : Type -> Type -> Type
+RefVts te tv = List (Vt te tv)
+
+-- The values of the codomain of a specific domain
+-- which will be filtered.
+RedVts : Type -> Type -> Type
+RedVts te tv = List (Vt te tv)
+
+-- Easier to read internal Mapping type
+Map : Type -> Type -> Type -> Type -> Type
+Map qe qv te tv = List (Vq qe qv, Codomain te tv)
+
+
+-- Gets the node values from the values in a codomain
+domainAdjVals : RefVts _ _ -> List Node
+domainAdjVals xs = map (node . vt) xs
+
+-- Evaluate whether a target node is supported (adj & correct edge)
+-- 1. get all adj & edges of t
+-- 2. remove all adj that do not have a matching edge
+-- 3. check for all remaining adj whether they are present in the reference node list
+isAdjEdge : (te -> Bool) -> RefVts _ _ -> Vt te _ -> Bool
+isAdjEdge p rs t = let adjs = pairs . neighbours $ vt t -- Get neighbors of t with the edges to them
+                       remE = filter (p . snd) adjs     -- Remove all adj with wrong edge
+                       refN = domainAdjVals rs
+                   in elemBy (\_,b => elemBy (==) (fst b) refN) () remE
+                   
+
+-- Filter all non matching elements
+-- Only returns the domain if it was changed
+reduceDomain : (te -> Bool) -> RefVts _ _ -> RedVts te tv -> Maybe (RedVts te tv)
+reduceDomain p rs ts = let nts = filter (isAdjEdge p rs) ts
+                       in if length nts /= length ts
+                          then Just nts
+                          else Nothing
+
+-- Applies reduceDomain
+-- Returns the whole modified map with the Vq if there was a change
+reduceDomainInMap : (Node,qe) -> (qe -> te -> Bool) -> RefVts _ _ 
+                  -> Map qe qv te tv 
+                  -> Maybe ((Vq qe qv, Codomain te tv), Map qe qv te tv)
+reduceDomainInMap _     _  _  []              = Nothing
+reduceDomainInMap (n,e) pe rf ((q',c') :: xs) = if n == node (vq q')
+     then case map MkCodomain $ reduceDomain (pe e) rf (value c') of
+             Nothing => Nothing
+             Just cnew  => Just ((q',cnew), (q', cnew) :: xs)
+     else map (map ((::) (q',c'))) $ reduceDomainInMap (n,e) pe rf xs 
+
+
+-- For all adj domains to the currently instantiated one
+-- apply the reduction procedure
+-- Returns the modified map and the the new domains to add to the
+-- list where the adjacent domains must be reduced
+reduceAdjDomains : Settings qe qv te tv -> (Vq qe qv, Codomain te tv)
+                 -> Map qe qv te tv -> (List (Vq qe qv, Codomain te tv), Map qe qv te tv)
+reduceAdjDomains s (q,c) m = let adjs   = pairs $ neighbours $ vq q
+                                 pe     = edgeMatcher s
+                             in go adjs pe (value c) m
+  where
+    go : List (Node,qe) -> (qe -> te -> Bool) -> RefVts _ _ 
+       -> Map qe qv te tv -> (List (Vq qe qv, Codomain te tv), Map qe qv te tv)
+    go []        _  _  m1 = ([],m1)
+    go (a :: as) pe rf m1 = 
+      let (ds,m2) = go as pe rf m1
+      in case reduceDomainInMap a pe rf m2 of
+          Just (d,m2) => (d :: ds, m2)
+          Nothing     => (ds     , m1)
+
+
+-- Go through all domains that need a reduction of their adjacent
+-- domains, starting with the current one
+-- TODO: It is most likely going to be hard to proove that this terminates
+covering
+directReduction : Settings qe qv te tv -> List (Vq qe qv, Codomain te tv)
+          -> Mapping qe qv te tv -> Mapping qe qv te tv
+directReduction s []        m = m
+directReduction s (x :: xs) m = let (ds, m') = reduceAdjDomains s x $ mapping m
+                          in directReduction s (xs ++ ds) (MkMapping m')
+
+
+
+-- Neighbor propagation
+-- start at row A
+--        - get context (neighbors B, C)
+--        - codomain -> 1 (1 has adj, 4,7)
+-- go through every query adj
+--    B: bond(A,B) == bond(1,4) :> keep otherwise remove
+--          , then the same for 7
+--          if a value was removed, then add the neighbors of B to the list of neighbors to check
+                                    -- this should work as a breath first search
 
 ||| Removes the instantiated value (inst : Vt) from all rows
 ||| specified by the input argument. These rows correspond to
@@ -380,22 +480,15 @@ directReduction : Mapping qe qv te tv -> Mapping qe qv te tv
 ||| It is also possible to reach SubGraphIsomorphism if all codomains are
 ||| Single valued after domainReduction (if a codomain becomes single valued
 ||| due to the domain reduction, then this is called implied instantiation).
-domainReduction : (inst : Vt te tv) -> (rows : Domain qe qv) 
+covering -- Due to directReduction
+domainReduction : Settings qe qv te tv -> (inst : Vt te tv) 
+                -> (rows : Domain qe qv) 
                 -> Mapping qe qv te tv -> Mapping qe qv te tv
-domainReduction inst rows x = directReduction $ allDifferentInst inst rows x
+domainReduction _ _    []        m = m
+domainReduction s inst (r :: rs) m = let m' = allDifferentInst inst (r :: rs) m
+                                     in directReduction s [(r,getCodomain r m')] m'
 
 
-
-
--- Neighbor propagation
--- start at row A
---        - get context (neighbors B, C)
---        - codomain -> 1 (1 has adj, 4,7)
--- go through every query adj
---    B: bond(A,B) == bond(1,4) :> keep otherwise remove
---          , then the same for 7
---          if a value was removed, then add the neighbors of B to the list of neighbors to check
-                                    -- this should work as a breath first search
 
 
 
@@ -472,7 +565,7 @@ isIsomorphism m = go empty m (mapping m)
 ||| it must be matched to make sure that the next value in the codomain
 ||| is tried.
 covering
-rowSearch : (rows : List (Vq qe qv)) -> Codomain te tv 
+rowSearch : Settings qe qv te tv -> (rows : List (Vq qe qv)) -> Codomain te tv 
           -> Mapping qe qv te tv -> Maybe (Mapping qe qv te tv)
 
 ||| Retreives the codomain Cq for the current vertex q
@@ -485,20 +578,20 @@ rowSearch : (rows : List (Vq qe qv)) -> Codomain te tv
 ||| at this stage.
 ||| TODO: Different return type to represent this error
 covering
-initRow : (rows : List (Vq qe qv)) -> (Mapping qe qv te tv) -> Maybe (Mapping qe qv te tv)
-initRow []        _ = Nothing
-initRow (r :: rs) m = rowSearch (r :: rs) (getCodomain r m) m
+initRow : Settings qe qv te tv -> (rows : List (Vq qe qv)) -> (Mapping qe qv te tv) -> Maybe (Mapping qe qv te tv)
+initRow _ []        _ = Nothing
+initRow s (r :: rs) m = rowSearch s (r :: rs) (getCodomain r m) m
 
-rowSearch Nil _ _ = Nothing
-rowSearch (r :: rs) dom m = do
+rowSearch _ Nil _ _ = Nothing
+rowSearch s (r :: rs) dom m = do
   (vj, domRem) <- electiveInst dom
-  mReduced     <- pure $ domainReduction vj rs $ setInst r vj m
+  mReduced     <- pure $ domainReduction s vj rs $ setInst r vj m
   healthRM     <- pure $ isIsomorphism mReduced
   case healthRM of
-       Intermediate        => case initRow rs m of
-                                Nothing => rowSearch (r :: rs) domRem m
+       Intermediate        => case initRow s rs m of
+                                Nothing => rowSearch s (r :: rs) domRem m
                                 Just m  => Just m
-       EmptyCodomain       => rowSearch (r :: rs) domRem m 
+       EmptyCodomain       => rowSearch s (r :: rs) domRem m 
        SubGraphIsomorphism => Just mReduced
  
 
@@ -513,7 +606,7 @@ covering public export
 ullmannImp : (s : Settings qe qv te tv) -> Maybe (Mapping qe qv te tv)
 ullmannImp s = let (MkPrematched m) := prematch {s = s}
                in case isIsomorphism m of
-                       Intermediate => initRow (getQueryVertices {s = s}) m
+                       Intermediate => initRow s (getQueryVertices {s = s}) m
                        EmptyCodomain => Nothing
                        SubGraphIsomorphism => Just m
 
