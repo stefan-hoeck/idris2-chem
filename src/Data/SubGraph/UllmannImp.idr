@@ -339,9 +339,11 @@ setInst q t (MkMapping ms) =  MkMapping $ gp q ms
 
 -- Domain reduction
 
+-- TODO TODO - modifyCodomain (no return value)
 
-||| Removes all ocurences from subsequent rows or codomains of the
-||| not yet singly mapped query vertices.
+||| Removes all ocurences of the currently instantiated value (in a
+||| codomaian of row / domain) from all subsequent rows or domains in
+||| the matrix. These remaining rows are provided by the rows argument.
 allDifferentInst : (inst : Vt te tv) -> (rows : Domain qe qv) 
                 -> Mapping qe qv te tv -> Mapping qe qv te tv
 allDifferentInst inst rm (MkMapping ms) = MkMapping  $ go rm ms
@@ -395,8 +397,8 @@ domainAdjVals : RefVts _ _ -> List Node
 domainAdjVals xs = map (node . vt) xs
 
 -- Evaluate whether a target node is supported (adj & correct edge)
--- 1. get all adj & edges of t
--- 2. remove all adj that do not have a matching edge
+-- 1. get all adj & their corresponding edges of t
+-- 2. remove all adj nodes that do not have a matching edge
 -- 3. check for all remaining adj whether they are present in the reference node list
 isAdjEdge : (te -> Bool) -> RefVts _ _ -> Vt te _ -> Bool
 isAdjEdge p rs t = let adjs = pairs . neighbours $ vt t -- Get neighbors of t with the edges to them
