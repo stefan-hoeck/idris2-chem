@@ -31,6 +31,15 @@ settingNoMatch = let qry = mGraph "CCO"
                      trg = mGraph "CCC=O"
           in MkSettings <$> qry <*> trg
                         <*> pure (==) <*> pure (==)
+
+
+-- 
+exampleOfExplanation : Maybe (Settings Bond Atom Bond Atom)
+exampleOfExplanation  = 
+  let qry = mGraph "CN(C)C"
+      trg = mGraph "CN(C)C1=CC=NC2=CC=CC=C21"
+  in MkSettings <$> qry <*> trg <*> pure (==) <*> pure (==)
+
 export
 testUllImp : IO ()
 testUllImp = do
@@ -46,6 +55,11 @@ testUllImp = do
                  Nothing => putStrLn "No substructure  -- correct behavior"
                  (Just _)=> putStrLn "Found substructure  -- incorrect behavior" 
 
+  case exampleOfExplanation of
+      Nothing => putStrLn "Invalid settings for test (query or target)"
+      (Just s)=> case ullmannImp s of
+                 Nothing => putStrLn "No substructure  -- incorrect behavior"
+                 (Just _)=> putStrLn "Found substructure  -- correct behavior" 
 
 
 
@@ -55,6 +69,8 @@ testUllImp = do
 -- :module Text.Smiles
 -- :let qry = case parse "CCO" of End x => x
 -- :let trg = case parse "CCCO" of End x => x
+-- :let qry = case parse "CN(C)C" of End x => x
+-- :let trg = case parse "CN(C)C1=CC=NC2=CC=CC=C21" of End x => x
 -- :let stt = MkSettings qry trg (==) (==)
 -- :let qs = getQueryVertices {s = stt}
 -- :let ts = getTargetVertices {s = stt}
