@@ -27,14 +27,14 @@ data Elem =
 
 public export
 atomicNr : Elem -> AtomicNr
+atomicNr C   = 6
+atomicNr O   = 8
+atomicNr N   = 7
 atomicNr H   = 1
 atomicNr He  = 2
 atomicNr Li  = 3
 atomicNr Be  = 4
 atomicNr B   = 5
-atomicNr C   = 6
-atomicNr N   = 7
-atomicNr O   = 8
 atomicNr F   = 9
 atomicNr Ne  = 10
 atomicNr Na  = 11
@@ -148,14 +148,14 @@ atomicNr Og  = 118
 
 public export
 fromAtomicNr : AtomicNr -> Elem
+fromAtomicNr 6   = C
+fromAtomicNr 8   = O
+fromAtomicNr 7   = N
 fromAtomicNr 1   = H
 fromAtomicNr 2   = He
 fromAtomicNr 3   = Li
 fromAtomicNr 4   = Be
 fromAtomicNr 5   = B
-fromAtomicNr 6   = C
-fromAtomicNr 7   = N
-fromAtomicNr 8   = O
 fromAtomicNr 9   = F
 fromAtomicNr 10  = Ne
 fromAtomicNr 11  = Na

@@ -61,22 +61,63 @@ data Chirality =
 public export
 data SubsetAromatic = BArom | CArom | NArom | OArom | SArom | PArom
 
-%runElab derive "SubsetAromatic" [Generic,Meta,Eq,Show]
+public export
+Eq SubsetAromatic where
+  CArom == CArom = True
+  BArom == BArom = True
+  NArom == NArom = True
+  OArom == OArom = True
+  SArom == SArom = True
+  PArom == PArom = True
+  _     == _     = False
+
+
+%runElab derive "SubsetAromatic" [Generic,Meta,Show]
 
 public export
 data Aromatic = SA SubsetAromatic | SeArom | AsArom
 
-%runElab derive "Aromatic" [Generic,Meta,Eq,Show]
+public export
+Eq Aromatic where
+  SA x   == SA y   = x == y
+  SeArom == SeArom = True
+  AsArom == AsArom = True
+  _      == _      = False
+
+
+%runElab derive "Aromatic" [Generic,Meta,Show]
+
 
 public export
 data OrgSubset = B | C | N | O | F | P | S | Cl | Br | I | OA SubsetAromatic
 
-%runElab derive "OrgSubset" [Generic,Meta,Eq,Show]
+public export
+Eq OrgSubset where
+  C    == C    = True
+  O    == O    = True
+  N    == N    = True
+  F    == F    = True
+  P    == P    = True
+  S    == S    = True
+  Cl   == Cl   = True
+  Br   == Br   = True
+  I    == I    = True
+  B    == B    = True
+  OA x == OA y = True
+  _    == _    = False
+
+%runElab derive "OrgSubset" [Generic,Meta,Show]
 
 public export
 data SmilesElem = El Elem | A Aromatic
 
-%runElab derive "SmilesElem" [Generic,Meta,Eq,Show]
+public export
+Eq SmilesElem where
+  El x == El y = x == y
+  A  x == A  y = x == y
+  _    == _    = False
+
+%runElab derive "SmilesElem" [Generic,Meta,Show]
 
 public export
 data Atom : Type where

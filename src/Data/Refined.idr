@@ -50,10 +50,12 @@ isPrintableLatin c = isPrintableAscii c || ('\160' <= c && c <= '\255')
 |||         truncation due to integer overflows in case of
 |||         large digit sequences
 public export
-readInt : Eq a => Num a => Cast String a => String -> Maybe a
+readInt : Eq a => Num a => String -> Maybe a
 readInt s   =
-  let res = cast {to = a} s
-   in if res == 0 && (any ('0' /=) s || s == "") then Nothing else Just res
+  let res = cast {to = Integer} s
+   in if res == 0 && (any ('0' /=) s || s == "")
+         then Nothing
+         else Just $ fromInteger res
 
 ||| Like `readInt`, but the number can be prefixed
 ||| with a single optional '+'.
