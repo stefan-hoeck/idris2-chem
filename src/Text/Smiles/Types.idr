@@ -146,7 +146,17 @@ record RingNr where
 public export
 data Bond = Sngl | Arom | Dbl | Trpl | Quad
 
-%runElab derive "Bond" [Generic,Meta,Eq,Show]
+public export
+Eq Bond where
+  Sngl == Sngl = True
+  Arom == Arom = True
+  Dbl  == Dbl  = True
+  Trpl == Trpl = True
+  Quad == Quad = True
+  _    == _    = False
+
+
+%runElab derive "Bond" [Generic,Meta,Show]
 
 public export
 SmilesMol : Type
