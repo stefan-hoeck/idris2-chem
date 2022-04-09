@@ -9,7 +9,7 @@ import Test.Data.SubGraph
 
 main : IO ()
 main = do
-       _ <- testUllImp
+       _ <- ullmannUnitTests
        test [ Graph.props 
             , IntMap.props
             , Parser.props
