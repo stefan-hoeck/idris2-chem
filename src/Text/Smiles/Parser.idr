@@ -262,12 +262,12 @@ prs cs (Access rec) st =
   case atm cs st of
     Y st2 cs2 p2 => prs cs2 (rec cs2 p2) st2
     N err => case cs of
-      '(' :: t => case atm t $ record {stack $= (st.atom ::) } st of
+      '(' :: t => case atm t $ {stack $= (st.atom ::)} st of
          Y st2 cs2 p2 => prs cs2 (rec cs2 $ Cons p2) st2
          N err2       => Stuck err2 t
 
       ')' :: t => case st.stack of
-        a :: as => prs t (rec t cons1) (record {stack = as, atom = a} st)
+        a :: as => prs t (rec t cons1) ({stack := as, atom := a} st)
         Nil     => Stuck UnexpectedCP (')' :: t)
 
       []       =>

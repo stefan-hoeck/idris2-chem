@@ -270,14 +270,14 @@ ageOfJohn = age john
 ||| Emily is Jane's twin sister, so we copy most
 ||| of her
 emily : Employee
-emily = record { name = "Emily", salary = 6000.0 } jane
+emily = { name := "Emily", salary := 6000.0 } jane
 
 ||| It's John's birthday, so we increase his age by
 ||| one. `S` is the successor constructor for natural
 ||| numbers (see `:doc Nat` in the REPL). We could
 ||| also have written `(+1)` instead.
 johnPlus1 : Employee
-johnPlus1 = record { age $= S } john
+johnPlus1 = { age $= S } john
 
 ||| Here, we pattern match on a record.
 ||| We also use string interpolation to create
