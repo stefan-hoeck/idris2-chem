@@ -57,7 +57,7 @@ allDifferent :  Context et vt
              -> Matrix n eq vq et vt
              -> Maybe (Matrix n eq vq et vt)
 allDifferent t m = traverse (\r => makeRow (ctxt r) 
-                 $ filter ((==) (node t) . node) (trgs r)) m
+                 $ filter ((/=) (node t) . node) (trgs r)) m
 
 -- For all adjacent query vertices p's of q. Remove all possibly mapped to 
 -- values of ts in p that are not adjacent & do not have the matching bond
