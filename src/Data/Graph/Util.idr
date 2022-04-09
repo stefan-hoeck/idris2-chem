@@ -15,7 +15,7 @@ import Data.Graph.Types
 --------------------------------------------------------------------------------
 
 delNeighbour : Node -> Adj e n -> Adj e n
-delNeighbour n = record { neighbours $= delete n }
+delNeighbour n adj = { neighbours $= delete n } adj
 
 delEdgeTo : Node -> GraphRep e n -> (Node,e) -> GraphRep e n
 delEdgeTo n m (n2,_) = update n2 (delNeighbour n) m

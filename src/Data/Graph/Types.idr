@@ -86,7 +86,7 @@ namespace LNode
 
 public export %inline
 Functor LNode where
-  map f = record { label $= f }
+  map f ln = { label $= f } ln
 
 public export %inline
 Foldable LNode where
@@ -122,7 +122,7 @@ namespace LEdge
 
 public export %inline
 Functor LEdge where
-  map f = record { label $= f }
+  map f le = { label $= f } le
 
 public export %inline
 Foldable LEdge where
@@ -159,7 +159,7 @@ record Adj e n where
 
 public export
 Functor (Adj e) where
-  map f = record { label $= f }
+  map f adj = { label $= f } adj
 
 public export
 Foldable (Adj e) where
@@ -206,7 +206,7 @@ record Context e n where
 
 public export
 Functor (Context e) where
-  map f = record { label $= f }
+  map f c = { label $= f } c
 
 public export
 Foldable (Context e) where
@@ -259,7 +259,7 @@ Eq e => Eq n => Eq (Graph e n) where
 
 public export
 Functor (Graph e) where
-  map f = record { graph $= map (map f) }
+  map f g = { graph $= map (map f) } g
 
 public export
 Foldable (Graph e) where
