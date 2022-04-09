@@ -46,10 +46,7 @@ jobs:
           - elab-util
           - sop
           - pretty-show
-          - tailrec
           - hedgehog
-          - dom
-          - rhone
         idris-version:
           - ${{ needs.read-ver.outputs.idris-ver }}
           - latest
@@ -99,7 +96,7 @@ jobs:
           path: /root/.idris2/
       - name: Build lib
         run: make lib
-      - name: Build doc
-        run: make doc
-      - name: Build page
-        run: make page
+      - name: Build docs
+        run: make docs
+      - name: Run tests
+        run: make test
