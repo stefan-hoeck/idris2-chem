@@ -262,6 +262,11 @@ foldlT f acc (Leaf k v)          = f acc v
 foldlT f acc (Branch2 x _ y)     = foldlT f (foldlT f acc x) y
 foldlT f acc (Branch3 x _ y _ z) = foldlT f (foldlT f (foldlT f acc x) y) z 
 
+foldlPT : (a -> Key -> e -> a) -> a -> Tree n e -> a
+foldlPT f acc (Leaf k v)          = f acc k v
+foldlPT f acc (Branch2 x _ y)     = foldlPT f (foldlPT f acc x) y
+foldlPT f acc (Branch3 x _ y _ z) = foldlPT f (foldlPT f (foldlPT f acc x) y) z 
+
 foldrT : (e -> a -> a) -> a -> Tree n e -> a
 foldrT f acc (Leaf k v)          = f v acc
 foldrT f acc (Branch2 x _ y)     = foldrT f (foldrT f acc y) x
@@ -364,6 +369,11 @@ keys = map fst . pairs
 export
 values : IntMap v -> List v
 values = map snd . pairs
+
+export
+foldlKV : (acc -> Key -> el -> acc) -> acc -> IntMap el -> acc
+foldlKV _ acc Empty = acc
+foldlKV f acc (M t) = foldlPT f acc t
 
 public export
 data Decomp : (v : Type) -> Type where
