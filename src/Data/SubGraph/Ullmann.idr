@@ -10,34 +10,33 @@ import Data.IntMap
 -- Types ----------------------------------------------------------------------
 
 public export
-record Task (n : Nat)  (eq,vq,et,vt : Type)  where
+record Task (n : Nat)  (qe,qv,te,tv : Type)  where
   constructor MkTask
-  edgeMatcher   : eq -> et -> Bool
-  vertexMatcher : vq -> vt -> Bool
-  query         : Vect n (Context eq vq)
-  target        : Graph et vt
+  edgeMatcher   : qe -> te -> Bool
+  vertexMatcher : qv -> tv -> Bool
+  query         : Vect n (Context qe qv)
+  target        : Graph te tv
 
 
-record Row eq vq et vt where
+record Row qe qv te tv where
   constructor MkRow
-  ctxt : Context eq vq        -- Query verticex
-  trgs : List (Context et vt) -- Target vertices that can match to the query vertex
+  ctxt : Context qe qv        -- Query verticex
+  trgs : List (Context te tv) -- Target vertices that can match to the query vertex
   0 prf : NonEmpty trgs
 
 
-0 Matrix : (n : Nat) -> (eq,vq,et,vt : Type) -> Type
-Matrix n eq vq et vt = Vect n (Row eq vq et vt)
+0 Matrix : (n : Nat) -> (qe,qv,te,tv : Type) -> Type
+Matrix n qe qv te tv = Vect n (Row qe qv te tv)
 
 
 -- Construct the matrix -------------------------------------------------------
 
-makeRow : Context eq vq -> List (Context et vt) -> Maybe (Row eq vq et vt)
+makeRow : Context qe qv -> List (Context te tv) -> Maybe (Row qe qv te tv)
 makeRow q []          = Nothing
 makeRow q ts@(_ :: _) = pure $ MkRow q ts IsNonEmpty
        
--- Match vertice labels
--- then make sure that the target covers the query vertices required edge types
-match : Task n eq vq et vt -> Context eq vq -> Context et vt -> Bool
+||| Matches vertice labels & the type and number of the required edges
+match : Task n qe qv te tv -> Context qe qv -> Context te tv -> Bool
 match ta q t = 
   let vm = (vertexMatcher ta) (label q) (label t)
       em = isNil $ deleteFirstsBy (flip $ edgeMatcher ta) 
@@ -45,81 +44,46 @@ match ta q t =
   in vm && em
 
 
--- Build initial mapping with all possible mapping targets
-init : Task n eq vq et vt -> Maybe (Matrix n eq vq et vt)
+||| Build initial mapping with all possible mapping targets
+init : Task n qe qv te tv -> Maybe (Matrix n qe qv te tv)
 init ta = let trgs     = contexts $ target ta
          in traverse (\q => makeRow q $ filter (match ta q) trgs) (query ta)
 
 -- Domain Reduction -----------------------------------------------------------
 
--- Removes the set value from all remaining rows (ensure injective mapping)
-allDifferent :  Context et vt 
-             -> Matrix n eq vq et vt
-             -> Maybe (Matrix n eq vq et vt)
-allDifferent t m = traverse (\r => makeRow (ctxt r) 
-                 $ filter ((/=) (node t) . node) (trgs r)) m
-
--- For all adjacent query vertices p's of q. Remove all possibly mapped to 
--- values of ts in p that are not adjacent & do not have the matching bond
--- to the set value c (of q).
--- Substeps:
--- 1. Find Edge between q & p
--- 2. Filter c's neighbours for the ones with a matching edge
--- 3. Remove ts that are not in the list of step 2.
--- directReduction :  (eq -> et -> Bool) 
---                 -> Context eq vq 
---                 -> Context et vt 
---                 -> Matrix n eq vq et vt 
---                 -> Maybe (Matrix n eq vq et vt)
--- directReduction em qset tset m = 
---   let p = \n => elemBy (==) (node $ ctxt n) (keys $ neighbours qset)
---   in traverse (\r => if p r then pure r else reduceRow r) m
---   where 
---    matchTs : Maybe eq -> (Node, et) -> Bool
---    matchTs (Just edq) (_,edt) = em edq edt
---    matchTs Nothing    _       = False
--- 
---    reduceRow : Row eq vq et vt -> Maybe (Row eq vq et vt)
---    reduceRow (MkRow p ts _) = makeRow p $ filter 
---              (flip (elemBy (==)) 
---                (map fst $ filter (matchTs 
---                 (lookup (node p) $ pairs $ neighbours qset)) -- Edge of q to p
---                 $ pairs $ neighbours tset)     -- List of possible values in p
---              . node) ts
-
-directReduction :  (eq -> et -> Bool) 
-                -> Context eq vq 
-                -> Context et vt 
-                -> Matrix n eq vq et vt 
-                -> Maybe (Matrix n eq vq et vt)
-directReduction em (MkContext _ _ qns) (MkContext tn _ tns) = traverse red
-  where red : Row eq vq et vt -> Maybe (Row eq vq et vt)
+||| Enforces two things.
+||| 1. For rows which are not adjaent to the one with the set target value.
+|||    Removes the set target value if present in the possible
+|||    mapping targets (ts).
+|||
+||| 2. For rows which are  adjaent to the one with the set target value.
+|||    Filters the possible mapping targets (ts) for values which are:
+|||      I.  Adjacent to the set target (tn).
+|||      II. Have a matching bond to the set target (tn).
+reduce :  (qe -> te -> Bool) 
+       -> Context qe qv 
+       -> Context te tv 
+       -> Matrix n qe qv te tv 
+       -> Maybe (Matrix n qe qv te tv)
+reduce em (MkContext _ _ qns) (MkContext tn _ tns) = traverse red
+  where red : Row qe qv te tv -> Maybe (Row qe qv te tv)
         red (MkRow c ts _) = case lookup c.node qns of
           Nothing  => makeRow c $ filter ((tn /=) . node) ts
           Just bnd => makeRow c $ filter (\c => maybe False (em bnd) $ lookup c.node tns) ts
 
 
-                
--- Reduces neighbouring possible mappings & enforces that no value can be
--- mapped to twice (injective function)
-reduce :  (eq -> et -> Bool) 
-       -> Context eq vq 
-       -> Context et vt 
-       -> Matrix n eq vq et vt 
-       -> Maybe (Matrix n eq vq et vt)
-reduce p q t m = directReduction p q t m -- >>= allDifferent t
-
-
 -- Ullmann core procedure -----------------------------------------------------
 
-select :  Task n eq vq et vt 
-       -> Context eq vq 
-       -> List (Context et vt) 
-       -> Matrix m eq vq et vt 
+||| Selects a value to instantiate
+select :  Task n qe qv te tv 
+       -> Context qe qv 
+       -> List (Context te tv) 
+       -> Matrix m qe qv te tv 
        -> Maybe (Vect (S m) Node)
 
-step :  Task n eq vq et vt 
-     -> Matrix k eq vq et vt 
+||| Progresses to select a value for the next query vertex or row
+step :  Task n qe qv te tv 
+     -> Matrix k qe qv te tv 
      -> Maybe (Vect k Node)
 
 select _  _ []        _ = Nothing
@@ -134,7 +98,7 @@ step ta (r :: rs) = select ta (ctxt r) (trgs r) rs
 
 -- Accessor function ----------------------------------------------------------
 
+||| Isomorphism search
 export
-ullmann : Task n eq vq et vt -> Maybe (Vect n Node)
+ullmann : Task n qe qv te tv -> Maybe (Vect n Node)
 ullmann ta = init ta >>= step ta
-

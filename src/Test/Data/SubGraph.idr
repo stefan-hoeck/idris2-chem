@@ -7,6 +7,20 @@ import Data.List
 
 %default total
 
+-------------------------------------------------------------------------------
+-- Types
+
+data IsoTestError = ParseErr String
+                  | IsomorphismErr Nat -- Nat is the test example
+
+Show IsoTestError where
+   show (IsomorphismErr i) = "Incorrect matching result obtained from substructure search for unit test Nr. " ++ show i
+   show (ParseErr s)       = "Failed to parse SMILES string: " ++ s
+
+-- Hit = (SubGraph-) Isomorphism
+-- NoMatch = No isomorphism
+data Outcome = Hit | NoMatch
+
 -- Type alias
 Query : Type
 Query = String
@@ -20,27 +34,26 @@ BondMatcher = Bond -> Bond -> Bool
 AtomMatcher : Type
 AtomMatcher = Atom -> Atom -> Bool
 
-Outcome : Type
-Outcome = Bool
 
-
+-------------------------------------------------------------------------------
 -- Test examples
 matchList : List (Query, Target, AtomMatcher, BondMatcher, Outcome)
 matchList = 
   [
-    (""         ,"C"                   ,(==),(==),True)             
-  , ("CCCO"     ,"CCO"                 ,(==),(==),False)             
-  , ("CC(=O)O"  ,"CC(=O)OCC[N+](C)(C)C",(==),(==),True)  -- Acetylcholine
-  , ("CN(C)C"   ,"CC1CC(CCN1)N(C)C"    ,(==),(==),True)  -- Dimethyl-(2-methyl-piperidin-4-yl)-amine          
-  , ("C1CCCCC1" ,"CC1CCCCC1O"          ,(==),(==),True)  -- 2-Methylcyclohexanol
-
-  , ("C1=CC=CC=C1" ,"C[Si](C)(C)C1=CC2=C(C=C1)C(=C(C=C2)O)N=NC3=CC=C(C=C3)[N+](=O)[O-]" ,(==),(==),True)            -- 1-(4-Nitrophenylazo)-6-(trimethylsilyl)-2-naphtol
-  , ("C[Si]"       ,"C[Si](C)(C)C1=CC2=C(C=C1)C(=C(C=C2)O)N=NC3=CC=C(C=C3)[N+](=O)[O-]" ,(==),(==),True)            -- 1-(4-Nitrophenylazo)-6-(trimethylsilyl)-2-naphtol
+    (""         ,"C"                   ,(==),(==),Hit)             
+  , ("CCCO"     ,"CCO"                 ,(==),(==),NoMatch)             
+  , ("CC(=O)O"  ,"CC(=O)OCC[N+](C)(C)C",(==),(==),Hit)  -- Acetylcholine
+  , ("CN(C)C"   ,"CC1CC(CCN1)N(C)C"    ,(==),(==),Hit)  -- Dimethyl-(2-methyl-piperidin-4-yl)-amine          
+  , ("C1CCCCC1" ,"CC1CCCCC1O"          ,(==),(==),Hit)  -- 2-Methylcyclohexanol
+  , ("c1ccccc1" ,"CC1CCCCC1O"          ,(==),(==),NoMatch)  -- 2-Methylcyclohexanol
+  , ("C1=CC=CC=C1" ,"C[Si](C)(C)C1=CC2=C(C=C1)C(=C(C=C2)O)N=NC3=CC=C(C=C3)[N+](=O)[O-]" ,(==),(==),Hit)            -- 1-(4-Nitrophenylazo)-6-(trimethylsilyl)-2-naphtol
+  , ("C[Si]"       ,"C[Si](C)(C)C1=CC2=C(C=C1)C(=C(C=C2)O)N=NC3=CC=C(C=C3)[N+](=O)[O-]" ,(==),(==),Hit)            -- 1-(4-Nitrophenylazo)-6-(trimethylsilyl)-2-naphtol
   ]
 
 
 
 
+-------------------------------------------------------------------------------
 -- Functionality
 makeTask :   BondMatcher
           -> AtomMatcher
@@ -50,31 +63,39 @@ makeTask :   BondMatcher
 makeTask pe pv q t = MkTask pe pv (fromList $ contexts q) t
 
 
-parseToEither : String -> Either String (Graph Bond Atom)
+parseToEither : String -> Either IsoTestError (Graph Bond Atom)
 parseToEither s = case parse s of
   End x => Right x
-  _     => Left $ "Parsing to graph failed for " ++ s
+  _     => Left $ ParseErr s
 
-testTask : (Query, Target, AtomMatcher, BondMatcher, Outcome) -> Either String String
-testTask (sq,st,pv,pe,o) = do
+
+checkResult : Outcome -> Nat -> Maybe a -> Either IsoTestError String
+checkResult Hit     i Nothing  = Left (IsomorphismErr i)
+checkResult NoMatch i (Just _) = Left (IsomorphismErr i)
+checkResult _       i _        = Right $ "  Ex. Nr." ++ show i ++ ": Ok"
+
+
+testTask :(Nat,(Query, Target, AtomMatcher, BondMatcher, Outcome))
+         -> Either IsoTestError String
+testTask (i, (sq,st,pv,pe,o)) = do
   q <- parseToEither sq
   t <- parseToEither st
-  pure $ expResult $ ullmann $ makeTask pe pv q t 
-  where
-    expResult : Maybe a -> String
-    expResult (Just _) = if o then "Ok" else "Did not expect a match for query { " ++ sq ++ " } in target { " ++ st ++ " }"
-    expResult Nothing  = if o then "Expected a match for query { " ++ sq ++ " } in target { " ++ st ++" }" else "Ok"
+  checkResult o i $ ullmann $ makeTask pe pv q t
 
 
-
--- Use this function in the repl to test the algorithm
+-------------------------------------------------------------------------------
+||| Unit tests for finding subgraphs
+||| Handles iterating over all tests 
+||| and printing the result.
 export
 ullmannUnitTests : IO ()
 ullmannUnitTests = 
   let n = length matchList
   in do
-  _ <- putStrLn ("Number of molecules to test: " ++ show n)
-  putStrLn $ toStr $ map (zip [1..n]) $ traverse testTask matchList
-  where toStr : Either String (List (Nat, String)) -> String
-        toStr (Left s)  = s
-        toStr (Right l) = foldl (\a,(i,s) => a ++ (show i) ++ ". " ++ s ++ "\n" ) "" l
+  _ <- putStrLn "━ Isomorphism Unit tests ━"
+  putStrLn $ toStr $ traverse testTask $ zip [1..n] matchList
+  where 
+    toStr : Either IsoTestError (List String) -> String
+    toStr (Left s)  = show s
+    toStr (Right l) = foldl (\a,s => a ++ s ++ "\n") "" l
+    
