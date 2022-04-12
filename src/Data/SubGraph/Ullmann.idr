@@ -66,26 +66,39 @@ allDifferent t m = traverse (\r => makeRow (ctxt r)
 -- 1. Find Edge between q & p
 -- 2. Filter c's neighbours for the ones with a matching edge
 -- 3. Remove ts that are not in the list of step 2.
+-- directReduction :  (eq -> et -> Bool) 
+--                 -> Context eq vq 
+--                 -> Context et vt 
+--                 -> Matrix n eq vq et vt 
+--                 -> Maybe (Matrix n eq vq et vt)
+-- directReduction em qset tset m = 
+--   let p = \n => elemBy (==) (node $ ctxt n) (keys $ neighbours qset)
+--   in traverse (\r => if p r then pure r else reduceRow r) m
+--   where 
+--    matchTs : Maybe eq -> (Node, et) -> Bool
+--    matchTs (Just edq) (_,edt) = em edq edt
+--    matchTs Nothing    _       = False
+-- 
+--    reduceRow : Row eq vq et vt -> Maybe (Row eq vq et vt)
+--    reduceRow (MkRow p ts _) = makeRow p $ filter 
+--              (flip (elemBy (==)) 
+--                (map fst $ filter (matchTs 
+--                 (lookup (node p) $ pairs $ neighbours qset)) -- Edge of q to p
+--                 $ pairs $ neighbours tset)     -- List of possible values in p
+--              . node) ts
+
 directReduction :  (eq -> et -> Bool) 
                 -> Context eq vq 
                 -> Context et vt 
                 -> Matrix n eq vq et vt 
                 -> Maybe (Matrix n eq vq et vt)
-directReduction em qset tset m = 
-  let p = \n => elemBy (==) (node $ ctxt n) (keys $ neighbours qset)
-  in traverse (\r => if p r then pure r else reduceRow r) m
-  where 
-   matchTs : Maybe eq -> (Node, et) -> Bool
-   matchTs (Just edq) (_,edt) = em edq edt
-   matchTs Nothing    _       = False
+directReduction em (MkContext _ _ qns) (MkContext tn _ tns) = traverse red
+  where red : Row eq vq et vt -> Maybe (Row eq vq et vt)
+        red (MkRow c ts _) = case lookup c.node qns of
+          Nothing  => makeRow c $ filter ((tn /=) . node) ts
+          Just bnd => makeRow c $ filter (\c => maybe False (em bnd) $ lookup c.node tns) ts
 
-   reduceRow : Row eq vq et vt -> Maybe (Row eq vq et vt)
-   reduceRow (MkRow p ts _) = makeRow p $ filter 
-             (flip (elemBy (==)) 
-               (map fst $ filter (matchTs 
-                (lookup (node p) $ pairs $ neighbours qset)) -- Edge of q to p
-                $ pairs $ neighbours tset)     -- List of possible values in p
-             . node) ts
+
                 
 -- Reduces neighbouring possible mappings & enforces that no value can be
 -- mapped to twice (injective function)
@@ -94,7 +107,7 @@ reduce :  (eq -> et -> Bool)
        -> Context et vt 
        -> Matrix n eq vq et vt 
        -> Maybe (Matrix n eq vq et vt)
-reduce p q t m = directReduction p q t m >>= allDifferent t
+reduce p q t m = directReduction p q t m -- >>= allDifferent t
 
 
 -- Ullmann core procedure -----------------------------------------------------
