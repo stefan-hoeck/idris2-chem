@@ -37,3 +37,4 @@ modules = Chem
 
         , Data.SubGraph.Ullmann
         , Data.SubGraph.Comparison
+        , Data.SubGraph.InductiveSearch
