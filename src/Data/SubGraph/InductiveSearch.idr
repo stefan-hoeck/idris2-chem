@@ -3,82 +3,16 @@ module Data.SubGraph.InductiveSearch
 import Text.Smiles
 import Data.Graph
 
+
+
+-- Types 
+
 public export
 record Matchers (qe,qv,te,tv : Type) where
   constructor MkMatchers
   edgeMatcher   : qe -> te -> Bool
   vertexMatcher : qv -> tv -> Bool
 
-
--- Context qe qv |-> Current context to match.
---
--- Graph qe qv |-> Remainder of the query graph.
---
--- Graph te tv |-> Target graph to map.
---
--- Maybe (Graph te tv) |-> The subgraph of the target that has been matched.
-select : Context qe qv 
-       -> Graph qe qv 
-       -> Graph te tv 
-       -> Maybe (Graph te tv)
-select qc q t = ?select_rhs
-
--- List Node |-> Nodes in the query to match next.
---               Initial node selected by searchIsomorphism,
---               then continue with neighbours.
---               If the list would be empty, but the query isn't, add the
---               remaining nodes to the list of nodes.
---               If a node is not present in the query, skip it.
---               If the selection procedure fails, then it is not possible
---               to map that given query node to any remaining target.
---
--- Graph qe qv |-> The remainder of the query that must still be matched.
---
--- Graph te tv |-> The remainder of the target that has not been matched.
---
--- Maybe (Graph te tv) |-> The subgraph of the target that has been matched.
-step : List Node -> Graph qe qv -> Graph te tv -> Maybe (Graph te tv)
-
-
-
-
-
-
-
-
-
-step []        q t = if isEmpty q then Just empty else step (nodes q) q t
-step (x :: xs) q t = 
-   let Split qc q' := match x q   | Empty   => step xs q t
-       Just m      := select qc q' t | Nothing => Nothing
-   in Just m
-
-
-
-
-export
-searchIsomorphism : Matchers qe qv te tv -> Maybe (Graph te tv)
--- TODO: Add the first step
-
-
-
-
-
--- choose :  SearchState qe qv te tv 
---        -> (Context qe qv, List (Context te tv))
---        -> SearchState qe qv te tv
-
-
-
-
-
-
-
-
--------------------------------------
-
-
--- Types 
 
 
 -- Encodes the Resulting isomorphism (subgraph of the target) in case of a
