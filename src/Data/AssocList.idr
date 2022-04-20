@@ -39,6 +39,11 @@ Functor (AL ix) where
   map f ((k,v) :: t) = (k,f v) :: map f t
 
 public export
+foldlKV : (acc -> (Key,el) -> acc) -> acc -> AL m el -> acc
+foldlKV f x (p :: ps) = foldlKV f (f x p) ps
+foldlKV _ x []        = x
+
+public export
 Foldable (AL ix) where
   foldr c n [] = n
   foldr c n (x::xs) = c (snd x) (foldr c n xs)

@@ -18,6 +18,7 @@ modules = Chem
         , Data.Graph.Util
 
         , Data.AssocList
+        , Data.BitMap
         , Data.IntMap
         , Data.List.Suffix
         , Data.Refined

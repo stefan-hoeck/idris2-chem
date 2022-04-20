@@ -1,7 +1,8 @@
 ||| Core and utility functionality for graphs
 module Data.Graph.Util
 
-import Data.IntMap
+import Data.AssocList
+import Data.BitMap
 import Data.Maybe
 import Data.List
 import Data.So
@@ -15,22 +16,22 @@ import Data.Graph.Types
 --------------------------------------------------------------------------------
 
 delNeighbour : Node -> Adj e n -> Adj e n
-delNeighbour n adj = { neighbours $= delete n } adj
+delNeighbour n (MkAdj lbl ns) = MkAdj lbl (pairs $ delete n ns)
 
 delEdgeTo : Node -> GraphRep e n -> (Node,e) -> GraphRep e n
 delEdgeTo n m (n2,_) = update n2 (delNeighbour n) m
 
-delNeighbours : Node -> GraphRep e n -> IntMap e -> GraphRep e n
-delNeighbours n g = foldl (delEdgeTo n) g . pairs
+delNeighbours : {0 m : _} -> Node -> GraphRep e n -> AL m e -> GraphRep e n
+delNeighbours n g = foldlKV (delEdgeTo n) g
 
 addEdge : Node -> e -> Adj e n -> Adj e n
-addEdge k lbl (MkAdj l ns) = MkAdj l $ insert k lbl ns
+addEdge k lbl (MkAdj l ns) = MkAdj l $ pairs $ insert k lbl ns
 
 addEdgeTo : Node -> GraphRep e n -> (Node,e) -> GraphRep e n
 addEdgeTo k m (n2,lbl) = update n2 (addEdge k lbl) m
 
-addEdgesTo : Node -> GraphRep e n -> IntMap e -> GraphRep e n
-addEdgesTo n g = foldl (addEdgeTo n) g . pairs
+addEdgesTo : {0 m : _} -> Node -> GraphRep e n -> AL m e -> GraphRep e n
+addEdgesTo n g = foldlKV (addEdgeTo n) g
 
 toContext : (Node,Adj e n) -> Context e n
 toContext (k,MkAdj l es) = MkContext k l es
@@ -71,8 +72,8 @@ match node (MkGraph g) = case lookup node g of
 export
 matchAny : Graph e n -> Decomp e n
 matchAny (MkGraph g) = case decomp g of
-  Done                   => Empty
-  Dec k (MkAdj lbl ns) m =>
+  NoMatch                => Empty
+  Match k (MkAdj lbl ns) m =>
     Split (MkContext k lbl ns) (MkGraph $ delNeighbours k m ns)
 
 --------------------------------------------------------------------------------
@@ -102,7 +103,7 @@ lab (MkGraph m) v = label <$> lookup v m
 ||| Find the label for an `Edge`.
 export
 elab : Graph e n -> Node -> Node -> Maybe e
-elab (MkGraph g) k j = lookup k g >>= lookup j . neighbours
+elab (MkGraph g) k j = lookup k g >>= \(MkAdj _ ns) => lookup j ns
 
 ||| List all 'Node's in the 'Graph'.
 export
@@ -136,8 +137,10 @@ size = length . labEdges
 
 ||| Find the labelled links to a `Node`.
 export
-lneighbours : Graph e n -> Node -> List (Node, e)
-lneighbours (MkGraph g) k = maybe Nil (pairs . neighbours) $ lookup k g
+lneighbours : Graph e n -> Node -> List (Node,e)
+lneighbours (MkGraph g) k = case lookup k g of
+  Just (MkAdj _ ns) => pairs ns
+  Nothing           => Nil
 
 ||| Find the neighbours for a 'Node'.
 export
@@ -198,7 +201,7 @@ gmap f = ufold (\c => add (f c)) (MkGraph empty)
 ||| in the graph.
 export
 insNode : Node -> (lbl : n) -> Graph e n -> Graph e n
-insNode v l (MkGraph m) = MkGraph $ insert v (MkAdj l empty) m
+insNode v l (MkGraph m) = MkGraph $ insert v (MkAdj l Nil) m
 
 ||| Insert a `LEdge` into the 'Graph'.
 ||| Behavior is undefined if the edge does not
@@ -235,7 +238,7 @@ delNodes vs g = foldl (flip delNode) g vs
 export
 delEdge : Edge -> Graph e n -> Graph e n
 delEdge (MkEdge i j _) g = case match i g of
-  Split (MkContext n l ns) gr => add (MkContext n l (delete j ns)) gr
+  Split (MkContext n l ns) gr => add (MkContext n l (pairs $ delete j ns)) gr
   Empty                       => g
 
 ||| Remove multiple 'Edge's from the 'Graph'.
