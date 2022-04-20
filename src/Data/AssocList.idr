@@ -1,5 +1,6 @@
 module Data.AssocList
 
+import Data.DPair
 import Data.Prim.Bits64
 import Data.Maybe.NothingMax
 
@@ -64,6 +65,16 @@ lookup k (p :: ps) = case comp k (fst p) of
   EQ _ _ _ => Just $ snd p
   GT _ _ _ => lookup k ps
 lookup _ []        = Nothing
+
+public export
+nonEmpty : AL m a -> Bool
+nonEmpty (p :: ps) = True
+nonEmpty []        = False
+
+public export
+isEmpty : AL m a -> Bool
+isEmpty (p :: ps) = False
+isEmpty []        = True
 
 ||| Extracts the key / value pairs for the assoc list.
 public export
@@ -148,6 +159,15 @@ insertWith f k v (p :: ps) = case comp k (fst p) of
   EQ _ prf _ => IR ((fst p, f v $ snd p) :: ps) (Right Refl)
   GT _ _ prf => prepend p $ insertWith f k v ps
 insertWith _ k v []        = IR [(k,v)] (Left Refl)
+
+export
+fromList : List (Key,a) -> Exists (\m => AL m a)
+fromList []        = Evidence _ []
+fromList (x :: xs) =
+  let Evidence _ al = fromList xs
+      IR al2 _      = insert (fst x) (snd x) al
+   in Evidence _ al2
+
 
 --------------------------------------------------------------------------------
 --          Delete
