@@ -11,6 +11,7 @@ depends    = base         >= 0.5.1
            , contrib      >= 0.5.1
            , elab-util    >= 0.5.0
            , sop          >= 0.5.0
+           , prim
 
 modules = Profile.Data.Refined
         , Profile.Profiler
