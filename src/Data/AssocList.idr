@@ -81,11 +81,23 @@ isEmpty : AL m a -> Bool
 isEmpty (p :: ps) = False
 isEmpty []        = True
 
-||| Extracts the key / value pairs for the assoc list.
+||| Extracts the key / value pairs from the assoc list.
 public export
 pairs : AL ix a -> List (Key,a)
 pairs (p :: ps) = p :: pairs ps
 pairs []        = []
+
+||| Extracts the keys from the assoc list.
+public export
+keys : AL ix a -> List Key
+keys (p :: ps) = fst p :: keys ps
+keys []        = []
+
+||| Extracts the values from the assoc list.
+public export
+values : AL ix a -> List a
+values (p :: ps) = snd p :: values ps
+values []        = []
 
 public export
 length : AL ix a -> Nat
