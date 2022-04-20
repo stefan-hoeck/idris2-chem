@@ -87,6 +87,11 @@ pairs : AL ix a -> List (Key,a)
 pairs (p :: ps) = p :: pairs ps
 pairs []        = []
 
+public export
+length : AL ix a -> Nat
+length (p :: ps) = S $ length ps
+length []        = 0
+
 ||| Heterogeneous equality check.
 public export
 heq : Eq a => AL m a -> AL n a -> Bool
