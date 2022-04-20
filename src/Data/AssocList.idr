@@ -252,7 +252,7 @@ record UnionRes (m1,m2 : Maybe Key) (a : Type) where
   pairs : AL mx a
   0 prf : Either (m1 === mx) (m2 === mx)
 
-%inline
+export %inline
 prepLT : (p : (Key,a))
        -> UnionRes m1 (Just k2) a
        -> (0 prf1 : Just (fst p) < m1)
@@ -262,7 +262,7 @@ prepLT p (UR ps prf) =
   let 0 lt = either (trans_LT_EQ prf1) (trans_LT_EQ prf2) prf
    in UR (p :: ps) (Left Refl)
 
-%inline
+export %inline
 prepGT : (p : (Key,a))
        -> UnionRes (Just k1) m2 a
        -> (0 prf1 : Just (fst p) < m2)
@@ -272,7 +272,7 @@ prepGT p (UR ps prf) =
   let 0 lt = either (trans_LT_EQ prf2) (trans_LT_EQ prf1) prf
    in UR (p :: ps) (Right Refl)
 
-%inline
+export %inline
 prepEQ :  {0 x : Maybe Key}
        -> (p : (Key,a))
        -> (0 eq  : fst p === k)
@@ -361,7 +361,7 @@ intersect [] y = IS [] %search lteNothing
 ||| only entries appearing in both lists. Values of the two
 ||| lists are combine using function `f`.
 export
-intersectWith : (a -> a -> a) -> AL m1 a -> AL m2 a -> IntersectRes m1 m2 a
+intersectWith : (a -> a -> b) -> AL m1 a -> AL m2 a -> IntersectRes m1 m2 b
 intersectWith f (p :: ps) (q :: qs) = case comp (fst p) (fst q) of
   LT _ _ _ =>
     let IS res p1 p2 = intersectWith f ps (q :: qs)
