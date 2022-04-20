@@ -195,7 +195,7 @@ record DeleteRes (m1 : Maybe Key) (a : Type) where
   pairs : AL mx a
   0 prf : m1 <= mx
 
-%inline
+export %inline
 prependDR :  (p : (Key,a))
           -> DeleteRes m a
           -> (0 lt : Just (fst p) < m)
@@ -214,6 +214,26 @@ delete k (p :: ps) = case comp k (fst p) of
   EQ _ _ _ => DR ps %search
   GT _ _ _ => prependDR p $ delete k ps
 delete k []        = DR [] %search
+
+||| Applies the given function to all values, keeping only the
+||| `Just` results.
+export
+mapMaybe : (a -> Maybe b) -> AL m a -> DeleteRes m b
+mapMaybe f (p :: ps) = case f (snd p) of
+  Just v  => prependDR (fst p, v) $ mapMaybe f ps
+  Nothing => let DR qs prf = mapMaybe f ps
+              in DR qs (Left $ trans_LT_LTE %search prf)
+mapMaybe f []        = DR [] %search
+
+||| Applies the given function to all key / value pairs, keeping only the
+||| `Just` results.
+export
+mapMaybeK : (Key -> a -> Maybe b) -> AL m a -> DeleteRes m b
+mapMaybeK f ((n,va) :: ps) = case f n va of
+  Just vb => prependDR (n,vb) $ mapMaybeK f ps
+  Nothing => let DR qs prf = mapMaybeK f ps
+              in DR qs (Left $ trans_LT_LTE %search prf)
+mapMaybeK f []        = DR [] %search
 
 --------------------------------------------------------------------------------
 --          Update
