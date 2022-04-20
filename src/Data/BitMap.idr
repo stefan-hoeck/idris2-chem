@@ -63,10 +63,24 @@ pairs = go 1 0
         go p k Empty = []
         go p k (Leaf x) = [(k,x)]
         go p k (Branch b0 b1 b2 b3) =
-          go (shl2 p) k           b0 ++
-          go (shl2 p) (k + p * 1) b1 ++
-          go (shl2 p) (k + p * 2) b2 ++
-          go (shl2 p) (k + p * 3) b3
+          let p2 = shl2 p
+           in go p2 k           b0 ++
+              go p2 (k + p * 1) b1 ++
+              go p2 (k + p * 2) b2 ++
+              go p2 (k + p * 3) b3
+
+export
+foldlKV : (acc -> Key -> v -> acc) -> acc -> BitMap v -> acc
+foldlKV f = go 1 0
+  where go : Bits64 -> Key -> acc -> BitMap v ->  acc
+        go p k x0 (Branch b0 b1 b2 b3) =
+          let p2 = shl2 p
+              x1 = go p2 k           x0 b0
+              x2 = go p2 (k + p * 1) x1 b1
+              x3 = go p2 (k + p * 2) x2 b2
+           in go p2 (k + p * 3) x3 b3
+        go p k x Empty    = x
+        go p k x (Leaf y) = f x k y
 
 ||| Gets the keys of the map.
 export
