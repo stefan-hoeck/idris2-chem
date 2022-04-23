@@ -2,6 +2,7 @@ module Test.Data.SubGraph
 
 import Text.Smiles
 import Data.SubGraph.Ullmann
+import Data.SubGraph.InductiveSearch
 import Data.Vect
 import Data.List
 
@@ -34,10 +35,16 @@ BondMatcher = Bond -> Bond -> Bool
 AtomMatcher : Type
 AtomMatcher = Atom -> Atom -> Bool
 
+MatchElement : Type
+MatchElement = (Query, Target, AtomMatcher, BondMatcher, Outcome)
+
+MatchList : Type
+MatchList = List MatchElement
+
 
 -------------------------------------------------------------------------------
 -- Test examples
-matchList : List (Query, Target, AtomMatcher, BondMatcher, Outcome)
+matchList : MatchList
 matchList = 
   [
     (""         ,"C"                   ,(==),(==),Hit)             
@@ -75,27 +82,50 @@ checkResult NoMatch i (Just _) = Left (IsomorphismErr i)
 checkResult _       i _        = Right $ "  Ex. Nr." ++ show i ++ ": Ok"
 
 
-testTask :(Nat,(Query, Target, AtomMatcher, BondMatcher, Outcome))
-         -> Either IsoTestError String
+
+-- Functions to use the different
+testTask : (Nat, MatchElement)
+        -> Either IsoTestError String
 testTask (i, (sq,st,pv,pe,o)) = do
   q <- parseToEither sq
   t <- parseToEither st
   checkResult o i $ ullmann $ makeTask pe pv q t
 
+partial
+testInductiveSearch : (Nat, MatchElement) 
+                   -> Either IsoTestError String
+testInductiveSearch (i, (sq,st,pv,pe,o)) = do
+  q <- parseToEither sq
+  t <- parseToEither st
+  checkResult o i $ inductiveSearch (MkMatchers pe pv) q t
 
 -------------------------------------------------------------------------------
+
+testAlgo : ((Nat, MatchElement) -> Either IsoTestError String) 
+        -> MatchList 
+        -> String 
+        -> IO ()
+testAlgo f x msg = 
+  let n = length matchList
+  in do
+  _ <- putStrLn msg --"━ Isomorphism Unit tests - Ullmann ━"
+  putStrLn $ toStr $ traverse f $ zip [1..n] x
+  where 
+    toStr : Either IsoTestError (List String) -> String
+    toStr (Left s)  = show s
+    toStr (Right l) = foldl (\a,s => a ++ s ++ "\n") "" l
+
+
 ||| Unit tests for finding subgraphs
 ||| Handles iterating over all tests 
 ||| and printing the result.
 export
 ullmannUnitTests : IO ()
-ullmannUnitTests = 
-  let n = length matchList
-  in do
-  _ <- putStrLn "━ Isomorphism Unit tests ━"
-  putStrLn $ toStr $ traverse testTask $ zip [1..n] matchList
-  where 
-    toStr : Either IsoTestError (List String) -> String
-    toStr (Left s)  = show s
-    toStr (Right l) = foldl (\a,s => a ++ s ++ "\n") "" l
-    
+ullmannUnitTests = testAlgo testTask matchList "━ Isomorphism Unit tests - Ullmann ━"
+
+
+||| Same for 'inductive search'
+partial export
+inductiveSearchTest : IO ()
+inductiveSearchTest = testAlgo testInductiveSearch matchList "━ Isomorphism Unit tests - Inductive search ━"
+

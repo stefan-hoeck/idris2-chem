@@ -10,6 +10,7 @@ import Test.Data.SubGraph
 main : IO ()
 main = do
        _ <- ullmannUnitTests
+       _ <- inductiveSearchTest
        test [ Graph.props 
             , IntMap.props
             , Parser.props
