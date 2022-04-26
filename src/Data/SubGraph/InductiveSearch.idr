@@ -165,8 +165,8 @@ findTargetV m cq (x :: xs) ns q t =
   let Split ct rt := match x t | Empty => findTargetV m cq xs ns q t -- Should not occur if properly merged
   in if contextMatch m cq ct 
      then 
-      let Just nsPot := neighbourTargets m cq ct  | Nothing => Nothing
-          Just nsNew := reduce (node ct) ns nsPot | Nothing => Nothing
+      let Just nsPot := neighbourTargets m cq ct  | Nothing => findTargetV m cq xs ns q t
+          Just nsNew := reduce (node ct) ns nsPot | Nothing => findTargetV m cq xs ns q t
           Just ms := bfs m nsNew q rt | Nothing => findTargetV m cq xs ns q t
       in pure $ (node cq, node ct) :: ms
      else findTargetV m cq xs ns q t
@@ -175,11 +175,11 @@ findTargetV m cq (x :: xs) ns q t =
 
 bfs m [] q t = 
   if isEmpty q then Just [] 
-  else let Just x := newQueryNode m q t | Nothing => Nothing
+  else let Just x := newQueryNode m q t | Nothing => Nothing -- Should not occur as node extracted from query
        in bfs m [x] q t
 
 bfs m ((n,nts) :: ns) q t = 
-    let Split c rq := match n q | Empty => bfs m ns q t
+    let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
     in findTargetV m c nts ns rq t
 
 export
