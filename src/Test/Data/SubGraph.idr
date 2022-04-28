@@ -5,6 +5,7 @@ import Data.SubGraph.Ullmann
 import Data.SubGraph.InductiveSearch
 import Data.Vect
 import Data.List
+import System
 
 %default total
 
@@ -52,6 +53,7 @@ matchList =
   , ("CC(=O)O"  ,"CC(=O)OCC[N+](C)(C)C",(==),(==),Hit)  -- Acetylcholine
   , ("CN(C)C"   ,"CC1CC(CCN1)N(C)C"    ,(==),(==),Hit)  -- Dimethyl-(2-methyl-piperidin-4-yl)-amine          
   , ("C1CCCCC1" ,"CC1CCCCC1O"          ,(==),(==),Hit)  -- 2-Methylcyclohexanol
+  , ("C1CC1"    ,"CC(C)C(C)CC"         ,(==),(==),NoMatch) 
   , ("c1ccccc1" ,"CC1CCCCC1O"          ,(==),(==),NoMatch)  -- 2-Methylcyclohexanol
   , ("C1=CC=CC=C1" ,"C[Si](C)(C)C1=CC2=C(C=C1)C(=C(C=C2)O)N=NC3=CC=C(C=C3)[N+](=O)[O-]" ,(==),(==),Hit)            -- 1-(4-Nitrophenylazo)-6-(trimethylsilyl)-2-naphtol
   , ("C[Si]"       ,"C[Si](C)(C)C1=CC2=C(C=C1)C(=C(C=C2)O)N=NC3=CC=C(C=C3)[N+](=O)[O-]" ,(==),(==),Hit)            -- 1-(4-Nitrophenylazo)-6-(trimethylsilyl)-2-naphtol
@@ -108,12 +110,13 @@ testAlgo : ((Nat, MatchElement) -> Either IsoTestError String)
 testAlgo f x msg = 
   let n = length matchList
   in do
-  _ <- putStrLn msg --"━ Isomorphism Unit tests - Ullmann ━"
-  putStrLn $ toStr $ traverse f $ zip [1..n] x
-  where 
-    toStr : Either IsoTestError (List String) -> String
-    toStr (Left s)  = show s
-    toStr (Right l) = foldl (\a,s => a ++ s ++ "\n") "" l
+     _ <- putStrLn msg
+     out $ traverse f $ zip [1..n] x
+ where
+   out : Either IsoTestError (List String) -> IO ()
+   out (Left s)  = do _ <- putStrLn (show s)
+                      exitFailure
+   out (Right l) = putStrLn $ foldl (\a,s => a ++ s ++ "\n") "" l
 
 
 ||| Unit tests for finding subgraphs
