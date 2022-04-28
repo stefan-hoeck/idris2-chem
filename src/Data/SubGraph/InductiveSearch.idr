@@ -21,10 +21,15 @@ Mapping : Type
 Mapping = List (Node, Node)
 
 
+record EligibleTarget where
+  constructor MkElTrg
+  qryN : Node
+  trgs : List Node
+
 ||| A list that describes which target nodes are potential
 ||| mapping targets for a specific query.
 NextMatches : Type
-NextMatches = List (Node, List Node)
+NextMatches = List EligibleTarget
 
 -- Functions 
 
@@ -50,12 +55,12 @@ contextMatch m q t =
 newQueryNode : Matchers qe qv te tv 
             -> Graph qe qv 
             -> Graph te tv 
-            -> Maybe (Node, List Node)
+            -> Maybe EligibleTarget
 newQueryNode m q t = 
  let Just c := head' $ contexts q | Nothing => Nothing
      nts = map node $ filter (contextMatch m c) 
                     $ contexts t
- in Just (node c, nts)
+ in Just (MkElTrg (node c) nts)
 
 
 
@@ -83,7 +88,7 @@ neighbourTargets : Matchers qe qv te tv
 neighbourTargets m cq ct = 
   let neighsQ  = sortFirst $ pairs $ neighbours cq
       neighsT  = pairs $ neighbours ct
-  in traverse (\(n,e) => map (n,) $ filterByEdge e neighsT) neighsQ
+  in traverse (\(n,e) => map (MkElTrg n) $ filterByEdge e neighsT) neighsQ
     where
      filterByEdge : qe -> List (Node, te) -> Maybe (List Node)
      filterByEdge l = notEmpty . map fst . filter (edgeMatcher m l . snd)
@@ -103,13 +108,13 @@ rmNode n = notEmpty . filter (/= n)
 ||| taking the the intersection of the potential targets.
 ||| Note: The list of xs must be in ascending order of the 
 |||       first tuple elemen)
-merge : (Node, List Node) -> List (Node, List Node) 
-     -> Maybe (List Node, List (Node, List Node))
-merge (_, es) [] = Just (es, [])
-merge (ne, es) ((n,ns) :: xs) = case compare n ne of
-        LT => map (mapSnd ((::) (n,ns))) $ merge (ne,es) xs
+merge : EligibleTarget -> List EligibleTarget
+     -> Maybe (List Node, List EligibleTarget)
+merge (MkElTrg _ es) [] = Just (es, [])
+merge (MkElTrg ne es) (MkElTrg n ns :: xs) = case compare n ne of
+        LT => map (mapSnd ((::) (MkElTrg n ns))) $ merge (MkElTrg ne es) xs
         EQ => map (,xs) $ notEmpty $ intersect es ns
-        GT => pure (es, (n,ns) :: xs)
+        GT => pure (es, MkElTrg n ns :: xs)
 
 
 ||| Merges and reduces the exiting list of potential mappings for 
@@ -118,20 +123,20 @@ merge (ne, es) ((n,ns) :: xs) = case compare n ne of
 ||| Note: As in merge, ys must be sorted in ascending order of the 
 |||       first tuple element.
 reduce : Node 
-      -> List (Node, List Node) 
-      -> List (Node, List Node) 
+      -> List EligibleTarget
+      -> List EligibleTarget
       -> Maybe NextMatches
 
 reduce  _ [] []             = Just []
 
-reduce  n [] ((q,ts) :: ys) = 
+reduce  n [] (MkElTrg q ts :: ys) = 
   let Just ts' := rmNode n ts | Nothing => Nothing
-  in map ((::) (q,ts')) $ reduce n [] ys
+  in map ((::) (MkElTrg q ts')) $ reduce n [] ys
 
 reduce n (x :: xs) ys =
   let Just (ts, ys') := merge x ys  | Nothing => Nothing
       Just ts'       := rmNode n ts | Nothing => Nothing
-  in map ((::) (fst x, ts')) $ reduce n xs ys'
+  in map ((::) (MkElTrg (qryN x) ts')) $ reduce n xs ys'
 
 
 
@@ -178,7 +183,7 @@ bfs m [] q t =
   else let Just x := newQueryNode m q t | Nothing => Nothing -- Should not occur as node extracted from query
        in bfs m [x] q t
 
-bfs m ((n,nts) :: ns) q t = 
+bfs m ((MkElTrg n nts) :: ns) q t = 
     let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
     in findTargetV m c nts ns rq t
 
