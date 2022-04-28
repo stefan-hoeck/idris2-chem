@@ -101,6 +101,11 @@ neighbourTargets m cq ct =
 rmNode : Node -> List Node -> Maybe (List Node)
 rmNode n = notEmpty . filter (/= n)
 
+||| Intended to remove the instantiated node from all potential target nodes
+||| TODO: Replace the traverse with a subsequent check for empty lists
+|||       to evaluate the performance differences
+rmNodeET : Node -> EligibleTarget -> Maybe EligibleTarget
+rmNodeET n (MkElTrg qryN trgs) = MkElTrg qryN <$> rmNode n trgs
 
 ||| xs represents the new possible matches for vertices adjacent
 ||| to the last set node. If one of the new nodes is already in
@@ -127,16 +132,17 @@ reduce : Node
       -> List EligibleTarget
       -> Maybe NextMatches
 
-reduce  _ [] []             = Just []
-
-reduce  n [] (MkElTrg q ts :: ys) = 
-  let Just ts' := rmNode n ts | Nothing => Nothing
-  in map ((::) (MkElTrg q ts')) $ reduce n [] ys
-
-reduce n (x :: xs) ys =
-  let Just (ts, ys') := merge x ys  | Nothing => Nothing
-      Just ts'       := rmNode n ts | Nothing => Nothing
-  in map ((::) (MkElTrg (qryN x) ts')) $ reduce n xs ys'
+reduce  n [] ns                 = traverse (rmNodeET n) ns
+reduce  n os []                 = traverse (rmNodeET n) os
+reduce  n (MkElTrg no to :: os) (MkElTrg nn tn :: ns) = 
+  case compare no nn of
+       GT => prepend (MkElTrg nn <$> rmNode n tn) $ reduce n (MkElTrg no to :: os) ns
+       LT => prepend (MkElTrg no <$> rmNode n to) $ reduce n os (MkElTrg nn tn :: ns)
+       EQ => prepend (MkElTrg no <$> merge to tn) $ reduce n os ns
+       where prepend : Maybe EligibleTarget -> Maybe NextMatches -> Maybe NextMatches
+             prepend e l = (::) <$> e <*> l
+             merge : List Node -> List Node -> Maybe (List Node)
+             merge xs ys = rmNode n $ intersect xs ys 
 
 
 
