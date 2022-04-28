@@ -159,33 +159,29 @@ bfs : Matchers qe qv te tv
 ||| If the current mapping target is not eligible, continue
 ||| with the next potential target.
 findTargetV : Matchers qe qv te tv
-           -> Context qe qv 
-           -> List Node
+           -> EligibleTarget
            -> NextMatches
            -> Graph qe qv
            -> Graph te tv
            -> Maybe Mapping
-findTargetV m _ []         _  _ _ = Nothing
-findTargetV m cq (x :: xs) ns q t = 
-  let Split ct rt := match x t | Empty => findTargetV m cq xs ns q t -- Should not occur if properly merged
+findTargetV m (MkElTrg _ [])         _  _ _ = Nothing
+findTargetV m (MkElTrg nq (x :: xs)) ns q t = 
+  let Split cq rq := match nq q | Empty => bfs m ns q t -- Should not occur as proper merging prevents this (except for invalid graphs) 
+      Split ct rt := match x t  | Empty => findTargetV m (MkElTrg nq xs) ns q t -- Should not occur if properly merged
   in if contextMatch m cq ct 
      then 
-      let Just nsPot := neighbourTargets m cq ct  | Nothing => findTargetV m cq xs ns q t
-          Just nsNew := reduce (node ct) ns nsPot | Nothing => findTargetV m cq xs ns q t
-          Just ms := bfs m nsNew q rt | Nothing => findTargetV m cq xs ns q t
+      let Just nsPot := neighbourTargets m cq ct  | Nothing => findTargetV m (MkElTrg nq xs) ns q t
+          Just nsNew := reduce (node ct) ns nsPot | Nothing => findTargetV m (MkElTrg nq xs) ns q t
+          Just ms := bfs m nsNew q rt | Nothing => findTargetV m (MkElTrg nq xs) ns q t
       in pure $ (node cq, node ct) :: ms
-     else findTargetV m cq xs ns q t
-  
+     else findTargetV m (MkElTrg nq xs) ns q t
 
 
 bfs m [] q t = 
   if isEmpty q then Just [] 
-  else let Just x := newQueryNode m q t | Nothing => Nothing -- Should not occur as node extracted from query
+  else let Just x := newQueryNode m q t | Nothing => Nothing -- Should not occur as node extracted from query should be valid should be valid
        in bfs m [x] q t
-
-bfs m ((MkElTrg n nts) :: ns) q t = 
-    let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
-    in findTargetV m c nts ns rq t
+bfs m (n :: ns) q t = findTargetV m n ns q t
 
 export
 inductiveSearch : Matchers qe qv te tv 
