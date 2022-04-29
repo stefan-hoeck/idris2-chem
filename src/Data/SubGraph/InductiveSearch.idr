@@ -4,6 +4,7 @@ import Text.Smiles
 import Data.Graph
 import Data.IntMap
 import Data.List
+import Data.Vect
 
 
 -- Types 
@@ -31,37 +32,115 @@ record EligibleTarget where
 NextMatches : Type
 NextMatches = List EligibleTarget
 
--- Functions 
+-- Utility Functions 
 
-||| Evaluates whether a query context can be mapped on a specific target
-||| context. This includes a matching node label and the presence of
-||| enough edges with a matching label.
-contextMatch : Matchers qe qv te tv 
-            -> Context qe qv 
-            -> Context te tv 
-            -> Bool
-contextMatch m q t = 
-  let vm = vertexMatcher m (label q) (label t) 
-      em = isNil $ deleteFirstsBy (flip $ edgeMatcher m)
-           (values $ neighbours q) (values $ neighbours t)
-  in vm && em
+-- Finding optimal starting nodes ---------------------------------------------
+
+||| Record to goup up the vertices by their label
+||| and degree. Counts the number of occurences and
+||| stores the nodes belonging to that group.
+record NodeClass lv where
+  constructor MkNodeCls
+  lbl   : lv
+  deg   : Nat
+  size  : Nat
+  nodes : Vect size Node 
+
+-- Build node classes
+
+||| Degree of a node. Not present in Graph.Util.
+deg : Context e v -> Nat
+deg = length . toList . neighbours
+
+||| Used for building a list of the node classes from
+||| a list of contexts. This function evaluates whether
+||| the accumulator list contains a NodeClass corresponding
+||| to the context argument. If there is one, then the node
+||| is inserted and the count increased. If ther is none,
+||| then a new class is added to the list.
+|||
+||| This function needs to accumulates the labels of one
+||| graph and requires an Eq instance or a comparison function.
+insertNC : Eq lv 
+        => List (NodeClass lv) 
+        -> Context le lv 
+        -> List (NodeClass lv) 
+insertNC xs c = case go xs of
+  Just ls => ls
+  Nothing => MkNodeCls (label c) (deg c) 
+                       1 [node c] :: xs
+ where go : List (NodeClass lv) -> Maybe (List (NodeClass lv))
+       go []        = Nothing
+       go (cls :: xs) = 
+         if (label c) == lbl cls && deg cls == (deg c)
+         then pure $ {size $= S, nodes $= (::) (node c)} cls :: xs
+         else map ((::) cls) $ go xs
 
 
--- Setup
+||| Generates a list of nodes grouped with their label
+||| and their degree.
+nodeClasses : Eq tv => Graph te tv -> List (NodeClass tv)
+nodeClasses = foldl insertNC [] . contexts
 
--- TODO: Optimize
--- Searches node in the query graph that can be matched to a target
--- by comparing its vertex label and degree with the vertexClasses list
-newQueryNode : Matchers qe qv te tv 
-            -> Graph qe qv 
-            -> Graph te tv 
-            -> Maybe EligibleTarget
-newQueryNode m q t = 
- let Just c := head' $ contexts q | Nothing => Nothing
-     nts = map node $ filter (contextMatch m c) 
-                    $ contexts t
- in Just (MkElTrg (node c) nts)
 
+-- Build list of the number of mapping targets
+
+||| Sorts the list of nodes, grouped with the number of valid
+||| targets by that number
+|||
+||| TODO: Change this to an eligible target and change that
+|||       record to a vector.
+sortNo : List (Node, Nat, List Node) -> List (Node, Nat, List Node)
+sortNo = sortBy (\(_,n1,_),(_,n2,_) => compare n1 n2)
+
+
+||| Accumulates the possible mapping targets of a specific query
+||| context. For subgraph isomorphism, it is necessary to combine
+||| the targets from all NodeClasses with a degree equal or greater
+||| than the degree of the context.
+mapTargets : (qv -> tv -> Bool) 
+          -> List (NodeClass tv) 
+          -> Context qe qv 
+          -> Maybe (Node, Nat, List Node)
+mapTargets p xs c = case filter pred xs of
+                      [] => Nothing
+                      xs => Just $ (node c,) $ foldl combine (0,[]) xs
+  where pred : NodeClass tv -> Bool
+        pred (MkNodeCls l d _ _) = p (label c) l && d >= (deg c)
+        combine : (Nat, List Node) -> NodeClass tv -> (Nat, List Node)
+        combine (s,ns) x = (plus s $ size x, ns ++ (toList $ nodes x))
+
+||| Generates the mapping targets for every vertex in
+||| the query. If any vertex does not have a viable
+||| target, then it will return a Nothing to indicate
+||| the impossibility of an isomorphism.
+mappingNumbers : Eq tv => (qv -> tv -> Bool) 
+              -> Graph qe qv 
+              -> Graph te tv
+              -> Maybe (List (Node, Nat, List Node))
+mappingNumbers p g t = traverse (mapTargets p $ nodeClasses t) $ contexts g
+
+||| Build a list of the viable matching targets for
+||| each query vertex. This is done by first grouping
+||| the target vertices to 'NodeClasses'. Such a group
+||| is unique in the label combined with its degree
+||| (e.g., all vertices with two neighbours and the
+||| label 'C' would be grouped together). The vertices
+||| of the query are then mapped over to assign them
+||| the correspinding targets from the target vertex
+||| groups.
+||| For subgraph isomorphism, all target vertices with
+||| a degree equal to or bigger than the degree of a 
+||| query vertex is a viable mapping target.
+||| A Nothing is returned in case no isomorphism is
+||| possible (no viable mapping target).
+newQryNode : Eq tv 
+          => Matchers qe qv te tv
+          -> Graph qe qv
+          -> Graph te tv
+          -> Maybe EligibleTarget
+newQryNode m q t = let mn = mappingNumbers (vertexMatcher m) q t
+                   in map (\(a,_,c) => MkElTrg a c) $ map sortNo mn >>= head'
 
 
 
@@ -170,7 +249,7 @@ reduce  n (MkElTrg no to :: os) (MkElTrg nn tn :: ns) =
 
 ||| Continues a subgraph isomorphism search by selecting a starting
 ||| node if none is present and checking if the query is empty.
-recur : Matchers qe qv te tv
+recur : Eq tv => Matchers qe qv te tv
             -> NextMatches
             -> Graph qe qv
             -> Graph te tv
@@ -181,7 +260,7 @@ recur : Matchers qe qv te tv
 ||| the current one is possible.
 ||| If the current mapping target is not eligible, continue
 ||| with the next potential target.
-findTargetV : Matchers qe qv te tv
+findTargetV : Eq tv => Matchers qe qv te tv
            -> Context qe qv 
            -> List Node
            -> NextMatches
@@ -200,7 +279,7 @@ findTargetV m cq (x :: xs) ns q t =
 
 recur m [] q t = 
   if isEmpty q then Just [] 
-  else let Just x := newQueryNode m q t | Nothing => Nothing -- Should not occur as node extracted from query
+  else let Just x := newQryNode m q t | Nothing => Nothing -- Should not occur as node extracted from query
        in recur m [x] q t
 
 recur m ((MkElTrg n nts) :: ns) q t = 
@@ -209,7 +288,8 @@ recur m ((MkElTrg n nts) :: ns) q t =
 
 ||| Function to invoke the substructure search
 export
-inductiveSearch : Matchers qe qv te tv 
+inductiveSearch : Eq tv
+               => Matchers qe qv te tv 
                -> Graph qe qv 
                -> Graph te tv 
                -> Maybe Mapping
