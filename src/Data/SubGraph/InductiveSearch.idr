@@ -189,55 +189,27 @@ newQryNode m q t = let mn = mappingNumbers (vertexMatcher m) q t
 
 -- Construction of new next matches -------------------------------------------
 
-||| Filters a list of potential targets (with their edge label)
-||| for nodes which have a corresponding label to the one provided.
-filterByEdgeLabel : Matchers qe qv te tv 
-                 -> qe 
-                 -> List (Node,te) 
-                 -> List Node
-filterByEdgeLabel m e = map fst . filter (edgeMatcher m e . snd)
+||| Node label lookup
+qlbl : Graph qe qv -> (Node, qe) -> Maybe (Node, qe, qv)
+qlbl q (n,e) = (n,e,) <$> lab q n 
+       
+||| Target label lookup
+tlbl : Graph te tv -> List (Node, te) -> List (Node, te, tv)
+tlbl t = mapMaybe (\(n,e) => (n,e,) <$> lab t n) 
 
-||| Match the vertex labels for each node in the 
-||| targets node list (ts) to the label of node qn.
-||| If lab q qn fails (shouldn't happen), it will 
-||| immediately return the empty list, causing the
-||| current assignment to fail eventually
-filterByNodeLabel : Matchers qe qv te tv 
-                 -> Graph qe qv 
-                 -> Graph te tv 
-                 -> (qn : Node) 
-                 -> List Node 
-                 -> List Node
-filterByNodeLabel m q t qn ts = 
-  let Just ql  = lab q qn | Nothing => []
-  in filter (vMatch ql) ts
-  where vMatch : qv -> Node -> Bool
-        vMatch ql tn = case lab t tn of
-            Just x  => vertexMatcher m ql x
-            Nothing => False
+||| Filter node and edge label
+filt : Matchers qe qv te tv -> List (Node,te,tv) -> (Node,qe,qv)-> Maybe EligibleTarget
+filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe (\(n,e,v) => if (edgeMatcher m) eq e && (vertexMatcher m) vq v then Just n else Nothing) xs
 
-||| Collects the nodes of a target that are valid for matching
-||| neighbouring query nodes. Checks whether the label
-||| corresponds to the neighbours label and whether the edge
-||| label is equivalent (Matcher functions).
-||| The neighbours of the currently mapped target node are the
-||| initially possible targets for the neighbours of the current
-||| query node.
-neighbourTargets : Matchers qe qv te tv
-                   -> Graph qe qv
-                   -> Graph te tv
-                   -> Context qe qv 
-                   -> Context te tv 
-                   -> Maybe NextMatches
+||| Filter possible target nodes to match for a query node.
+||| TODO: The neighbours should be present, otherwise their invalid graphs.
+|||       Will fail for an invalid query. Ignores invalid target nodes.
+neighbourTargets : Matchers qe qv te tv -> Graph qe qv    -> Graph te tv
+                -> Context qe qv        -> Context te tv  -> Maybe NextMatches
 neighbourTargets m q t cq ct = 
-  let neighsQ = pairs $ neighbours cq
-      neighsT = pairs $ neighbours ct
-  in traverse (filt neighsT) neighsQ
-    where filt : List (Node,te) -> (Node, qe) -> Maybe EligibleTarget
-          filt neighTs (n,e) = mkElTrg n
-                             $ filterByNodeLabel m q t n 
-                             $ filterByEdgeLabel m e neighTs
-
+  let Just neighsQ := traverse (qlbl q) $ pairs $ neighbours cq | Nothing => Nothing
+      neighsT = tlbl t $ pairs $ neighbours ct
+  in traverse (filt m neighsT) neighsQ
 
 
 -- Reduction of next matches --------------------------------------------------
