@@ -230,7 +230,7 @@ neighbourTargets : Matchers qe qv te tv
                    -> Context te tv 
                    -> Maybe NextMatches
 neighbourTargets m q t cq ct = 
-  let neighsQ = sortFirst $ pairs $ neighbours cq
+  let neighsQ = pairs $ neighbours cq
       neighsT = pairs $ neighbours ct
   in traverse (filt neighsT) neighsQ
     where filt : List (Node,te) -> (Node, qe) -> Maybe EligibleTarget
