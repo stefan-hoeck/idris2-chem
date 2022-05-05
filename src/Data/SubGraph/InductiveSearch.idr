@@ -248,6 +248,19 @@ merge (MkElTrg n1 _ trgs1) (MkElTrg n2 _ trgs2) = if n1 == n2
         then mkElTrg n1 $ intersect (toList trgs1) (toList trgs2)
         else Nothing
 
+mergeV2 : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
+mergeV2 (MkElTrg n1 _ trgs1) (MkElTrg n2 _ trgs2) = if n1 == n2
+        then mkElTrg n1 $ intersect (toList trgs1) (toList trgs2)
+        else Nothing
+  where go : List Node -> List Node -> List Node
+        go [] _ = []
+        go _ [] = []
+        go (x :: xs) (y :: ys) = case compare x y of
+                    GT => go (x :: xs) ys
+                    LT => go xs (y :: ys)
+                    EQ => x :: (go xs ys)
+
+
 
 ||| Merges and reduces the exiting list of potential mappings for 
 ||| previously adjacent nodes, with the new set of them. It also removes
@@ -267,7 +280,7 @@ reduce  n (et1 :: os) (et2 :: ns) =
   case compare (qryN et1) (qryN et2) of
        GT => prepend (rmNodeET n et2) $ reduce n (et1 :: os) ns
        LT => prepend (rmNodeET n et1) $ reduce n os (et2 :: ns)
-       EQ => prepend (merge et1 et2 >>= rmNodeET n) $ reduce n os ns
+       EQ => prepend (mergeV2 et1 et2 >>= rmNodeET n) $ reduce n os ns
   where prepend : Maybe EligibleTarget -> Maybe NextMatches -> Maybe NextMatches
         prepend e l = (::) <$> e <*> l
 
@@ -310,14 +323,14 @@ findTargetV m cq (x :: xs) ns q t =
   
 
 
+recur m ((MkElTrg n k nts) :: ns) q t = 
+    let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
+    in findTargetV m c nts ns rq t
+
 recur m [] q t = 
   if isEmpty q then Just [] 
   else let Just x := newQryNode m q t | Nothing => Nothing -- Should not occur as node extracted from query
        in recur m [x] q t
-
-recur m ((MkElTrg n k nts) :: ns) q t = 
-    let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
-    in findTargetV m c nts ns rq t
 
 ||| Function to invoke the substructure search
 export
