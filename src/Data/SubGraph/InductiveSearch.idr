@@ -153,12 +153,28 @@ mappingNumbers : Eq tv => (qv -> tv -> Bool)
               -> Maybe (List EligibleTarget)
 mappingNumbers p g t = traverse (mapTargets p $ nodeClasses t) $ contexts g
 
-||| Return the ET with the least possible hits
-lowest : List EligibleTarget -> Maybe EligibleTarget
-lowest = foldl minE Nothing
- where minE : Maybe EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
-       minE (Just x) y = if (length $ trgs x) > (length $ trgs y) then pure y else pure x
-       minE Nothing  y = Just y
+-- TODO: Trial 3
+-- mapping Numbers to already return the lowest one (lowest in list)
+matchingTargets : (qv -> tv -> Bool) -> List (NodeClass tv)
+                -> Context qe qv -> Maybe EligibleTarget
+matchingTargets p cls c = case filter pred cls of
+     [] => Nothing
+     (x :: xs) => Just $ foldl insertTargets (elTrgFromCls (node c) x) xs
+  where pred : NodeClass tv -> Bool
+        pred (MkNodeCls l d _ _) = p (label c) l && d >= (deg c)
+
+
+minE : Maybe EligibleTarget -> Maybe EligibleTarget -> Maybe EligibleTarget
+minE (Just x) (Just y) = if (length $ trgs x) > (length $ trgs y) then pure y else pure x
+minE Nothing  (Just y) = Just y
+minE x        _        = x
+
+minMappingNumbers : Eq tv => (qv -> tv -> Bool) 
+                 -> Graph qe qv 
+                 -> Graph te tv
+                 -> Maybe EligibleTarget
+minMappingNumbers p q t = let nts = nodeClasses t
+                          in foldl (\acc,c => minE acc $ matchingTargets p nts c) Nothing $ contexts q
 
 ||| Build a list of the viable matching targets for
 ||| each query vertex. This is done by first grouping
@@ -179,8 +195,7 @@ newQryNode : Eq tv
           -> Graph qe qv
           -> Graph te tv
           -> Maybe EligibleTarget
-newQryNode m q t = let mn = mappingNumbers (vertexMatcher m) q t
-                   in mn >>= lowest
+newQryNode m q t = minMappingNumbers (vertexMatcher m) q t
 -- 
 
 -- Construction of new next matches -------------------------------------------
