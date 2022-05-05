@@ -13,9 +13,6 @@ import Data.Vect
 deg : Context e v -> Nat
 deg = length . toList . neighbours
 
-||| Sort a list of tuples based on their first value
-sortFirst : Ord a => List (a, b) -> List (a, b)
-sortFirst = sortBy (\a => compare (fst a) . fst) 
 
 ||| Wrap non-empty lists in a Maybe
 notEmpty : List a -> Maybe (List a)
