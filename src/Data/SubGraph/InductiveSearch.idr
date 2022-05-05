@@ -124,57 +124,63 @@ nodeClasses = foldl insertNC [] . contexts
 
 -- Build list of the number of mapping targets
 
-||| Sorts the list of nodes, grouped with the number of valid
-||| targets by that number
-sortNo : List EligibleTarget -> List EligibleTarget
-sortNo = sortBy (\a => compare (length $ trgs a) . length . trgs)
 
-||| Accumulates the possible mapping targets of a specific query
-||| context. For subgraph isomorphism, it is necessary to combine
-||| the targets from all NodeClasses with a degree equal or greater
-||| than the degree of the context.
-mapTargets : (qv -> tv -> Bool) 
-          -> List (NodeClass tv) 
-          -> Context qe qv 
-          -> Maybe EligibleTarget
-mapTargets p cls c = case filter pred cls of
+||| Returns the target nodes that can be mapped to
+||| by a specific node..
+mapTrgs : (qv -> tv -> Bool) -> List (NodeClass tv)
+       -> Context qe qv      -> Maybe EligibleTarget
+mapTrgs p cls c = case filter pred cls of
      [] => Nothing
      (x :: xs) => Just $ foldl insertTargets (elTrgFromCls (node c) x) xs
   where pred : NodeClass tv -> Bool
         pred (MkNodeCls l d _ _) = p (label c) l && d >= (deg c)
 
-||| Generates the mapping targets for every vertex in
-||| the query. If any vertex does not have a viable
-||| target, then it will return a Nothing to indicate
-||| the impossibility of an isomorphism.
-mappingNumbers : Eq tv => (qv -> tv -> Bool) 
-              -> Graph qe qv 
-              -> Graph te tv
-              -> Maybe (List EligibleTarget)
-mappingNumbers p g t = traverse (mapTargets p $ nodeClasses t) $ contexts g
-
--- TODO: Trial 3
--- mapping Numbers to already return the lowest one (lowest in list)
-matchingTargets : (qv -> tv -> Bool) -> List (NodeClass tv)
-                -> Context qe qv -> Maybe EligibleTarget
-matchingTargets p cls c = case filter pred cls of
-     [] => Nothing
-     (x :: xs) => Just $ foldl insertTargets (elTrgFromCls (node c) x) xs
+||| Returns the number of possible mapping targets
+||| for a context, given the targets node classes.
+nMapTrgs : (qv -> tv -> Bool) 
+    -> List (NodeClass tv) 
+    -> Context qe qv 
+    -> Nat
+nMapTrgs p cls c = go cls
   where pred : NodeClass tv -> Bool
         pred (MkNodeCls l d _ _) = p (label c) l && d >= (deg c)
+        go : List (NodeClass tv) -> Nat
+        go [] = 0
+        go (x :: xs) = if pred x then plus (size x) (go xs)
+                                 else go xs
+
+||| Compares a new context with n1 possible mapping targets
+||| with a potentially existing other context c2 (n2 targets).
+minCount : Context qe qv -> Nat -> Maybe (Context qe qv, Nat) 
+        -> Maybe (Context qe qv, Nat)
+minCount c1 n1 (Just (c2,n2)) = if n1 < n2 then Just (c1,n1) 
+                                           else Just (c2,n2)
+minCount c1 n1 Nothing        = Just (c1,n1)
+
+||| Selects the best query context (least no. of possible
+||| targets nodes).
+bestContext : (qv -> tv -> Bool) 
+           -> List (NodeClass tv) 
+           -> List (Context qe qv)
+           -> Maybe (Context qe qv)
+bestContext p cls qcs = fst <$> go qcs
+ where go : List (Context qe qv) -> Maybe (Context qe qv, Nat)
+       go []        = Nothing
+       go (c :: cs) = let n = nMapTrgs p cls c
+                      in if n == 0 then Nothing
+                                   else minCount c n (go cs)
 
 
-minE : Maybe EligibleTarget -> Maybe EligibleTarget -> Maybe EligibleTarget
-minE (Just x) (Just y) = if (length $ trgs x) > (length $ trgs y) then pure y else pure x
-minE Nothing  (Just y) = Just y
-minE x        _        = x
-
-minMappingNumbers : Eq tv => (qv -> tv -> Bool) 
-                 -> Graph qe qv 
-                 -> Graph te tv
-                 -> Maybe EligibleTarget
-minMappingNumbers p q t = let nts = nodeClasses t
-                          in foldl (\acc,c => minE acc $ matchingTargets p nts c) Nothing $ contexts q
+||| Selects the starting context ased on the minimal
+||| number of possible mapping targets.
+||| Builds the list of possible mapping nodes of the
+||| target from the node classes.
+bestET : Eq tv => (qv -> tv -> Bool) 
+       -> List (Context qe qv)
+       -> List (NodeClass tv)
+       -> Maybe EligibleTarget
+bestET p q nts = let Just c := bestContext p nts q | Nothing => Nothing
+                 in mapTrgs p nts c 
 
 ||| Build a list of the viable matching targets for
 ||| each query vertex. This is done by first grouping
@@ -187,7 +193,7 @@ minMappingNumbers p q t = let nts = nodeClasses t
 ||| groups.
 ||| For subgraph isomorphism, all target vertices with
 ||| a degree equal to or bigger than the degree of a 
-||| query vertex is a viable mapping target.
+||| query vertex are viable mapping targets.
 ||| A Nothing is returned in case no isomorphism is
 ||| possible (no viable mapping target).
 newQryNode : Eq tv 
@@ -195,8 +201,7 @@ newQryNode : Eq tv
           -> Graph qe qv
           -> Graph te tv
           -> Maybe EligibleTarget
-newQryNode m q t = minMappingNumbers (vertexMatcher m) q t
--- 
+newQryNode m q t = bestET (vertexMatcher m) (contexts q) (nodeClasses t)
 
 -- Construction of new next matches -------------------------------------------
 
@@ -208,7 +213,7 @@ qlbl q (n,e) = (n,e,) <$> lab q n
 tlbl : Graph te tv -> List (Node, te) -> List (Node, te, tv)
 tlbl t = mapMaybe (\(n,e) => (n,e,) <$> lab t n) 
 
-||| Filter node and edge label
+||| Filter possible mapping targets by node and edge label
 filt : Matchers qe qv te tv -> List (Node,te,tv) 
     -> (Node,qe,qv)-> Maybe EligibleTarget
 filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe 
@@ -227,8 +232,8 @@ neighQ q (MkContext n l ns) = go $ pairs ns
 
 
 ||| Filter possible target nodes to match for a query node.
-||| TODO: The neighbours should be present, otherwise their invalid graphs.
-|||       Will fail for an invalid query. Ignores invalid target nodes.
+||| The neighbours should be present, otherwise their invalid graphs.
+||| Will fail for an invalid query. Ignores invalid target nodes.
 ||| Local traverse replacement
 neighbourTargets : Matchers qe qv te tv -> Graph qe qv    -> Graph te tv
                 -> Context qe qv        -> Context te tv  -> Maybe NextMatches
@@ -245,8 +250,6 @@ neighbourTargets m q t cq ct =
 -- Reduction of next matches --------------------------------------------------
 
 ||| Intended to remove the instantiated node from all potential target nodes
-||| TODO: Replace the traverse with a subsequent check for empty lists
-|||       to evaluate the performance differences
 rmNodeET : Node -> EligibleTarget -> Maybe EligibleTarget
 rmNodeET n (MkElTrg qryN trgs) = mkElTrg qryN $ filter (/= n) trgs
 
@@ -259,6 +262,7 @@ merge (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
          then mkElTrg n1 $ intersect (toList trgs1) (toList trgs2)
          else Nothing
 
+||| Alternative version for intersect
 mergeV2 : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
 mergeV2 (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
         then mkElTrg n1 $ intersect (toList trgs1) (toList trgs2)
