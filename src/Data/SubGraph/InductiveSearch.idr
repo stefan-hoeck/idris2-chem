@@ -42,14 +42,13 @@ Mapping = List (Node, Node)
 record EligibleTarget where
   constructor MkElTrg
   qryN : Node
-  size : Nat
-  trgs : Vect size Node
-  {auto 0 prf : IsSucc size}
+  trgs : List Node
+  {auto 0 prf : NonEmpty trgs}
 
 ||| Alternate constructor to build the record from a list
 mkElTrg : Node -> List Node -> Maybe EligibleTarget
 mkElTrg _ [] = Nothing
-mkElTrg n (x :: xs) = Just $ MkElTrg n (length (x :: xs)) (fromList (x :: xs))
+mkElTrg n (x :: xs) = Just $ MkElTrg n (x :: xs)
 ||| Record to goup up the vertices by their label
 ||| and degree. Counts the number of occurences and
 ||| stores the nodes belonging to that group.
@@ -81,17 +80,17 @@ nodeIntoCls n (MkNodeCls l d k nodes) = MkNodeCls l d (S k) (n :: nodes)
 ||| this function can be used to creaet an initial
 ||| EligibleTarget from a NodeClass.
 elTrgFromCls : Node -> NodeClass lv -> EligibleTarget
-elTrgFromCls n (MkNodeCls _ _ (S k) (x :: xs)) = MkElTrg n (S k) (x :: xs)
+elTrgFromCls n (MkNodeCls _ _ (S k) (x :: xs)) = MkElTrg n $ [x] ++ toList xs
 
 
 ||| Inserts the nodes of a NodeClass into the vector of
 ||| eligible targets. Indended usage: Accumulation of
 ||| the nodes from all NodeClasses which correspond with
 ||| the current Context (node in EligibleTarget).
+||| TODO: How to adjust the proof to the longer list???
 insertTargets : EligibleTarget -> NodeClass lv -> EligibleTarget
-insertTargets (MkElTrg n (S k) (t :: ts)) (MkNodeCls _ _ m xs) =
-  MkElTrg n (S k + m) (t :: ts ++ xs)
-
+insertTargets (MkElTrg n (t :: ts)) (MkNodeCls _ _ m xs) =
+  MkElTrg n (t :: ts ++ toList xs)
 
 
 -- Build node classs
@@ -130,14 +129,8 @@ nodeClasses = foldl insertNC [] . contexts
 
 ||| Sorts the list of nodes, grouped with the number of valid
 ||| targets by that number
-|||
-||| TODO: Change this to an eligible target and change that
-|||       record to a vector.
-|||
-|||sortNo : List (Node, Nat, List Node) -> List (Node, Nat, List Node)
-|||sortNo = sortBy (\(_,n1,_),(_,n2,_) => compare n1 n2)
 sortNo : List EligibleTarget -> List EligibleTarget
-sortNo = sortBy (\a => compare (size a) . size)
+sortNo = sortBy (\a => compare (length $ trgs a) . length . trgs)
 
 ||| Accumulates the possible mapping targets of a specific query
 ||| context. For subgraph isomorphism, it is necessary to combine
@@ -237,19 +230,19 @@ neighbourTargets m q t cq ct =
 ||| TODO: Replace the traverse with a subsequent check for empty lists
 |||       to evaluate the performance differences
 rmNodeET : Node -> EligibleTarget -> Maybe EligibleTarget
-rmNodeET n (MkElTrg qryN k trgs) = mkElTrg qryN $ filter (/= n) $ toList trgs
+rmNodeET n (MkElTrg qryN trgs) = mkElTrg qryN $ filter (/= n) trgs
 
 ||| Merges two eligible target records to one. If the resulting list
 ||| of possible targets is empty, then no record is returned. The
 ||| same is the case, if two records should be combined of different
 ||| query nodes.
 merge : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
-merge (MkElTrg n1 _ trgs1) (MkElTrg n2 _ trgs2) = if n1 == n2
-        then mkElTrg n1 $ intersect (toList trgs1) (toList trgs2)
-        else Nothing
+merge (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
+         then mkElTrg n1 $ intersect (toList trgs1) (toList trgs2)
+         else Nothing
 
 mergeV2 : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
-mergeV2 (MkElTrg n1 _ trgs1) (MkElTrg n2 _ trgs2) = if n1 == n2
+mergeV2 (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
         then mkElTrg n1 $ intersect (toList trgs1) (toList trgs2)
         else Nothing
   where go : List Node -> List Node -> List Node
@@ -308,7 +301,7 @@ recur : Eq tv => Matchers qe qv te tv
 ||| with the next potential target.
 findTargetV : Eq tv => Matchers qe qv te tv
            -> Context qe qv 
-           -> Vect k Node
+           -> List Node
            -> NextMatches
            -> Graph qe qv
            -> Graph te tv
@@ -322,8 +315,7 @@ findTargetV m cq (x :: xs) ns q t =
   in pure $ (node cq, node ct) :: ms
   
 
-
-recur m ((MkElTrg n k nts) :: ns) q t = 
+recur m (MkElTrg n nts :: ns) q t = 
     let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
     in findTargetV m c nts ns rq t
 
