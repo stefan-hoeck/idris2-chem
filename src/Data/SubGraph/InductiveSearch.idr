@@ -258,15 +258,20 @@ reduce : Node
       -> List EligibleTarget
       -> List EligibleTarget
       -> Maybe NextMatches
-reduce  n [] ns                   = traverse (rmNodeET n) ns
-reduce  n os []                   = traverse (rmNodeET n) os
+reduce  n [] ns                   = pure ns
+reduce  n os []                   = trav os
+  where trav : List EligibleTarget -> Maybe NextMatches
+        trav []        = pure []
+        trav (x :: xs) = [| (::) (rmNodeET n x) (trav xs) |]
 reduce  n (et1 :: os) (et2 :: ns) = 
   case compare (qryN et1) (qryN et2) of
        GT => prepend (rmNodeET n et2) $ reduce n (et1 :: os) ns
        LT => prepend (rmNodeET n et1) $ reduce n os (et2 :: ns)
        EQ => prepend (merge et1 et2 >>= rmNodeET n) $ reduce n os ns
-   where prepend : Maybe EligibleTarget -> Maybe NextMatches -> Maybe NextMatches
-         prepend e l = (::) <$> e <*> l
+  where prepend : Maybe EligibleTarget -> Maybe NextMatches -> Maybe NextMatches
+        prepend e l = (::) <$> e <*> l
+
+
 
 
 
