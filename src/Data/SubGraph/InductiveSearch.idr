@@ -198,18 +198,37 @@ tlbl : Graph te tv -> List (Node, te) -> List (Node, te, tv)
 tlbl t = mapMaybe (\(n,e) => (n,e,) <$> lab t n) 
 
 ||| Filter node and edge label
-filt : Matchers qe qv te tv -> List (Node,te,tv) -> (Node,qe,qv)-> Maybe EligibleTarget
-filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe (\(n,e,v) => if (edgeMatcher m) eq e && (vertexMatcher m) vq v then Just n else Nothing) xs
+filt : Matchers qe qv te tv -> List (Node,te,tv) 
+    -> (Node,qe,qv)-> Maybe EligibleTarget
+filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe 
+  (\(n,e,v) => if (edgeMatcher m) eq e && (vertexMatcher m) vq v 
+               then Just n 
+               else Nothing) xs
+
+||| Converts list of contexts to list of node & labels
+||| Local traverse replacement
+neighQ : Graph qe qv -> Context qe qv -> Maybe (List (Node, qe, qv))
+neighQ q (MkContext n l ns) = go $ pairs ns
+  where go : List (Node, qe) -> Maybe (List (Node, qe, qv))
+        go []        = Just []
+        go (x :: xs) = [| (::) (qlbl q x) (go xs) |]
+
+
 
 ||| Filter possible target nodes to match for a query node.
 ||| TODO: The neighbours should be present, otherwise their invalid graphs.
 |||       Will fail for an invalid query. Ignores invalid target nodes.
+||| Local traverse replacement
 neighbourTargets : Matchers qe qv te tv -> Graph qe qv    -> Graph te tv
                 -> Context qe qv        -> Context te tv  -> Maybe NextMatches
 neighbourTargets m q t cq ct = 
-  let Just neighsQ := traverse (qlbl q) $ pairs $ neighbours cq | Nothing => Nothing
+  let Just neighsQ := neighQ q cq | Nothing => Nothing
       neighsT = tlbl t $ pairs $ neighbours ct
-  in traverse (filt m neighsT) neighsQ
+  in go neighsT neighsQ
+  where go : List (Node,te,tv) -> List (Node, qe, qv) -> Maybe NextMatches
+        go nT []        = Just []
+        go nT (x :: xs) = [| (::) (filt m nT x) (go nT xs) |]
+
 
 
 -- Reduction of next matches --------------------------------------------------
