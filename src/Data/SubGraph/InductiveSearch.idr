@@ -53,17 +53,12 @@ record NodeClass lv where
 
 -- Alternative constructors ---------------------------------------------------
 
+-- Some of these functions could potentially be simplified (proofs)
+
 ||| Alternate constructor to build the record from a list
 mkElTrg : Node -> List Node -> Maybe EligibleTarget
 mkElTrg _ [] = Nothing
 mkElTrg n (x :: xs) = Just $ MkElTrg n (x :: xs)
-
-||| Alternative constructor to build the NodeClass 
-||| from a list of nodes
-mkNodeCls : lv -> Nat -> List Node -> Maybe (NodeClass lv)
-mkNodeCls _ _ []        = Nothing
-mkNodeCls l d (x :: xs) = Just $ MkNodeCls l d (length $ x :: xs) 
-                                             (fromList $ x :: xs)
 
 ||| Inserts a node into the list of a NodeClass
 nodeIntoCls : Node -> NodeClass lv -> NodeClass lv
@@ -73,17 +68,15 @@ nodeIntoCls n (MkNodeCls l d k nodes) = MkNodeCls l d (S k) (n :: nodes)
 ||| this function can be used to creaet an initial
 ||| EligibleTarget from a NodeClass.
 elTrgFromCls : Node -> NodeClass lv -> EligibleTarget
-elTrgFromCls n (MkNodeCls _ _ (S k) (x :: xs)) = MkElTrg n $ [x] ++ toList xs
+elTrgFromCls n (MkNodeCls _ _ _ (x :: xs)) = MkElTrg n $ x :: toList xs
 
 ||| Inserts the nodes of a NodeClass into the vector of
 ||| eligible targets. Indended usage: Accumulation of
 ||| the nodes from all NodeClasses which correspond with
 ||| the current Context (node in EligibleTarget).
-||| TODO: How to adjust the proof to the longer list???
 insertTargets : EligibleTarget -> NodeClass lv -> EligibleTarget
-insertTargets (MkElTrg n (t :: ts)) (MkNodeCls _ _ m xs) =
-  MkElTrg n (t :: ts ++ toList xs)
-
+insertTargets (MkElTrg n (t :: ts)) cls =
+  MkElTrg n $ t :: ts ++ toList (nodes cls)
 
 -- Build node class -----------------------------------------------------------
 
@@ -100,15 +93,13 @@ insertNC : Eq lv
         => List (NodeClass lv) 
         -> Context le lv 
         -> List (NodeClass lv) 
-insertNC xs c = case go xs of
-  Just ls => ls
-  Nothing => MkNodeCls (label c) (deg c) 1 [node c] :: xs
- where go : List (NodeClass lv) -> Maybe (List (NodeClass lv))
-       go []        = Nothing
-       go (cls :: xs) = 
-         if (label c) == lbl cls && deg cls == (deg c)
-         then pure $ (nodeIntoCls (node c) cls) :: xs
-         else map ((::) cls) $ go xs
+insertNC xs c = go xs
+ where go : List (NodeClass lv) -> List (NodeClass lv)
+       go []          = [MkNodeCls (label c) (deg c) 1 [node c]]
+       go (cl :: cls) = 
+         if label c == lbl cl && deg cl == deg c
+         then nodeIntoCls (node c) cl :: cls
+         else (::) cl $ go cls
 
 
 ||| Generates a list of nodes grouped with their label
@@ -123,17 +114,21 @@ nodeClasses = foldl insertNC [] . contexts
 mapTrgs : (qv -> tv -> Bool) -> List (NodeClass tv)
        -> Context qe qv      -> Maybe EligibleTarget
 mapTrgs p cls c = case filter pred cls of
-     [] => Nothing
-     (x :: xs) => Just $ foldl insertTargets (elTrgFromCls (node c) x) xs
-  where pred : NodeClass tv -> Bool
-        pred (MkNodeCls l d _ _) = p (label c) l && d >= (deg c)
+     []        => Nothing
+     (x :: xs) => Just $ go (x :: xs)
+  where 
+    pred : NodeClass tv -> Bool
+    pred (MkNodeCls l d _ _) = p (label c) l && d >= (deg c)
+    go : (xs : List (NodeClass tv)) -> (prf : NonEmpty xs) => EligibleTarget
+    go (x :: [])         = elTrgFromCls (node c) x 
+    go (x :: xs@(y::ys)) = insertTargets (go xs) x
 
 ||| Returns the number of possible mapping targets
 ||| for a context, given the targets node classes.
 nMapTrgs : (qv -> tv -> Bool) 
-    -> List (NodeClass tv) 
-    -> Context qe qv 
-    -> Nat
+        -> List (NodeClass tv) 
+        -> Context qe qv 
+        -> Nat
 nMapTrgs p cls c = go cls
   where pred : NodeClass tv -> Bool
         pred (MkNodeCls l d _ _) = p (label c) l && d >= (deg c)
@@ -144,7 +139,8 @@ nMapTrgs p cls c = go cls
 
 ||| Compares a new context with n1 possible mapping targets
 ||| with a potentially existing other context c2 (n2 targets).
-minCount : Context qe qv -> Nat -> Maybe (Context qe qv, Nat) 
+minCount : Context qe qv -> Nat 
+        -> Maybe (Context qe qv, Nat) 
         -> Maybe (Context qe qv, Nat)
 minCount c1 n1 (Just (c2,n2)) = if n1 < n2 then Just (c1,n1) 
                                            else Just (c2,n2)
@@ -169,9 +165,9 @@ bestContext p cls qcs = fst <$> go qcs
 ||| Builds the list of possible mapping nodes of the
 ||| target from the node classes.
 bestET : Eq tv => (qv -> tv -> Bool) 
-       -> List (Context qe qv)
-       -> List (NodeClass tv)
-       -> Maybe EligibleTarget
+      -> List (Context qe qv)
+      -> List (NodeClass tv)
+      -> Maybe EligibleTarget
 bestET p q nts = let Just c := bestContext p nts q | Nothing => Nothing
                  in mapTrgs p nts c 
 
@@ -208,7 +204,7 @@ tlbl t = mapMaybe (\(n,e) => (n,e,) <$> lab t n)
 
 ||| Filter possible mapping targets by node and edge label
 filt : Matchers qe qv te tv -> List (Node,te,tv) 
-    -> (Node,qe,qv)-> Maybe EligibleTarget
+    -> (Node,qe,qv) -> Maybe EligibleTarget
 filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe 
   (\(n,e,v) => if (edgeMatcher m) eq e && (vertexMatcher m) vq v 
                then Just n 
@@ -232,7 +228,7 @@ neighbourTargets : Matchers qe qv te tv
                 -> Maybe NextMatches
 neighbourTargets m q t cq ct = 
   let Just neighsQ := neighQ q cq | Nothing => Nothing
-      neighsT = tlbl t $ pairs $ neighbours ct
+      neighsT       = tlbl t $ pairs $ neighbours ct
   in go neighsT neighsQ
   where go : List (Node,te,tv) -> List (Node, qe, qv) -> Maybe NextMatches
         go nT []        = Just []
