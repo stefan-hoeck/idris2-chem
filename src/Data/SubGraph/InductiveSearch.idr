@@ -7,19 +7,13 @@ import Data.List
 import Data.Vect
 
 
--- Utility Functions 
+-- Utility Functions ----------------------------------------------------------
 
 ||| Degree of a node. Not present in Graph.Util.
 deg : Context e v -> Nat
 deg = length . toList . neighbours
 
-
-||| Wrap non-empty lists in a Maybe
-notEmpty : List a -> Maybe (List a)
-notEmpty [] = Nothing
-notEmpty as = Just as
-
--- Types 
+-- Types ---------------------------------------------------------------------- 
 
 ||| Record to store functions which evaluate a possible
 ||| correspondence of query and target vertices or bonds.
@@ -33,7 +27,6 @@ record Matchers (qe,qv,te,tv : Type) where
 Mapping : Type
 Mapping = List (Node, Node)
 
-
 ||| A record that lists the possible mapping targets (vertices)
 ||| for a specific query vertex.
 record EligibleTarget where
@@ -42,10 +35,11 @@ record EligibleTarget where
   trgs : List Node
   {auto 0 prf : NonEmpty trgs}
 
-||| Alternate constructor to build the record from a list
-mkElTrg : Node -> List Node -> Maybe EligibleTarget
-mkElTrg _ [] = Nothing
-mkElTrg n (x :: xs) = Just $ MkElTrg n (x :: xs)
+||| A list that describes which target nodes are potential
+||| mapping targets for each corresponding query.
+NextMatches : Type
+NextMatches = List EligibleTarget
+
 ||| Record to goup up the vertices by their label
 ||| and degree. Counts the number of occurences and
 ||| stores the nodes belonging to that group.
@@ -57,17 +51,19 @@ record NodeClass lv where
   nodes : Vect size Node 
   {auto 0 prf : IsSucc size} 
 
-||| A list that describes which target nodes are potential
-||| mapping targets for each corresponding query.
-NextMatches : Type
-NextMatches = List EligibleTarget
+-- Alternative constructors ---------------------------------------------------
+
+||| Alternate constructor to build the record from a list
+mkElTrg : Node -> List Node -> Maybe EligibleTarget
+mkElTrg _ [] = Nothing
+mkElTrg n (x :: xs) = Just $ MkElTrg n (x :: xs)
 
 ||| Alternative constructor to build the NodeClass 
 ||| from a list of nodes
 mkNodeCls : lv -> Nat -> List Node -> Maybe (NodeClass lv)
 mkNodeCls _ _ []        = Nothing
-mkNodeCls l d (x :: xs) = Just $ MkNodeCls l d (length $ x :: xs)
-                                               (fromList $ x :: xs)
+mkNodeCls l d (x :: xs) = Just $ MkNodeCls l d (length $ x :: xs) 
+                                             (fromList $ x :: xs)
 
 ||| Inserts a node into the list of a NodeClass
 nodeIntoCls : Node -> NodeClass lv -> NodeClass lv
@@ -79,7 +75,6 @@ nodeIntoCls n (MkNodeCls l d k nodes) = MkNodeCls l d (S k) (n :: nodes)
 elTrgFromCls : Node -> NodeClass lv -> EligibleTarget
 elTrgFromCls n (MkNodeCls _ _ (S k) (x :: xs)) = MkElTrg n $ [x] ++ toList xs
 
-
 ||| Inserts the nodes of a NodeClass into the vector of
 ||| eligible targets. Indended usage: Accumulation of
 ||| the nodes from all NodeClasses which correspond with
@@ -90,7 +85,7 @@ insertTargets (MkElTrg n (t :: ts)) (MkNodeCls _ _ m xs) =
   MkElTrg n (t :: ts ++ toList xs)
 
 
--- Build node classs
+-- Build node class -----------------------------------------------------------
 
 ||| Used for building a list of the node classes from
 ||| a list of contexts. This function evaluates whether
@@ -121,9 +116,7 @@ insertNC xs c = case go xs of
 nodeClasses : Eq tv => Graph te tv -> List (NodeClass tv)
 nodeClasses = foldl insertNC [] . contexts
 
-
--- Build list of the number of mapping targets
-
+-- Select best starting node --------------------------------------------------
 
 ||| Returns the target nodes that can be mapped to
 ||| by a specific node..
@@ -229,14 +222,14 @@ neighQ q (MkContext n l ns) = go $ pairs ns
         go []        = Just []
         go (x :: xs) = [| (::) (qlbl q x) (go xs) |]
 
-
-
 ||| Filter possible target nodes to match for a query node.
 ||| The neighbours should be present, otherwise their invalid graphs.
 ||| Will fail for an invalid query. Ignores invalid target nodes.
 ||| Local traverse replacement
-neighbourTargets : Matchers qe qv te tv -> Graph qe qv    -> Graph te tv
-                -> Context qe qv        -> Context te tv  -> Maybe NextMatches
+neighbourTargets : Matchers qe qv te tv 
+                -> Graph   qe qv -> Graph   te tv
+                -> Context qe qv -> Context te tv 
+                -> Maybe NextMatches
 neighbourTargets m q t cq ct = 
   let Just neighsQ := neighQ q cq | Nothing => Nothing
       neighsT = tlbl t $ pairs $ neighbours ct
@@ -244,8 +237,6 @@ neighbourTargets m q t cq ct =
   where go : List (Node,te,tv) -> List (Node, qe, qv) -> Maybe NextMatches
         go nT []        = Just []
         go nT (x :: xs) = [| (::) (filt m nT x) (go nT xs) |]
-
-
 
 -- Reduction of next matches --------------------------------------------------
 
@@ -256,16 +247,10 @@ rmNodeET n (MkElTrg qryN trgs) = mkElTrg qryN $ filter (/= n) trgs
 ||| Merges two eligible target records to one. If the resulting list
 ||| of possible targets is empty, then no record is returned. The
 ||| same is the case, if two records should be combined of different
-||| query nodes.
-merge : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
-merge (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
-         then mkElTrg n1 $ intersect (toList trgs1) (toList trgs2)
-         else Nothing
-
-||| Alternative version for intersect
+||| query nodes. (Alternative: intersect instead of go)
 mergeV2 : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
 mergeV2 (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
-        then mkElTrg n1 $ intersect (toList trgs1) (toList trgs2)
+        then mkElTrg n1 $ go (toList trgs1) (toList trgs2)
         else Nothing
   where go : List Node -> List Node -> List Node
         go [] _ = []
@@ -274,8 +259,6 @@ mergeV2 (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
                     GT => go (x :: xs) ys
                     LT => go xs (y :: ys)
                     EQ => x :: (go xs ys)
-
-
 
 ||| Merges and reduces the exiting list of potential mappings for 
 ||| previously adjacent nodes, with the new set of them. It also removes
@@ -299,14 +282,7 @@ reduce  n (et1 :: os) (et2 :: ns) =
   where prepend : Maybe EligibleTarget -> Maybe NextMatches -> Maybe NextMatches
         prepend e l = (::) <$> e <*> l
 
-
-
-
-
-----------------------------------------------------------------------------
-
--- Recursion engine
-
+-- Recursion engine -----------------------------------------------------------
 
 ||| Continues a subgraph isomorphism search by selecting a starting
 ||| node if none is present and checking if the query is empty.
@@ -345,6 +321,8 @@ recur m [] q t =
   if isEmpty q then Just [] 
   else let Just x := newQryNode m q t | Nothing => Nothing -- Should not occur as node extracted from query
        in recur m [x] q t
+
+-- Entry function -------------------------------------------------------------
 
 ||| Function to invoke the substructure search
 export
