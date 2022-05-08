@@ -6,10 +6,12 @@ import Data.IntMap
 import Data.List
 import Data.Vect
 
+-- TODO: Replace the silly letters to n
 
 -- Utility Functions ----------------------------------------------------------
 
 ||| Degree of a node. Not present in Graph.Util.
+||| O(n)   n: Size of neighbours
 deg : Context e v -> Nat
 deg = length . toList . neighbours
 
@@ -56,17 +58,20 @@ record NodeClass lv where
 -- Some of these functions could potentially be simplified (proofs)
 
 ||| Alternate constructor to build the record from a list
+||| O(1)
 mkElTrg : Node -> List Node -> Maybe EligibleTarget
 mkElTrg _ [] = Nothing
 mkElTrg n (x :: xs) = Just $ MkElTrg n (x :: xs)
 
 ||| Inserts a node into the list of a NodeClass
+||| O(1)
 nodeIntoCls : Node -> NodeClass lv -> NodeClass lv
 nodeIntoCls n (MkNodeCls l d k nodes) = MkNodeCls l d (S k) (n :: nodes)
 
 ||| Empty EligibleTarget are not valid. Instead, 
 ||| this function can be used to creaet an initial
 ||| EligibleTarget from a NodeClass.
+||| O(n)    n : Length of the nodes in the class
 elTrgFromCls : Node -> NodeClass lv -> EligibleTarget
 elTrgFromCls n (MkNodeCls _ _ _ (x :: xs)) = MkElTrg n $ x :: toList xs
 
@@ -74,6 +79,7 @@ elTrgFromCls n (MkNodeCls _ _ _ (x :: xs)) = MkElTrg n $ x :: toList xs
 ||| eligible targets. Indended usage: Accumulation of
 ||| the nodes from all NodeClasses which correspond with
 ||| the current Context (node in EligibleTarget).
+||| O(n)    n : Length of the nodes in the class
 insertTargets : EligibleTarget -> NodeClass lv -> EligibleTarget
 insertTargets (MkElTrg n (t :: ts)) cls =
   MkElTrg n $ t :: ts ++ toList (nodes cls)
@@ -89,6 +95,7 @@ insertTargets (MkElTrg n (t :: ts)) cls =
 |||
 ||| This function needs to accumulates the labels of one
 ||| graph and requires an Eq instance (or a comparison function).
+||| O(k)   k: Length of NodeClass list
 insertNC : Eq lv 
         => List (NodeClass lv) 
         -> Context le lv 
@@ -104,13 +111,20 @@ insertNC xs c = go xs
 
 ||| Generates a list of nodes grouped with their label
 ||| and their degree.
+||| O(m)     m: Length of the contexts
+||| TODO: Actually  Sum[k=1,m,k++](k)  Is that the correct on? I think so.
 nodeClasses : Eq tv => Graph te tv -> List (NodeClass tv)
 nodeClasses = foldl insertNC [] . contexts
 
 -- Select best starting node --------------------------------------------------
 
 ||| Returns the target nodes that can be mapped to
-||| by a specific node..
+||| by a specific node.
+||| O(k + o * (ki - o))  k: Length of NodeClass list
+|||           o: Remaining list of nodeClasses
+|||           TODO: Both insertions are O(n)
+|||                 where n => ki - o
+||| TODO: THIS is not correct yet. I say its O(k)
 mapTrgs : (qv -> tv -> Bool) -> List (NodeClass tv)
        -> Context qe qv      -> Maybe EligibleTarget
 mapTrgs p cls c = case filter pred cls of
@@ -125,6 +139,7 @@ mapTrgs p cls c = case filter pred cls of
 
 ||| Returns the number of possible mapping targets
 ||| for a context, given the targets node classes.
+||| O(k)  k: Length of NodeClass list
 nMapTrgs : (qv -> tv -> Bool) 
         -> List (NodeClass tv) 
         -> Context qe qv 
@@ -139,6 +154,7 @@ nMapTrgs p cls c = go cls
 
 ||| Compares a new context with n1 possible mapping targets
 ||| with a potentially existing other context c2 (n2 targets).
+||| O(1)
 minCount : Context qe qv -> Nat 
         -> Maybe (Context qe qv, Nat) 
         -> Maybe (Context qe qv, Nat)
@@ -148,6 +164,8 @@ minCount c1 n1 Nothing        = Just (c1,n1)
 
 ||| Selects the best query context (least no. of possible
 ||| targets nodes).
+||| O(p * k)  p: Length of Context list
+|||           k: Length of NodeClass list
 bestContext : (qv -> tv -> Bool) 
            -> List (NodeClass tv) 
            -> List (Context qe qv)
@@ -164,6 +182,8 @@ bestContext p cls qcs = fst <$> go qcs
 ||| number of possible mapping targets.
 ||| Builds the list of possible mapping nodes of the
 ||| target from the node classes.
+||| O(p * k)  p: Length of Context list
+|||           k: Length of NodeClass list
 bestET : Eq tv => (qv -> tv -> Bool) 
       -> List (Context qe qv)
       -> List (NodeClass tv)
@@ -185,6 +205,8 @@ bestET p q nts = let Just c := bestContext p nts q | Nothing => Nothing
 ||| query vertex are viable mapping targets.
 ||| A Nothing is returned in case no isomorphism is
 ||| possible (no viable mapping target).
+||| O(p * k)  p: Length of Context list
+|||           k: Length of NodeClass list
 newQryNode : Eq tv 
           => Matchers qe qv te tv
           -> Graph qe qv
@@ -195,14 +217,19 @@ newQryNode m q t = bestET (vertexMatcher m) (contexts q) (nodeClasses t)
 -- Construction of new next matches -------------------------------------------
 
 ||| Node label lookup
+||| TODO: Data.IntMap from haskell. W is size of IntMap? n is the key?
+||| Shouldn't it have a different lookup strategy here?
+||| O(min(n,W))
 qlbl : Graph qe qv -> (Node, qe) -> Maybe (Node, qe, qv)
 qlbl q (n,e) = (n,e,) <$> lab q n 
        
 ||| Target label lookup
+||| O( n^2 * log n) TODO: times lookup complexity of lab (n * log n)?
 tlbl : Graph te tv -> List (Node, te) -> List (Node, te, tv)
 tlbl t = mapMaybe (\(n,e) => (n,e,) <$> lab t n) 
 
 ||| Filter possible mapping targets by node and edge label
+||| O(p)     p: Length of the node list
 filt : Matchers qe qv te tv -> List (Node,te,tv) 
     -> (Node,qe,qv) -> Maybe EligibleTarget
 filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe 
@@ -212,6 +239,7 @@ filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe
 
 ||| Converts list of contexts to list of node & labels
 ||| Local traverse replacement
+||| O(q)     q: Length of the neighbours node list
 neighQ : Graph qe qv -> Context qe qv -> Maybe (List (Node, qe, qv))
 neighQ q (MkContext n l ns) = go $ pairs ns
   where go : List (Node, qe) -> Maybe (List (Node, qe, qv))
@@ -222,6 +250,8 @@ neighQ q (MkContext n l ns) = go $ pairs ns
 ||| The neighbours should be present, otherwise their invalid graphs.
 ||| Will fail for an invalid query. Ignores invalid target nodes.
 ||| Local traverse replacement
+||| O(p * q) p: Length of the query neighbours list
+|||          q: Length of the target neighbours node list
 neighbourTargets : Matchers qe qv te tv 
                 -> Graph   qe qv -> Graph   te tv
                 -> Context qe qv -> Context te tv 
@@ -237,6 +267,7 @@ neighbourTargets m q t cq ct =
 -- Reduction of next matches --------------------------------------------------
 
 ||| Intended to remove the instantiated node from all potential target nodes
+||| O(n)     n: Length of targets list
 rmNodeET : Node -> EligibleTarget -> Maybe EligibleTarget
 rmNodeET n (MkElTrg qryN trgs) = mkElTrg qryN $ filter (/= n) trgs
 
@@ -244,6 +275,8 @@ rmNodeET n (MkElTrg qryN trgs) = mkElTrg qryN $ filter (/= n) trgs
 ||| of possible targets is empty, then no record is returned. The
 ||| same is the case, if two records should be combined of different
 ||| query nodes. (Alternative: intersect instead of go)
+||| O(m + n)     m,n: Length of the respective target lists
+||| TODO: Not actually correct O notation?
 mergeV2 : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
 mergeV2 (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
         then mkElTrg n1 $ go (toList trgs1) (toList trgs2)
@@ -261,6 +294,8 @@ mergeV2 (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
 ||| a specified node from all lists describing potential mapping targets.
 ||| Note: As in merge, ys must be sorted in ascending order of the 
 |||       first tuple element.
+||| O(m * n)        m: (Sum of) Length of the eligible targets list
+|||                 n: Comparisons from rmNodeET and mergeV2
 reduce : Node 
       -> List EligibleTarget
       -> List EligibleTarget
@@ -274,7 +309,7 @@ reduce  n (et1 :: os) (et2 :: ns) =
   case compare (qryN et1) (qryN et2) of
        GT => prepend (rmNodeET n et2) $ reduce n (et1 :: os) ns
        LT => prepend (rmNodeET n et1) $ reduce n os (et2 :: ns)
-       EQ => prepend (mergeV2 et1 et2 >>= rmNodeET n) $ reduce n os ns
+       EQ => prepend (mergeV2 et1 et2) $ reduce n os ns
   where prepend : Maybe EligibleTarget -> Maybe NextMatches -> Maybe NextMatches
         prepend e l = (::) <$> e <*> l
 
@@ -293,6 +328,10 @@ recur : Eq tv => Matchers qe qv te tv
 ||| the current one is possible.
 ||| If the current mapping target is not eligible, continue
 ||| with the next potential target.
+||| TODO: THis is not correct
+||| O(k * m * n )   k: Length of potential target nodes
+|||                 m: (Sum of) Length of the eligible targets list
+|||                 n: Comparisons from rmNodeET and mergeV2
 findTargetV : Eq tv => Matchers qe qv te tv
            -> Context qe qv 
            -> List Node
