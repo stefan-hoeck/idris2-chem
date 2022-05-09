@@ -71,7 +71,7 @@ nodeIntoCls n (MkNodeCls l d k nodes) = MkNodeCls l d (S k) (n :: nodes)
 ||| Empty EligibleTarget are not valid. Instead, 
 ||| this function can be used to creaet an initial
 ||| EligibleTarget from a NodeClass.
-||| O(n)    n : Length of the nodes in the class
+||| O(n)    n: Length of the nodes in the class
 elTrgFromCls : Node -> NodeClass lv -> EligibleTarget
 elTrgFromCls n (MkNodeCls _ _ _ (x :: xs)) = MkElTrg n $ x :: toList xs
 
@@ -79,7 +79,8 @@ elTrgFromCls n (MkNodeCls _ _ _ (x :: xs)) = MkElTrg n $ x :: toList xs
 ||| eligible targets. Indended usage: Accumulation of
 ||| the nodes from all NodeClasses which correspond with
 ||| the current Context (node in EligibleTarget).
-||| O(n)    n : Length of the nodes in the class
+||| O(n + m)    n: Length of the nodes in the class
+|||             m: Length of eligible targets
 insertTargets : EligibleTarget -> NodeClass lv -> EligibleTarget
 insertTargets (MkElTrg n (t :: ts)) cls =
   MkElTrg n $ t :: ts ++ toList (nodes cls)
@@ -95,7 +96,7 @@ insertTargets (MkElTrg n (t :: ts)) cls =
 |||
 ||| This function needs to accumulates the labels of one
 ||| graph and requires an Eq instance (or a comparison function).
-||| O(k)   k: Length of NodeClass list
+||| O(n)   n: Length of NodeClass list
 insertNC : Eq lv 
         => List (NodeClass lv) 
         -> Context le lv 
@@ -111,8 +112,8 @@ insertNC xs c = go xs
 
 ||| Generates a list of nodes grouped with their label
 ||| and their degree.
-||| O(m)     m: Length of the contexts
-||| TODO: Actually  Sum[k=1,m,k++](k)  Is that the correct on? I think so.
+||| O(n * m)     n: Length of the contexts
+||| TODO:        m: From insertTargets (grows in each iteration)
 nodeClasses : Eq tv => Graph te tv -> List (NodeClass tv)
 nodeClasses = foldl insertNC [] . contexts
 
@@ -120,11 +121,8 @@ nodeClasses = foldl insertNC [] . contexts
 
 ||| Returns the target nodes that can be mapped to
 ||| by a specific node.
-||| O(k + o * (ki - o))  k: Length of NodeClass list
-|||           o: Remaining list of nodeClasses
-|||           TODO: Both insertions are O(n)
-|||                 where n => ki - o
-||| TODO: THIS is not correct yet. I say its O(k)
+||| O(n + n * m) n: Length of NodeClass list
+||| TODO:        m: From insertTargets (grows in each iteration to n)
 mapTrgs : (qv -> tv -> Bool) -> List (NodeClass tv)
        -> Context qe qv      -> Maybe EligibleTarget
 mapTrgs p cls c = case filter pred cls of
@@ -164,8 +162,8 @@ minCount c1 n1 Nothing        = Just (c1,n1)
 
 ||| Selects the best query context (least no. of possible
 ||| targets nodes).
-||| O(p * k)  p: Length of Context list
-|||           k: Length of NodeClass list
+||| O(n * m)  n: Length of Context list
+|||           m: Length of NodeClass list
 bestContext : (qv -> tv -> Bool) 
            -> List (NodeClass tv) 
            -> List (Context qe qv)
@@ -182,8 +180,9 @@ bestContext p cls qcs = fst <$> go qcs
 ||| number of possible mapping targets.
 ||| Builds the list of possible mapping nodes of the
 ||| target from the node classes.
-||| O(p * k)  p: Length of Context list
-|||           k: Length of NodeClass list
+||| O(n * m) + O(mapTrgs)  n: Length of Context list
+|||                        m: Length of NodeClass list
+||| TODO
 bestET : Eq tv => (qv -> tv -> Bool) 
       -> List (Context qe qv)
       -> List (NodeClass tv)
@@ -205,8 +204,8 @@ bestET p q nts = let Just c := bestContext p nts q | Nothing => Nothing
 ||| query vertex are viable mapping targets.
 ||| A Nothing is returned in case no isomorphism is
 ||| possible (no viable mapping target).
-||| O(p * k)  p: Length of Context list
-|||           k: Length of NodeClass list
+||| O(bestET) + O(n) + O(nodeClasses)  n: Length of Context list
+||| TODO
 newQryNode : Eq tv 
           => Matchers qe qv te tv
           -> Graph qe qv
@@ -219,7 +218,7 @@ newQryNode m q t = bestET (vertexMatcher m) (contexts q) (nodeClasses t)
 ||| Node label lookup
 ||| TODO: Data.IntMap from haskell. W is size of IntMap? n is the key?
 ||| Shouldn't it have a different lookup strategy here?
-||| O(min(n,W))
+||| O(?)
 qlbl : Graph qe qv -> (Node, qe) -> Maybe (Node, qe, qv)
 qlbl q (n,e) = (n,e,) <$> lab q n 
        
