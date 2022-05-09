@@ -276,9 +276,9 @@ rmNodeET n (MkElTrg qryN trgs) = mkElTrg qryN $ filter (/= n) trgs
 ||| query nodes. (Alternative: intersect instead of go)
 ||| O(m + n)     m,n: Length of the respective target lists
 ||| TODO: Not actually correct O notation?
-mergeV2 : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
-mergeV2 (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
-        then mkElTrg n1 $ go (toList trgs1) (toList trgs2)
+merge : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
+merge (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
+        then mkElTrg n1 $ go trgs1 trgs2
         else Nothing
   where go : List Node -> List Node -> List Node
         go [] _ = []
@@ -308,7 +308,7 @@ reduce  n (et1 :: os) (et2 :: ns) =
   case compare (qryN et1) (qryN et2) of
        GT => prepend (rmNodeET n et2) $ reduce n (et1 :: os) ns
        LT => prepend (rmNodeET n et1) $ reduce n os (et2 :: ns)
-       EQ => prepend (mergeV2 et1 et2) $ reduce n os ns
+       EQ => prepend (merge et1 et2) $ reduce n os ns
   where prepend : Maybe EligibleTarget -> Maybe NextMatches -> Maybe NextMatches
         prepend e l = (::) <$> e <*> l
 
