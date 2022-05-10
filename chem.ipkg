@@ -7,19 +7,12 @@ depends    = base         >= 0.5.1
            , elab-util    >= 0.5.0
            , sop          >= 0.5.0
            , prim
+           , graph
 
 modules = Chem
         , Chem.Element
         , Chem.Isotope
         , Chem.Types
-
-        , Data.Graph
-        , Data.Graph.Types
-        , Data.Graph.Util
-
-        , Data.AssocList
-        , Data.BitMap
-        , Data.IntMap
         , Data.List.Suffix
         , Data.Refined
 

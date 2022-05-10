@@ -6,6 +6,7 @@ sourcedir  = "src"
 depends    = base         >= 0.5.1
            , elab-util    >= 0.5.0
            , prim
+           , graph
 
 modules = Doc.Tut1
         , Doc.Tut1.Sol
