@@ -13,8 +13,12 @@ modules = Chem
         , Chem.Element
         , Chem.Isotope
         , Chem.Types
+
         , Data.List.Suffix
         , Data.Refined
+        , Data.SubGraph.Comparison
+        , Data.SubGraph.InductiveSearch
+        , Data.SubGraph.Ullmann
 
         , Text.Molfile
         , Text.Molfile.Float
