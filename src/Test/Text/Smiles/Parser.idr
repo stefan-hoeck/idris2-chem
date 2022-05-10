@@ -2,6 +2,7 @@ module Test.Text.Smiles.Parser
 
 import Chem.Element
 import Chem.Types
+import Data.Prim.Bits64
 import Data.Refined
 import Data.SOP
 import Data.Vect

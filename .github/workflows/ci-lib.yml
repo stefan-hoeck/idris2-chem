@@ -47,6 +47,8 @@ jobs:
           - sop
           - pretty-show
           - hedgehog
+          - prim
+          - graph
         idris-version:
           - ${{ needs.read-ver.outputs.idris-ver }}
           - latest

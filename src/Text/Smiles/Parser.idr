@@ -2,7 +2,7 @@ module Text.Smiles.Parser
 
 import Chem.Element
 import Chem.Types
-import Data.IntMap
+import Data.BitMap
 import Data.Maybe
 import Data.String
 import Generics.Derive
@@ -56,7 +56,7 @@ record ST where
   node  : Node
   atom  : BAtom
   stack : List BAtom
-  rings : IntMap RAtom
+  rings : BitMap RAtom
   mol   : SmilesMol
 
 public export
