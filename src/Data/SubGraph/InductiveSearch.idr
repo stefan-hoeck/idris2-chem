@@ -16,7 +16,6 @@ withVertexLabels g = MkGraph <$> traverse adj g.graph
         adj : Adj e v -> Maybe (Adj (e,v) v)
         adj (MkAdj l ps) = MkAdj l <$> traverseKV label ps
 
--- TODO: Replace the silly letters to n
 
 -- Utility Functions ----------------------------------------------------------
 
@@ -218,24 +217,12 @@ bestET p q nts = let Just c := bestContext p nts q | Nothing => Nothing
 ||| TODO
 newQryNode : Eq tv
           => Matchers qe qv te tv
-          -> Graph qe qv
-          -> Graph te tv
+          -> Graph (qe,qv) qv
+          -> Graph (te,tv) tv
           -> Maybe EligibleTarget
 newQryNode m q t = bestET (vertexMatcher m) (contexts q) (nodeClasses t)
 
 -- Construction of new next matches -------------------------------------------
-
-||| Node label lookup
-||| TODO: Data.IntMap from haskell. W is size of IntMap? n is the key?
-||| Shouldn't it have a different lookup strategy here?
-||| O(?)
-qlbl : Graph qe qv -> (Node, qe) -> Maybe (Node, qe, qv)
-qlbl q (n,e) = (n,e,) <$> lab q n
-
-||| Target label lookup
-||| O( n^2 * log n) TODO: times lookup complexity of lab (n * log n)?
-tlbl : Graph te tv -> List (Node, te) -> List (Node, te, tv)
-tlbl t = mapMaybe (\(n,e) => (n,e,) <$> lab t n)
 
 ||| Filter possible mapping targets by node and edge label
 ||| O(p)     p: Length of the node list
@@ -246,15 +233,6 @@ filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe
                then Just n
                else Nothing) xs
 
-||| Converts list of contexts to list of node & labels
-||| Local traverse replacement
-||| O(q)     q: Length of the neighbours node list
-neighQ : Graph qe qv -> Context qe qv -> Maybe (List (Node, qe, qv))
-neighQ q (MkContext n l ns) = go $ pairs ns
-  where go : List (Node, qe) -> Maybe (List (Node, qe, qv))
-        go []        = Just []
-        go (x :: xs) = [| (::) (qlbl q x) (go xs) |]
-
 ||| Filter possible target nodes to match for a query node.
 ||| The neighbours should be present, otherwise their invalid graphs.
 ||| Will fail for an invalid query. Ignores invalid target nodes.
@@ -262,13 +240,10 @@ neighQ q (MkContext n l ns) = go $ pairs ns
 ||| O(p * q) p: Length of the query neighbours list
 |||          q: Length of the target neighbours node list
 neighbourTargets : Matchers qe qv te tv
-                -> Graph   qe qv -> Graph   te tv
-                -> Context qe qv -> Context te tv
+                -> Context (qe,qv) qv -> Context (te,tv) tv
                 -> Maybe NextMatches
-neighbourTargets m q t cq ct =
-  let Just neighsQ := neighQ q cq | Nothing => Nothing
-      neighsT       = tlbl t $ pairs $ neighbours ct
-  in go neighsT neighsQ
+neighbourTargets m cq ct =
+  go (pairs $ neighbours ct) (pairs $ neighbours cq)
   where go : List (Node,te,tv) -> List (Node, qe, qv) -> Maybe NextMatches
         go nT []        = Just []
         go nT (x :: xs) = [| (::) (filt m nT x) (go nT xs) |]
@@ -328,8 +303,8 @@ reduce  n (et1 :: os) (et2 :: ns) =
 ||| node if none is present and checking if the query is empty.
 recur : Eq tv => Matchers qe qv te tv
      -> NextMatches
-     -> Graph qe qv
-     -> Graph te tv
+     -> Graph (qe,qv) qv
+     -> Graph (te,tv) tv
      -> Maybe Mapping
 
 ||| Finds a matching mapping target for a specific query node.
@@ -342,18 +317,18 @@ recur : Eq tv => Matchers qe qv te tv
 |||                 m: (Sum of) Length of the eligible targets list
 |||                 n: Comparisons from rmNodeET and mergeV2
 findTargetV : Eq tv => Matchers qe qv te tv
-           -> Context qe qv
+           -> Context (qe,qv) qv
            -> List Node
            -> NextMatches
-           -> Graph qe qv
-           -> Graph te tv
+           -> Graph (qe,qv) qv
+           -> Graph (te,tv) tv
            -> Maybe Mapping
 findTargetV m _ []         _  _ _ = Nothing
-findTargetV m cq (x :: xs) ns q t =
-  let Split ct rt := match x t                     | Empty   => findTargetV m cq xs ns q t -- Should not occur if properly merged
-      Just nsPot  := neighbourTargets m q rt cq ct | Nothing => findTargetV m cq xs ns q t
-      Just nsNew  := reduce (node ct) ns nsPot     | Nothing => findTargetV m cq xs ns q t
-      Just ms     := recur m nsNew q rt            | Nothing => findTargetV m cq xs ns q t
+findTargetV m cq (x :: xs) ns q t = 
+  let Split ct rt := match x t                 | Empty   => findTargetV m cq xs ns q t -- Should not occur if properly merged
+      Just nsPot  := neighbourTargets m cq ct  | Nothing => findTargetV m cq xs ns q t
+      Just nsNew  := reduce (node ct) ns nsPot | Nothing => findTargetV m cq xs ns q t
+      Just ms     := recur m nsNew q rt        | Nothing => findTargetV m cq xs ns q t
   in pure $ (node cq, node ct) :: ms
 
 
@@ -375,4 +350,6 @@ inductiveSearch : Eq tv
                -> Graph qe qv
                -> Graph te tv
                -> Maybe Mapping
-inductiveSearch m = recur m []
+inductiveSearch m q t = let Just q' := withVertexLabels q | Nothing => Nothing
+                            Just t' := withVertexLabels t | Nothing => Nothing
+                        in recur m [] q' t'
