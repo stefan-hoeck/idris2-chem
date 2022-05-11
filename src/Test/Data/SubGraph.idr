@@ -41,14 +41,14 @@ MatchList    = List MatchElement
 
 -- Test examples --------------------------------------------------------------
 matchList : MatchList
-matchList = 
+matchList =
   [
-    (""         ,"C"                   ,(==),(==),Hit)             
-  , ("CCCO"     ,"CCO"                 ,(==),(==),NoMatch)             
+    (""         ,"C"                   ,(==),(==),Hit)
+  , ("CCCO"     ,"CCO"                 ,(==),(==),NoMatch) 
   , ("CC(=O)O"  ,"CC(=O)OCC[N+](C)(C)C",(==),(==),Hit)  -- Acetylcholine
-  , ("CN(C)C"   ,"CC1CC(CCN1)N(C)C"    ,(==),(==),Hit)  -- Dimethyl-(2-methyl-piperidin-4-yl)-amine          
+  , ("CN(C)C"   ,"CC1CC(CCN1)N(C)C"    ,(==),(==),Hit)  -- Dimethyl-(2-methyl-piperidin-4-yl)-amine
   , ("C1CCCCC1" ,"CC1CCCCC1O"          ,(==),(==),Hit)  -- 2-Methylcyclohexanol
-  , ("C1CC1"    ,"CC(C)C(C)CC"         ,(==),(==),NoMatch) 
+  , ("C1CC1"    ,"CC(C)C(C)CC"         ,(==),(==),NoMatch)
   , ("c1ccccc1" ,"CC1CCCCC1O"          ,(==),(==),NoMatch)  -- 2-Methylcyclohexanol
   , ("C1=CC=CC=C1" ,"C[Si](C)(C)C1=CC2=C(C=C1)C(=C(C=C2)O)N=NC3=CC=C(C=C3)[N+](=O)[O-]" ,(==),(==),Hit)            -- 1-(4-Nitrophenylazo)-6-(trimethylsilyl)-2-naphtol
   , ("C[Si]"       ,"C[Si](C)(C)C1=CC2=C(C=C1)C(=C(C=C2)O)N=NC3=CC=C(C=C3)[N+](=O)[O-]" ,(==),(==),Hit)            -- 1-(4-Nitrophenylazo)-6-(trimethylsilyl)-2-naphtol
@@ -69,11 +69,11 @@ checkResult NoMatch i (Just _) = Left (IsomorphismErr i)
 checkResult _       i _        = Right $ "  Ex. Nr." ++ show i ++ ": Ok"
 
 
-testAlgo : ((Nat, MatchElement) -> Either IsoTestError String) 
-        -> MatchList 
-        -> String 
+testAlgo : ((Nat, MatchElement) -> Either IsoTestError String)
+        -> MatchList
+        -> String
         -> IO ()
-testAlgo f x msg = 
+testAlgo f x msg =
   let n = length matchList
   in do _ <- putStrLn msg
         out $ traverse f $ zip [1..n] x
@@ -88,8 +88,8 @@ testAlgo f x msg =
 -- ullmann
 makeTask :   BondMatcher
           -> AtomMatcher
-          -> (g : Graph Bond Atom) 
-          -> Graph Bond Atom 
+          -> (g : Graph Bond Atom)
+          -> Graph Bond Atom
           -> Task (length (contexts g)) Bond Atom Bond Atom
 makeTask pe pv q t = MkTask pe pv (fromList $ contexts q) t
 
@@ -104,7 +104,7 @@ testUllmann (i, (sq,st,pv,pe,o)) = do
   checkResult o i $ ullmann $ makeTask pe pv q t
 
 partial
-testInductive : (Nat, MatchElement) 
+testInductive : (Nat, MatchElement)
              -> Either IsoTestError String
 testInductive (i, (sq,st,pv,pe,o)) = do
   q <- parseToEither sq

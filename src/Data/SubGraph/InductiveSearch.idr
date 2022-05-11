@@ -324,7 +324,7 @@ findTargetV : Eq tv => Matchers qe qv te tv
            -> Graph (te,tv) tv
            -> Maybe Mapping
 findTargetV m _ []         _  _ _ = Nothing
-findTargetV m cq (x :: xs) ns q t = 
+findTargetV m cq (x :: xs) ns q t =
   let Split ct rt := match x t                 | Empty   => findTargetV m cq xs ns q t -- Should not occur if properly merged
       Just nsPot  := neighbourTargets m cq ct  | Nothing => findTargetV m cq xs ns q t
       Just nsNew  := reduce (node ct) ns nsPot | Nothing => findTargetV m cq xs ns q t
