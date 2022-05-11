@@ -4,9 +4,12 @@ import Hedgehog
 import Test.Data.Graph
 import Test.Text.Molfile
 import Test.Text.Smiles.Parser
+import Test.Data.SubGraph
 
 main : IO ()
-main = test [ Graph.props
+main = do
+       _ <- subgraphTests
+       test [ Graph.props
             , Parser.props
             , Molfile.props
             ]
