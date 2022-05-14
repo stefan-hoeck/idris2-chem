@@ -7,6 +7,7 @@ import System
 import Text.Smiles
 import Data.SubGraph.Ullmann
 import Data.SubGraph.InductiveSearch
+import Data.SubGraph.InductiveSearch.Test
 
 %default total
 
@@ -44,7 +45,7 @@ matchList : MatchList
 matchList =
   [
     (""         ,"C"                   ,(==),(==),Hit)
-  , ("CCCO"     ,"CCO"                 ,(==),(==),NoMatch) 
+  , ("CCCO"     ,"CCO"                 ,(==),(==),NoMatch)
   , ("CC(=O)O"  ,"CC(=O)OCC[N+](C)(C)C",(==),(==),Hit)  -- Acetylcholine
   , ("CN(C)C"   ,"CC1CC(CCN1)N(C)C"    ,(==),(==),Hit)  -- Dimethyl-(2-methyl-piperidin-4-yl)-amine
   , ("C1CCCCC1" ,"CC1CCCCC1O"          ,(==),(==),Hit)  -- 2-Methylcyclohexanol
@@ -116,6 +117,7 @@ partial export
 subgraphTests : IO ()
 subgraphTests = do
   _ <- putStrLn ""
+  _ <- testInductiveFunctions
   testAlgo testUllmann   matchList "━ Isomorphism Unit tests - Ullmann ━"
   testAlgo testInductive matchList "━ Isomorphism Unit tests - Inductive search ━"
 
