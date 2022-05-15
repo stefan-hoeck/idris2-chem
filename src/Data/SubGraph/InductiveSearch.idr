@@ -111,7 +111,6 @@ nodeClasses = foldl insertNC []
 
 -- Select best starting node --------------------------------------------------
 
-
 ||| Returns the number of possible mapping targets
 ||| for a context, given the targets node classes.
 ||| O(k)  k: Length of NodeClass list
@@ -125,31 +124,21 @@ nMapTrgs p cls (MkContext nq lq ne) = let degQ = length ne
         pred degq n (MkNodeCls l d s) = if p lq l && d >= degq
                                           then plus s n else n
 
-||| Compares a new context with n1 possible mapping targets
-||| with a potentially existing other context c2 (n2 targets).
-||| O(1)
-minCount : Context qe qv -> Nat
-        -> Maybe (Context qe qv, Nat)
-        -> Maybe (Context qe qv, Nat)
-minCount c1 n1 (Just (c2,n2)) = if n1 < n2 then Just (c1,n1)
-                                           else Just (c2,n2)
-minCount c1 n1 Nothing        = Just (c1,n1)
-
 ||| Selects the best query context (least no. of possible
 ||| targets nodes).
 ||| O(n * m)  n: Length of Context list
 |||           m: Length of NodeClass list
 bestContext : (qv -> tv -> Bool)
            -> List (NodeClass tv)
-           -> List (Context qe qv)
-           -> Maybe (Context qe qv)
-bestContext p cls qcs = fst <$> go qcs
- where go : List (Context qe qv) -> Maybe (Context qe qv, Nat)
-       go []        = Nothing
-       go (c :: cs) = let n = nMapTrgs p cls c
-                      in if n == 0 then Nothing
-                                   else minCount c n (go cs)
-
+           -> (qcs : List (Context qe qv))
+           -> (prf : NonEmpty qcs)
+           => Maybe (Context qe qv)
+bestContext p cls (cq :: qcs) = case foldl minC (cq, nMapTrgs p cls cq) qcs of
+    (_,0) => Nothing
+    res   => Just $ fst res
+  where minC : (Context qe qv, Nat) -> Context qe qv -> (Context qe qv, Nat)
+        minC prev c = let n = nMapTrgs p cls c
+                      in if n < snd prev then (c,n) else prev
 
 
 ||| Get the possible target nodes for a specific
@@ -163,8 +152,7 @@ possibleTrgs p (MkContext nq lq neq) cg =
   in mkElTrg nq $ foldl (pred degQ) Prelude.Nil cg
   where pred : Nat -> List Node -> Context (te,tv) tv -> List Node
         pred degq acc (MkContext nt lt net) = if p lq lt && length net >= degq
-                                         then nt :: acc else acc
-
+                                              then nt :: acc else acc
 
 ||| Build a list of the viable matching targets for
 ||| each query vertex. This is done by first grouping
@@ -184,14 +172,15 @@ possibleTrgs p (MkContext nq lq neq) cg =
 ||| TODO
 newQryNode : Eq tv
           => Matchers qe qv te tv
-          -> Graph (qe,qv) qv
+          -> List (Context (qe,qv) qv)
           -> Graph (te,tv) tv
           -> Maybe EligibleTarget
-newQryNode m q t = let cst = contexts t
-                       nct = nodeClasses cst
-                       csq = contexts q
-                       Just bc := bestContext (vertexMatcher m) nct csq | Nothing => Nothing -- Should be an error
-                   in possibleTrgs (vertexMatcher m) bc cst
+newQryNode _ []  _ = Nothing
+newQryNode m (cq :: cqs) t =
+  let cst = contexts t
+      Just bc := bestContext (vertexMatcher m) (nodeClasses cst) (cq :: cqs)
+               | Nothing => Nothing -- Should be an error
+  in possibleTrgs (vertexMatcher m) bc cst
 
 -- Construction of new next matches -------------------------------------------
 
@@ -201,8 +190,7 @@ filt : Matchers qe qv te tv -> List (Node,te,tv)
     -> (Node,qe,qv) -> Maybe EligibleTarget
 filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe
   (\(n,e,v) => if (edgeMatcher m) eq e && (vertexMatcher m) vq v
-               then Just n
-               else Nothing) xs
+               then Just n else Nothing) xs
 
 ||| Filter possible target nodes to match for a query node.
 ||| The neighbours should be present, otherwise their invalid graphs.
@@ -309,7 +297,7 @@ recur m (MkElTrg n nts :: ns) q t =
 
 recur m [] q t =
   if isEmpty q then Just []
-  else let Just x := newQryNode m q t | Nothing => Nothing -- Should not occur as node extracted from query
+  else let Just x := newQryNode m (contexts q) t | Nothing => Nothing -- Should not occur as node extracted from query
        in recur m [x] q t
 
 -- Entry function -------------------------------------------------------------
