@@ -59,7 +59,6 @@ record NodeClass lv where
   lbl   : lv
   deg   : Nat
   size  : Nat
-  nodes : Vect size Node
   {auto 0 prf : IsSucc size}
 
 -- Alternative constructors ---------------------------------------------------
@@ -75,24 +74,8 @@ mkElTrg n (x :: xs) = Just $ MkElTrg n (x :: xs)
 ||| Inserts a node into the list of a NodeClass
 ||| O(1)
 nodeIntoCls : Node -> NodeClass lv -> NodeClass lv
-nodeIntoCls n (MkNodeCls l d k nodes) = MkNodeCls l d (S k) (n :: nodes)
+nodeIntoCls n (MkNodeCls l d k) = MkNodeCls l d (S k)
 
-||| Empty EligibleTarget are not valid. Instead,
-||| this function can be used to creaet an initial
-||| EligibleTarget from a NodeClass.
-||| O(n)    n: Length of the nodes in the class
-elTrgFromCls : Node -> NodeClass lv -> EligibleTarget
-elTrgFromCls n (MkNodeCls _ _ _ (x :: xs)) = MkElTrg n $ x :: toList xs
-
-||| Inserts the nodes of a NodeClass into the vector of
-||| eligible targets. Indended usage: Accumulation of
-||| the nodes from all NodeClasses which correspond with
-||| the current Context (node in EligibleTarget).
-||| O(n + m)    n: Length of the nodes in the class
-|||             m: Length of eligible targets
-insertTargets : EligibleTarget -> NodeClass lv -> EligibleTarget
-insertTargets (MkElTrg n (t :: ts)) cls =
-  MkElTrg n $ t :: ts ++ toList (nodes cls)
 
 -- Build node class -----------------------------------------------------------
 
@@ -112,7 +95,7 @@ insertNC : Eq lv
         -> List (NodeClass lv)
 insertNC xs c = go xs
  where go : List (NodeClass lv) -> List (NodeClass lv)
-       go []          = [MkNodeCls (label c) (deg c) 1 [node c]]
+       go []          = [MkNodeCls (label c) (deg c) 1]
        go (cl :: cls) =
          if label c == lbl cl && deg cl == deg c
          then nodeIntoCls (node c) cl :: cls
@@ -123,26 +106,11 @@ insertNC xs c = go xs
 ||| and their degree.
 ||| O(n * m)     n: Length of the contexts
 ||| TODO:        m: From insertTargets (grows in each iteration)
-nodeClasses : Eq tv => Graph te tv -> List (NodeClass tv)
-nodeClasses = foldl insertNC [] . contexts
+nodeClasses : Eq tv => List (Context te tv) -> List (NodeClass tv)
+nodeClasses = foldl insertNC []
 
 -- Select best starting node --------------------------------------------------
 
-||| Returns the target nodes that can be mapped to
-||| by a specific node.
-||| O(n + n * m) n: Length of NodeClass list
-||| TODO:        m: From insertTargets (grows in each iteration to n)
-mapTrgs : (qv -> tv -> Bool) -> List (NodeClass tv)
-       -> Context qe qv      -> Maybe EligibleTarget
-mapTrgs p cls c = case filter pred cls of
-     []        => Nothing
-     (x :: xs) => Just $ go (x :: xs)
-  where
-    pred : NodeClass tv -> Bool
-    pred (MkNodeCls l d _ _) = p (label c) l && d >= (deg c)
-    go : (xs : List (NodeClass tv)) -> (prf : NonEmpty xs) => EligibleTarget
-    go (x :: [])         = elTrgFromCls (node c) x
-    go (x :: xs@(y::ys)) = insertTargets (go xs) x
 
 ||| Returns the number of possible mapping targets
 ||| for a context, given the targets node classes.
@@ -151,13 +119,11 @@ nMapTrgs : (qv -> tv -> Bool)
         -> List (NodeClass tv)
         -> Context qe qv
         -> Nat
-nMapTrgs p cls c = go cls
-  where pred : NodeClass tv -> Bool
-        pred (MkNodeCls l d _ _) = p (label c) l && d >= (deg c)
-        go : List (NodeClass tv) -> Nat
-        go [] = 0
-        go (x :: xs) = if pred x then plus (size x) (go xs)
-                                 else go xs
+nMapTrgs p cls (MkContext nq lq ne) = let degQ = length ne
+                                      in foldl (pred degQ) 0 cls
+  where pred : Nat -> Nat -> NodeClass tv -> Nat
+        pred degq n (MkNodeCls l d s) = if p lq l && d >= degq
+                                          then plus s n else n
 
 ||| Compares a new context with n1 possible mapping targets
 ||| with a potentially existing other context c2 (n2 targets).
@@ -185,19 +151,20 @@ bestContext p cls qcs = fst <$> go qcs
                                    else minCount c n (go cs)
 
 
-||| Selects the starting context ased on the minimal
-||| number of possible mapping targets.
-||| Builds the list of possible mapping nodes of the
-||| target from the node classes.
-||| O(n * m) + O(mapTrgs)  n: Length of Context list
-|||                        m: Length of NodeClass list
-||| TODO
-bestET : Eq tv => (qv -> tv -> Bool)
-      -> List (Context qe qv)
-      -> List (NodeClass tv)
-      -> Maybe EligibleTarget
-bestET p q nts = let Just c := bestContext p nts q | Nothing => Nothing
-                 in mapTrgs p nts c
+
+||| Get the possible target nodes for a specific
+||| context from the target graph
+possibleTrgs : (qv -> tv -> Bool)
+            -> Context qe qv
+            -> List (Context (te,tv) tv)
+            -> Maybe EligibleTarget
+possibleTrgs p (MkContext nq lq neq) cg =
+  let degQ = length neq
+  in mkElTrg nq $ foldl (pred degQ) Prelude.Nil cg
+  where pred : Nat -> List Node -> Context (te,tv) tv -> List Node
+        pred degq acc (MkContext nt lt net) = if p lq lt && length net >= degq
+                                         then nt :: acc else acc
+
 
 ||| Build a list of the viable matching targets for
 ||| each query vertex. This is done by first grouping
@@ -220,7 +187,11 @@ newQryNode : Eq tv
           -> Graph (qe,qv) qv
           -> Graph (te,tv) tv
           -> Maybe EligibleTarget
-newQryNode m q t = bestET (vertexMatcher m) (contexts q) (nodeClasses t)
+newQryNode m q t = let cst = contexts t
+                       nct = nodeClasses cst
+                       csq = contexts q
+                       Just bc := bestContext (vertexMatcher m) nct csq | Nothing => Nothing -- Should be an error
+                   in possibleTrgs (vertexMatcher m) bc cst
 
 -- Construction of new next matches -------------------------------------------
 
