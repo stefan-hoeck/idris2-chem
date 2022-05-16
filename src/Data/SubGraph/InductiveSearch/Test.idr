@@ -1,5 +1,8 @@
 module Data.SubGraph.InductiveSearch.Test
 
+-- TODO: This file is not necessary for the test of the InductiveSearch
+--       file. It is designed to be used to test the behavior of individual
+--       functions of this process to narrow down the erroneous function.
 
 import Data.SubGraph.InductiveSearch
 import Data.Graph
@@ -8,6 +11,7 @@ import Text.Smiles
 import Data.Prim.Bits64
 import System
 import Data.Maybe
+import Data.Either
 import Data.Vect
 
 %default total
@@ -17,11 +21,13 @@ import Data.Vect
 data Success = Worked
 
 data InductiveTestError = ParseError String
+                        | VertexExtError String
                         | TestFailure String
 
 Show InductiveTestError where
-  show (ParseError s)  = "Failed to parse SMILES: " ++ s
-  show (TestFailure s) = "Function " ++ s ++ " failed to run properly"
+  show (ParseError s)     = "Failed to parse SMILES: " ++ s
+  show (VertexExtError s) = "Failed to apply withVertexLabels for: " ++ s
+  show (TestFailure s)    = "Function " ++ s ++ " failed to run properly"
 
 
 getGraph : String -> Either InductiveTestError (Graph Bond Atom)
@@ -30,6 +36,9 @@ getGraph s = ext $ parse s
           ext (End x)     = Right x
           ext (Stuck _ _) = Left (ParseError s)
 
+getGraphVL : String -> Either InductiveTestError (Graph (Bond,Atom) Atom)
+getGraphVL s = let Right g := getGraph s | Left e => Left e
+               in maybeToEither (VertexExtError s) $ withVertexLabels g
 
 -- Matcher
 eqE : Bond -> Bond -> Bool
@@ -41,16 +50,12 @@ matchers = MkMatchers eqE eqV
 
 -- Example types --------------------------------------------------------------
 
-neV : Vect 2 Node
-neV = [1,3]
-
 nc1 : NodeClass Atom
-nc1 = MkNodeCls (SubsetAtom C) 2 2 -- (length neV) neV
+nc1 = MkNodeCls (SubsetAtom C) 2 2
 
 ncs1 : List (NodeClass Atom)
-ncs1 = [ MkNodeCls (SubsetAtom C) 2 1 -- (length neV) neV
-       , MkNodeCls (SubsetAtom C) 2 3 -- (length neV) neV
-
+ncs1 = [ MkNodeCls (SubsetAtom C) 2 1
+       , MkNodeCls (SubsetAtom C) 2 3
        ]
 
 
@@ -71,14 +76,17 @@ ncs = do g  <- getGraph "CCCO"
 
 ----
 
-bestC : Either InductiveTestError Success
-
 newQN : Either InductiveTestError Success
-newQN = do
-        q <- getGraph ""
-        t <- getGraph ""
-        if True then Right Worked else Left (TestFailure "newQryNode")
-        -- newQryNode matchers
+newQN = let Right qcsE := map contexts $ getGraphVL "" | Left e => Left e
+            Right tcsE := map contexts $ getGraphVL "" | Left e => Left e
+            Right qcs  := map contexts $ getGraphVL "CCO"      | Left e => Left e
+            Right qcsI := map contexts $ getGraphVL "CCl"      | Left e => Left e
+            Right tcs  := map contexts $ getGraphVL "CC(=O)CS" | Left e => Left e
+        in if    isNothing (newQryNode matchers qcsE tcs)
+              && isNothing (newQryNode matchers qcs tcsE)
+              && isNothing (newQryNode matchers qcsI tcs)
+              && isJust (newQryNode matchers qcs tcs)
+           then Right Worked else Left (TestFailure "newQryNode")
 
 -- Test execution -------------------------------------------------------------
 test : Either InductiveTestError Success -> IO ()
@@ -92,4 +100,5 @@ testInductiveFunctions = do
   _ <- putStrLn "Inductive Search subfunction tests"
   _ <- test mET
   _ <- test ncs
+  _ <- test newQN
   putStrLn "All Tests successful"

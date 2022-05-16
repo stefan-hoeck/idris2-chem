@@ -173,12 +173,12 @@ possibleTrgs p (MkContext nq lq neq) cg =
 newQryNode : Eq tv
           => Matchers qe qv te tv
           -> List (Context (qe,qv) qv)
-          -> Graph (te,tv) tv
+          -> List (Context (te,tv) tv)
           -> Maybe EligibleTarget
-newQryNode _ []  _ = Nothing
-newQryNode m (cq :: cqs) t =
-  let cst = contexts t
-      Just bc := bestContext (vertexMatcher m) (nodeClasses cst) (cq :: cqs)
+newQryNode _ [] _ = Nothing
+newQryNode _ _ [] = Nothing
+newQryNode m (cq :: cqs) cst =
+  let Just bc := bestContext (vertexMatcher m) (nodeClasses cst) (cq :: cqs)
                | Nothing => Nothing -- Should be an error
   in possibleTrgs (vertexMatcher m) bc cst
 
@@ -297,7 +297,7 @@ recur m (MkElTrg n nts :: ns) q t =
 
 recur m [] q t =
   if isEmpty q then Just []
-  else let Just x := newQryNode m (contexts q) t | Nothing => Nothing -- Should not occur as node extracted from query
+  else let Just x := newQryNode m (contexts q) (contexts t) | Nothing => Nothing -- Should not occur as node extracted from query
        in recur m [x] q t
 
 -- Entry function -------------------------------------------------------------
