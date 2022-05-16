@@ -46,6 +46,12 @@ record EligibleTarget where
   trgs : List Node
   {auto 0 prf : NonEmpty trgs}
 
+||| Alternate constructor to build the record from a list
+||| O(1)
+mkElTrg : Node -> List Node -> Maybe EligibleTarget
+mkElTrg _ [] = Nothing
+mkElTrg n (x :: xs) = Just $ MkElTrg n (x :: xs)
+
 ||| A list that describes which target nodes are potential
 ||| mapping targets for each corresponding query.
 NextMatches : Type
@@ -60,22 +66,6 @@ record NodeClass lv where
   deg   : Nat
   size  : Nat
   {auto 0 prf : IsSucc size}
-
--- Alternative constructors ---------------------------------------------------
-
--- Some of these functions could potentially be simplified (proofs)
-
-||| Alternate constructor to build the record from a list
-||| O(1)
-mkElTrg : Node -> List Node -> Maybe EligibleTarget
-mkElTrg _ [] = Nothing
-mkElTrg n (x :: xs) = Just $ MkElTrg n (x :: xs)
-
-||| Inserts a node into the list of a NodeClass
-||| O(1)
-nodeIntoCls : Node -> NodeClass lv -> NodeClass lv
-nodeIntoCls n (MkNodeCls l d k) = MkNodeCls l d (S k)
-
 
 -- Build node class -----------------------------------------------------------
 
@@ -93,13 +83,14 @@ insertNC : Eq lv
         => List (NodeClass lv)
         -> Context le lv
         -> List (NodeClass lv)
-insertNC xs c = go xs
- where go : List (NodeClass lv) -> List (NodeClass lv)
-       go []          = [MkNodeCls (label c) (deg c) 1]
-       go (cl :: cls) =
-         if label c == lbl cl && deg cl == deg c
-         then nodeIntoCls (node c) cl :: cls
-         else (::) cl $ go cls
+insertNC xs c = go (label c) (deg c) xs
+ where incCls : NodeClass lv -> NodeClass lv
+       incCls (MkNodeCls l d k) = MkNodeCls l d (S k)
+       go : lv -> Nat -> List (NodeClass lv) -> List (NodeClass lv)
+       go lblc degc []          = [MkNodeCls lblc degc 1]
+       go lblc degc (cl :: cls) = if lblc == lbl cl && deg cl == degc
+                                  then incCls cl :: cls
+                                  else (::) cl $ go lblc degc cls
 
 
 ||| Generates a list of nodes grouped with their label
