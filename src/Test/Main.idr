@@ -5,6 +5,7 @@ import Test.Data.Graph
 import Test.Text.Molfile
 import Test.Text.Smiles.Parser
 import Test.Data.SubGraph
+import Test.Data.Isomorphism
 
 main : IO ()
 main = do
@@ -12,4 +13,5 @@ main = do
        test [ Graph.props
             , Parser.props
             , Molfile.props
+            , Isomorphism.props
             ]

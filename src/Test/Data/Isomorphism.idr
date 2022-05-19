@@ -6,6 +6,7 @@ import Data.SubGraph.Ullmann
 import Data.So
 import Data.Fin
 import Data.Vect
+import Data.List
 import Test.Data.Graph
 import Hedgehog
 
@@ -53,10 +54,14 @@ graph rNodes rDensity = let bond = element ['-','=','#']
 boolRatio : Ratio -> Gen Bool
 boolRatio d = frequency [(valD d,pure True),(remD d,pure False)]
 
--- TODO: How to get a random result? traverse?
+boolList : Nat -> Gen Bool -> Gen (List Bool)
+boolList 0     gb = (\x => x :: []) <$> gb
+boolList (S k) gb = (::) <$> gb <*> boolList k gb
+
 rndFilt : Ratio -> List a -> Gen (List a)
-rndFilt d xs = let prob = boolRatio d
-               in pure $ filter (\_ => ?filterRandomValues prob) xs
+rndFilt d xs = let bl = boolList (length xs) (boolRatio d)
+                   nl = zip xs <$> bl
+               in mapMaybe (\(v,b) => if b then Just v else Nothing) <$> nl
 
 subGraph : Ratio -> (g : Graph Char Char) -> Gen (Graph Char Char)
 subGraph d g = do
