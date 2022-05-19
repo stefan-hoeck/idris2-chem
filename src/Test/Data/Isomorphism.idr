@@ -2,6 +2,7 @@ module Test.Data.Isomorphism
 
 import Data.Graph
 import Data.SubGraph.InductiveSearch
+import Data.SubGraph.Ullmann
 import Data.So
 import Data.Fin
 import Data.Vect
@@ -9,60 +10,55 @@ import Test.Data.Graph
 import Hedgehog
 
 
--- Generators -----------------------------------------------------------------
 
--- Graph size calculation
-record Density where
-  constructor MkDensity
+-- Percentage -----------------------------------------------------------------
+record Ratio where
+  constructor MkRatio
   val : Fin 101 -- [0,100]
 
-valD : Density -> Nat
+valD : Ratio -> Nat
 valD = finToNat . val
 
-remD : Density -> Nat
+remD : Ratio -> Nat -- (53 % + 47 % = 100 %)
 remD = minus 100 . valD
 
-multD : Nat -> Density -> Nat
+multD : Nat -> Ratio -> Nat
 multD k d = (valD d * k) `div` 100
 
+graphDensity : Gen Ratio
+graphDensity = MkRatio <$> fin (linearFin 100)
 
 
---
-graphSize : Gen Nat
-graphSize = nat $ linear 1 100
+-- Settings -------------------------------------------------------------------
+graphSize : Hedgehog.Range Nat
+graphSize = linear 0 100
 
-graphDensity : Gen Density
-graphDensity = MkDensity <$> fin (linearFin 100)
-
--- For undirected Graphs
--- TODO: Proof of issuc?
-graphStat : (n : Nat) -> Density
-         -> (Hedgehog.Range Nat, Hedgehog.Range Nat)
-graphStat Z _ = (linear 0 0, linear 0 0)
-graphStat (S n) d = let nEmax = ((S n) * n) `div` 2
-                        nE    = multD nEmax d
-                    in (linear 1 (S n), linear 0 nE)
+graphDensity' : Hedgehog.Range Nat
+graphDensity' = linear 0 100
 
 
--- Graph generation
-graph : (nNodes : Nat) -> Density
+-- Graph generators -----------------------------------------------------------
+
+graph : Hedgehog.Range Nat -> (density : Hedgehog.Range Nat)
      -> Gen (Graph Char Char)
-graph nNodes d = let bond = element ['-','=','#']
-                     (rNodes, rEdges) = graphStat nNodes d
-                 in lgraph rNodes rEdges bond lower
+graph rNodes rDensity = let bond = element ['-','=','#']
+                 in lgraph rNodes rDensity bond lower
+
+-- Graph generation with specified size and density for
+-- the calculation of some statistics (not a range)
+-- Workaround: linear 53 53 (min and max the same)
 
 
--- SubGraph generation
-
-probD : Density -> Gen Bool
-probD d = frequency [(valD d,pure True),(remD d,pure False)]
+-- SubGraph
+boolRatio : Ratio -> Gen Bool
+boolRatio d = frequency [(valD d,pure True),(remD d,pure False)]
 
 -- TODO: How to get a random result? traverse?
-rndFilt : Density -> List a -> Gen (List a)
-rndFilt d xs = let prob = probD d -- nKeep = multD (length xs) d
+rndFilt : Ratio -> List a -> Gen (List a)
+rndFilt d xs = let prob = boolRatio d
                in pure $ filter (\_ => ?filterRandomValues prob) xs
 
-subGraph : Density -> (g : Graph Char Char) -> Gen (Graph Char Char)
+subGraph : Ratio -> (g : Graph Char Char) -> Gen (Graph Char Char)
 subGraph d g = do
    ns <- rndFilt d $ nodes g
    g' <- pure $ delNodes ns g
@@ -77,14 +73,25 @@ matchers = MkMatchers (==) (==)
 
 find_indSearch : Property
 find_indSearch = property $ do
-  t <- forAll $ join $ graph <$> graphSize <*> graphDensity
+  t <- forAll $ graph graphSize graphDensity'
   q <- forAll $ graphDensity >>= flip subGraph t
   True === (isJust $ inductiveSearch matchers q t)
 
+
+task : (qcs : List (Context Char Char)) -> Graph Char Char
+    -> Task (length qcs) Char Char Char Char
+task qcs t = MkTask (==) (==) (fromList qcs) t
+
+find_ullmann : Property
+find_ullmann = property $ do
+  t <- forAll $ graph graphSize graphDensity'
+  q <- forAll $ graphDensity >>= flip subGraph t
+  True === (isJust $ ullmann $ task (contexts q) t)
 
 -- Group
 export
 props : Group
 props = MkGroup "SubGraph Properties"
           [ ("inductiveSearch",find_indSearch)
+          , ("ullmann        ",find_ullmann)
           ]
