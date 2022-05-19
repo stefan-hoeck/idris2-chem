@@ -115,6 +115,11 @@ nMapTrgs p cls (MkContext nq lq ne) = let degQ = length ne
         pred degq n (MkNodeCls l d s) = if p lq l && d >= degq
                                           then plus s n else n
 
+minBy : Ord b => (a -> b) -> (as : List a) -> (0 prf : NonEmpty as) => (a,b)
+minBy f (x :: xs) = foldl go (x, f x) xs
+   where go : (a,b) -> a -> (a,b)
+         go (a,b) va = let vb = f va in if vb < b then (va, vb) else (a,b)
+
 ||| Selects the best query context (least no. of possible
 ||| targets nodes).
 ||| O(n * m)  n: Length of Context list
@@ -124,12 +129,9 @@ bestContext : (qv -> tv -> Bool)
            -> (qcs : List (Context qe qv))
            -> (prf : NonEmpty qcs)
            => Maybe (Context qe qv)
-bestContext p cls (cq :: qcs) = case foldl minC (cq, nMapTrgs p cls cq) qcs of
+bestContext p cls qcs = case minBy (nMapTrgs p cls) qcs of
     (_,0) => Nothing
     res   => Just $ fst res
-  where minC : (Context qe qv, Nat) -> Context qe qv -> (Context qe qv, Nat)
-        minC prev c = let n = nMapTrgs p cls c
-                      in if n < snd prev then (c,n) else prev
 
 
 ||| Get the possible target nodes for a specific
