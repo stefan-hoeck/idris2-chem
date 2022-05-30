@@ -35,6 +35,7 @@ record Matchers (qe,qv,te,tv : Type) where
   vertexMatcher : qv -> tv -> Bool
 
 ||| List of which query node is mapped to which target node
+public export
 Mapping : Type
 Mapping = List (Node, Node)
 
