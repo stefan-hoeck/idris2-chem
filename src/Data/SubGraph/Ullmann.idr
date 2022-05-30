@@ -102,3 +102,10 @@ step ta (r :: rs) = select ta (ctxt r) (trgs r) rs
 export
 ullmann : Task n qe qv te tv -> Maybe (Vect n Node)
 ullmann ta = init ta >>= step ta
+
+||| Alternative accessor function
+export
+ullmann' : (qe -> te -> Bool) -> (qv -> tv -> Bool)
+        -> (q : Graph qe qv) -> Graph te tv
+        -> Maybe (Vect (length $ contexts q) Node)
+ullmann' em vm q t = ullmann $ MkTask em vm (fromList $ contexts q) t
