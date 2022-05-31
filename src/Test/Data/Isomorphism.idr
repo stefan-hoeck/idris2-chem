@@ -151,7 +151,7 @@ find_indSearch : Property
 find_indSearch = property $ do
   t <- forAll $ graph graphSize graphDensity'
   q <- forAll $ graphDensity >>= flip subGraph t
-  True === (isJust $ inductiveSearch matchers q t)
+  True === (isJust $ inductiveSearch' matchers q t)
 
 find_ullmann : Property
 find_ullmann = property $ do
@@ -165,23 +165,23 @@ test_graphRenum : Property
 test_graphRenum = property $ do
   q <- forAll $ graph graphSize graphDensity'
   t <- forAll $ replaceKeys q
-  True === isJust (t >>= inductiveSearch matchers q)
+  True === isJust (t >>= inductiveSearch' matchers q)
 
 partial
 test_renumSubGraph : Property
 test_renumSubGraph = property $ do
   t <- forAll $ graph graphSize graphDensity'
   q <- forAll $ graphDensity >>= flip subGraph t >>= replaceKeys
-  True === isJust (q >>= flip (inductiveSearch matchers) t)
+  True === isJust (q >>= flip (inductiveSearch' matchers) t)
 
 -- Group ----------------------------------------------------------------------
 partial export
 props : Group
 props = MkGroup "SubGraph Properties"
           [ ("extOne"             , test_extOne)
-          , ("key mapping"        ,test_keyMapping)
-          , ("inductive Search"   ,find_indSearch)
-          , ("ullmann"            ,find_ullmann)
-          , ("graph Renumbering"  ,test_graphRenum)
-          , ("renumbered Subgraph",test_renumSubGraph)
+          , ("key mapping"        , test_keyMapping)
+          , ("inductive Search"   , find_indSearch)
+          , ("ullmann"            , find_ullmann)
+          , ("graph Renumbering"  , test_graphRenum)
+          , ("renumbered Subgraph", test_renumSubGraph)
           ]

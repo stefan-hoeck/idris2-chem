@@ -110,7 +110,7 @@ testInductive : (Nat, MatchElement)
 testInductive (i, (sq,st,pv,pe,o)) = do
   q <- parseToEither sq
   t <- parseToEither st
-  checkResult o i $ inductiveSearch (MkMatchers pe pv) q t
+  checkResult o i $ inductiveSearch' (MkMatchers pe pv) q t
 
 -- Tests ----------------------------------------------------------------------
 partial export

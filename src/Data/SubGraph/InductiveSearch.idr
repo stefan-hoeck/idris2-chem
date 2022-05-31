@@ -8,6 +8,7 @@ import Data.BitMap
 import Data.List
 import Data.Vect
 
+export
 withVertexLabels : Graph e v -> Maybe (Graph (e,v) v)
 withVertexLabels g = MkGraph <$> traverse adj g.graph
   where label : (Node,e) -> Maybe (e,v)
@@ -98,6 +99,7 @@ insertNC xs c = go (label c) (deg c) xs
 ||| and their degree.
 ||| O(n * m)     n: Length of the contexts
 ||| TODO:        m: From insertTargets (grows in each iteration)
+export
 nodeClasses : Eq tv => List (Context te tv) -> List (NodeClass tv)
 nodeClasses = foldl insertNC []
 
@@ -168,13 +170,14 @@ possibleTrgs p (MkContext nq lq neq) cg =
 ||| TODO
 newQryNode : Eq tv
           => Matchers qe qv te tv
+          -> List (NodeClass tv)
           -> List (Context (qe,qv) qv)
           -> List (Context (te,tv) tv)
           -> Maybe EligibleTarget
-newQryNode _ [] _ = Nothing
-newQryNode _ _ [] = Nothing
-newQryNode m (cq :: cqs) cst =
-  let Just bc := bestContext (vertexMatcher m) (nodeClasses cst) (cq :: cqs)
+newQryNode _ _ [] _ = Nothing
+newQryNode _ _ _ [] = Nothing
+newQryNode m ncs (cq :: cqs) cst =
+  let Just bc := bestContext (vertexMatcher m) ncs (cq :: cqs)
                | Nothing => Nothing -- Should be an error
   in possibleTrgs (vertexMatcher m) bc cst
 
@@ -257,6 +260,7 @@ reduce  n (et1 :: os) (et2 :: ns) =
 ||| Continues a subgraph isomorphism search by selecting a starting
 ||| node if none is present and checking if the query is empty.
 recur : Eq tv => Matchers qe qv te tv
+     -> List (NodeClass tv)
      -> NextMatches
      -> Graph (qe,qv) qv
      -> Graph (te,tv) tv
@@ -272,39 +276,52 @@ recur : Eq tv => Matchers qe qv te tv
 |||                 m: (Sum of) Length of the eligible targets list
 |||                 n: Comparisons from rmNodeET and mergeV2
 findTargetV : Eq tv => Matchers qe qv te tv
+           -> List (NodeClass tv)
            -> Context (qe,qv) qv
            -> List Node
            -> NextMatches
            -> Graph (qe,qv) qv
            -> Graph (te,tv) tv
            -> Maybe Mapping
-findTargetV m _ []         _  _ _ = Nothing
-findTargetV m cq (x :: xs) ns q t =
-  let Split ct rt := match x t                 | Empty   => findTargetV m cq xs ns q t -- Should not occur if properly merged
-      Just nsPot  := neighbourTargets m cq ct  | Nothing => findTargetV m cq xs ns q t
-      Just nsNew  := reduce (node ct) ns nsPot | Nothing => findTargetV m cq xs ns q t
-      Just ms     := recur m nsNew q rt        | Nothing => findTargetV m cq xs ns q t
+findTargetV m ncs _ []         _  _ _ = Nothing
+findTargetV m ncs cq (x :: xs) ns q t =
+  let Split ct rt := match x t                 | Empty   => findTargetV m ncs cq xs ns q t -- Should not occur if properly merged
+      Just nsPot  := neighbourTargets m cq ct  | Nothing => findTargetV m ncs cq xs ns q t
+      Just nsNew  := reduce (node ct) ns nsPot | Nothing => findTargetV m ncs cq xs ns q t
+      Just ms     := recur m ncs nsNew q rt        | Nothing => findTargetV m ncs cq xs ns q t
   in pure $ (node cq, node ct) :: ms
 
 
-recur m (MkElTrg n nts :: ns) q t =
+recur m ncs (MkElTrg n nts :: ns) q t =
     let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
-    in findTargetV m c nts ns rq t
+    in findTargetV m ncs c nts ns rq t
 
-recur m [] q t =
+recur m ncs [] q t =
   if isEmpty q then Just []
-  else let Just x := newQryNode m (contexts q) (contexts t) | Nothing => Nothing -- Should not occur as node extracted from query
-       in recur m [x] q t
+  else let Just x := newQryNode m ncs (contexts q) (contexts t) | Nothing => Nothing -- Should not occur as node extracted from query
+       in recur m ncs [x] q t
 
 -- Entry function -------------------------------------------------------------
 
-||| Function to invoke the substructure search
-export
+||| Function to invoke the substructure search with
+||| external graph relabelling and nodeclass calculation
 inductiveSearch : Eq tv
+                => Matchers qe qv te tv
+                -> List (NodeClass tv)
+                -> Graph (qe,qv) qv
+                -> Graph (te,tv) tv
+                -> Maybe Mapping
+inductiveSearch m ncs q t = recur m ncs [] q t
+
+||| Function to invoke the substructure search
+||| without external graph relabelling and nodeclass
+||| calculation
+export
+inductiveSearch' : Eq tv
                => Matchers qe qv te tv
                -> Graph qe qv
                -> Graph te tv
                -> Maybe Mapping
-inductiveSearch m q t = let Just q' := withVertexLabels q | Nothing => Nothing
-                            Just t' := withVertexLabels t | Nothing => Nothing
-                        in recur m [] q' t'
+inductiveSearch' m q t = let Just q' := withVertexLabels q | Nothing => Nothing
+                             Just t' := withVertexLabels t | Nothing => Nothing
+                         in recur m (nodeClasses $ contexts t') [] q' t'

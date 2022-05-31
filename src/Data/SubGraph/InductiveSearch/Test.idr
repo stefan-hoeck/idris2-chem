@@ -82,10 +82,10 @@ newQN = let Right qcsE := map contexts $ getGraphVL "" | Left e => Left e
             Right qcs  := map contexts $ getGraphVL "CCO"      | Left e => Left e
             Right qcsI := map contexts $ getGraphVL "CCl"      | Left e => Left e
             Right tcs  := map contexts $ getGraphVL "CC(=O)CS" | Left e => Left e
-        in if    isNothing (newQryNode matchers qcsE tcs)
-              && isNothing (newQryNode matchers qcs tcsE)
-              && isNothing (newQryNode matchers qcsI tcs)
-              && isJust (newQryNode matchers qcs tcs)
+        in if    isNothing (newQryNode matchers (nodeClasses tcs) qcsE tcs)
+              && isNothing (newQryNode matchers (nodeClasses tcsE) qcs tcsE)
+              && isNothing (newQryNode matchers (nodeClasses tcs) qcsI tcs)
+              && isJust (newQryNode matchers (nodeClasses tcs) qcs tcs)
            then Right Worked else Left (TestFailure "newQryNode")
 
 -- Test execution -------------------------------------------------------------
@@ -101,4 +101,4 @@ testInductiveFunctions = do
   _ <- test mET
   _ <- test ncs
   _ <- test newQN
-  putStrLn "All Tests successful"
+  putStrLn "All Tests successful\n"
