@@ -91,7 +91,7 @@ insertNC xs c = go (label c) (deg c) xs
        incCls (MkNodeCls l d k) = MkNodeCls l d (S k)
        go : lv -> Nat -> List (NodeClass lv) -> List (NodeClass lv)
        go lblc degc []          = [MkNodeCls lblc degc 1]
-       go lblc degc (cl :: cls) = if lblc == lbl cl && deg cl == degc
+       go lblc degc (cl :: cls) = if deg cl == degc && lblc == lbl cl
                                   then incCls cl :: cls
                                   else (::) cl $ go lblc degc cls
 
@@ -115,7 +115,7 @@ nMapTrgs : (qv -> tv -> Bool)
         -> Nat
 nMapTrgs p cls (MkContext nq lq ne) = go (length ne) cls
   where pred : Nat -> NodeClass tv -> Bool
-        pred degq (MkNodeCls l d s) = p lq l && d >= degq
+        pred degq (MkNodeCls l d s) = d >= degq && p lq l
         go : Nat -> List (NodeClass tv) -> Nat
         go _ [] = Z
         go degq (x :: xs) = if pred degq x then plus (size x) (go degq xs)
