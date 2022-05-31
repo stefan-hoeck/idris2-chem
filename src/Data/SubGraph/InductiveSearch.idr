@@ -110,11 +110,13 @@ nMapTrgs : (qv -> tv -> Bool)
         -> List (NodeClass tv)
         -> Context qe qv
         -> Nat
-nMapTrgs p cls (MkContext nq lq ne) = let degQ = length ne
-                                      in foldl (pred degQ) 0 cls
-  where pred : Nat -> Nat -> NodeClass tv -> Nat
-        pred degq n (MkNodeCls l d s) = if p lq l && d >= degq
-                                          then plus s n else n
+nMapTrgs p cls (MkContext nq lq ne) = go (length ne) cls
+  where pred : Nat -> NodeClass tv -> Bool
+        pred degq (MkNodeCls l d s) = p lq l && d >= degq
+        go : Nat -> List (NodeClass tv) -> Nat
+        go _ [] = Z
+        go degq (x :: xs) = if pred degq x then plus (size x) (go degq xs)
+                                           else go degq xs
 
 minBy : Ord b => (a -> b) -> (as : List a) -> (0 prf : NonEmpty as) => (a,b)
 minBy f (x :: xs) = foldl go (x, f x) xs
