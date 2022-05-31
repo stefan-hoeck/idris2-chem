@@ -62,6 +62,7 @@ NextMatches = List EligibleTarget
 ||| Record to goup up the vertices by their label
 ||| and degree. Counts the number of occurences and
 ||| stores the nodes belonging to that group.
+export
 record NodeClass lv where
   constructor MkNodeCls
   lbl   : lv
@@ -305,6 +306,7 @@ recur m ncs [] q t =
 
 ||| Function to invoke the substructure search with
 ||| external graph relabelling and nodeclass calculation
+export
 inductiveSearch : Eq tv
                 => Matchers qe qv te tv
                 -> List (NodeClass tv)

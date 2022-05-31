@@ -69,3 +69,54 @@ profileAndReport t = do
   res <- profile t
   putStrLn $ report res
   putStrLn ""
+
+
+-- Profiler for return value handling -----------------------------------------
+public export
+record ProfileTask a where
+  constructor MkProfileTask
+  name : String
+  task : a -> a
+  dres : a
+  runs : Nat
+  0 prf : IsSucc runs
+
+record ProfileResult a where
+  constructor MkProfileResult
+  startTime : Clock UTC
+  stopTime  : Clock UTC
+  task      : ProfileTask a
+  result    : a
+
+runnerRes : Nat -> (run : a -> a) -> a -> a
+runnerRes 0     _ res = res
+runnerRes (S k) f res = runnerRes k f (f res)
+
+measure : ProfileTask a -> IO (ProfileResult a)
+measure t = do
+  start <- clockTime UTC
+  res   <- pure $ runnerRes t.runs t.task t.dres
+  stop  <- clockTime UTC
+  pure $ MkProfileResult start stop t res
+
+-- Report & show result
+reportResult : Show a => ProfileResult a -> String
+reportResult (MkProfileResult start stop t res) =
+  let dur = timeDifference stop start
+      avg = average dur t.runs t.prf
+  in #"""
+     \#{t.name}: \#{show t.runs} runs.
+       Result:     \#{show res}
+       Start Time: \#{show start}
+       End Time:   \#{show stop}
+       Duration:   \#{prettyDuration dur}
+       Per run:    \#{prettyDuration avg}
+     """#
+
+export
+profileAndReportRes : Show a => ProfileTask a -> IO ()
+profileAndReportRes t = do
+  putStrLn ""
+  res <- measure t
+  putStrLn $ reportResult res
+  putStrLn ""
