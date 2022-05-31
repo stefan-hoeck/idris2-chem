@@ -7,6 +7,7 @@ import Data.Vect
 import System.File
 
 import Text.Smiles
+import Chem.Element
 import Profile.Profiler
 import Data.SubGraph.InductiveSearch
 import Data.SubGraph.Ullmann
@@ -21,9 +22,29 @@ parseNormal s = case parse s of
     End x => Right x
     _     => Left $ ParseErr s
 
-
 relabel : List (Graph e v) -> Maybe (List (Graph (e,v) v))
 relabel = traverse withVertexLabels
+
+
+fromOrgSubset : OrgSubset -> SmilesElem
+fromOrgSubset C = El C
+fromOrgSubset O = El O
+fromOrgSubset N = El N
+fromOrgSubset Cl = El Cl
+fromOrgSubset Br = El Br
+fromOrgSubset S = El S
+fromOrgSubset I = El I
+fromOrgSubset F = El F
+fromOrgSubset B = El B
+fromOrgSubset P = El P
+fromOrgSubset (OA sa) = A (SA sa)
+
+toSmilesElem : Atom -> SmilesElem
+toSmilesElem (SubsetAtom e) = fromOrgSubset e
+toSmilesElem (MkAtom _ e _ _ _) = e
+
+graphtoSmilesElem : Graph Bond Atom -> Graph Bond SmilesElem
+graphtoSmilesElem = gmap (\(MkContext k l ns) => MkContext k (toSmilesElem l) ns)
 
 -- File parsing ---------------------------------------------------------------
 
@@ -49,8 +70,8 @@ countMatches f qry l = foldl go 0 l
 
 -- Profile function -----------------------------------------------------------
 ||| Parse the file contents to
-parseOnly : IO (Either FileError (List (Graph Bond Atom)))
-parseOnly = withFile "resources/zinc.txt" Read pure (parseFile parseNormal)
+parseOnly : IO (Either FileError (List (Graph Bond SmilesElem)))
+parseOnly = withFile "resources/zinc.txt" Read pure (parseFile (map graphtoSmilesElem . parseNormal))
 
 prepInductive : Eq tv => List (Graph te tv) -> Maybe (List (List (NodeClass tv), Graph (te,tv) tv))
 prepInductive l = let Just gs := relabel l | Nothing => Nothing
@@ -59,14 +80,14 @@ prepInductive l = let Just gs := relabel l | Nothing => Nothing
 -- Add IO to show errors in creating the nodeclasses
 
 ||| Apply Inductive search algorithm
-applyInd : (q : Graph (Bond, Atom) Atom)
-        -> (List (NodeClass Atom), Graph (Bond, Atom) Atom)
+applyInd : Eq le => Eq lv => (q : Graph (le, lv) lv)
+        -> (List (NodeClass lv), Graph (le, lv) lv)
         -> Maybe Mapping
 applyInd q (ncs,t) = inductiveSearch (MkMatchers (==) (==)) ncs q t
 
 
 ||| Apply Ullmann
-applyUllmann : (q : Graph Bond Atom) -> Graph Bond Atom -> Maybe ()
+applyUllmann :  Eq le => Eq lv => (q : Graph le lv) -> Graph le lv -> Maybe ()
 applyUllmann q t = map (const ()) $ ullmann $ MkTask (==) (==) (fromList $ contexts q) t
 
 -- Invocation -----------------------------------------------------------------
@@ -75,20 +96,13 @@ partial export
 profile : IO ()
 profile = let file = "resources/zinc.txt" in do
     putStrLn "Profiling"
-    Right q  <- pure $ parseNormal "C(=O)O"    | Left _ => putStrLn "Failed to parse query, abort profiling"
+    Right q  <- pure $ map graphtoSmilesElem $ parseNormal "C(=O)O"    | Left _ => putStrLn "Failed to parse query, abort profiling"
     Right l  <- parseOnly                      | Left _ => putStrLn "Failed to parse file, abort profiling"
     Just  qr <- pure $ withVertexLabels q      | Nothing => putStrLn "Failed to relabel the query"
     Just  lr <- pure $ prepInductive l         | Nothing => putStrLn "Failed to prepare list for inductive search"
     profileAndReportRes $ MkProfileTask "inductive" (\_ => countMatches applyInd qr lr) Z 3 ItIsSucc
     profileAndReportRes $ MkProfileTask "ullmann" (\_ => countMatches applyUllmann q l) Z 3 ItIsSucc
     pure ()
---  putStrLn "Profiling"
---  Right q  <- pure $ query "C(=O)O"    | Left _ => putStrLn "Failed to parse query, abort profiling"
---  Right q2 <- pure $ query "c1ccccc1O" | Left _ => putStrLn "Failed to parse query, abort profiling"
---  Right l  <- parseOnly file           | Left _ => putStrLn "Failed to parse file, abort profiling"
---  -- profileAndReport $ MkProfileTask "inductive" (\_ => countMatches applyInd     q2 l) Z 3 ItIsSucc
---  -- profileAndReport $ MkProfileTask "ullmann"   (\_ => countMatches applyUllmann q2 l) Z 3 ItIsSucc
---  pure ()
 
 
 
