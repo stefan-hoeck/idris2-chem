@@ -94,9 +94,14 @@ applyUllmann q t = map (const ()) $ ullmann $ MkTask (==) (==) (fromList $ conte
 ||| Profile the ullmann and inductive search
 partial export
 profile : IO ()
-profile = let file = "resources/zinc.txt" in do
-    putStrLn "Profiling"
-    Right q  <- pure $ map graphtoSmilesElem $ parseNormal "C(=O)O"    | Left _ => putStrLn "Failed to parse query, abort profiling"
+profile =
+  let file = "resources/zinc.txt"
+      qry  = "C(=O)O"
+  in do
+    putStrLn   "Profiling Isomon Algorithms on ZINC file"
+    putStrLn   "Result: Number of matches"
+    putStrLn $ "Query:  " ++ qry
+    Right q  <- pure $ map graphtoSmilesElem $ parseNormal qry | Left _ => putStrLn "Failed to parse query, abort profiling"
     Right l  <- parseOnly                      | Left _ => putStrLn "Failed to parse file, abort profiling"
     Just  qr <- pure $ withVertexLabels q      | Nothing => putStrLn "Failed to relabel the query"
     Just  lr <- pure $ prepInductive l         | Nothing => putStrLn "Failed to prepare list for inductive search"

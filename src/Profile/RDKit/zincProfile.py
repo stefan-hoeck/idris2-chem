@@ -17,6 +17,19 @@ import math
 # Settings --------------------------------------------------------------------
 path = "resources/zinc.txt"
 
+# See: https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
 # Time measurement utility functions ------------------------------------------
 def repeat(f: Callable[[None],Any],count: int) -> Any:
     i = 1; # Start at count 1 to skip the one which will be used to return
@@ -63,7 +76,7 @@ def countMatches(query: Chem.rdchem.Mol, molList: Iterable[Chem.rdchem.Mol]) -> 
     n = 0
     for t in molList:
         if t is None:
-            print('[Warning] countMatches: NoneType found!')
+            print(f"{bcolors.WARNING}[Warning] countMatches: NoneType found!{bcolors.ENDC}")
         else:
             if t.HasSubstructMatch(query): n = n + 1;
     return n
@@ -92,24 +105,16 @@ def profileIsomorphism(query: str, targets: Iterable[Chem.rdchem.Mol], count: in
     nMatches = measureAndReport(f,'ZINC matching only',count)
     print('Number of matches:',nMatches)
 
-def profileAllLines(query: str):
-    print('Loading ZINC molecules')
-    trgs     = list(getZincMolecules(path))
-    print('Molecules loaded')
-    qry      = Chem.MolFromSmiles(query)
-    print('Searching matches for query:',query)
-    nMatches = countMatches(qry,trgs)
-    print('Number of matches:',nMatches)
-    return
 
 def profileMatchingSeparately(query: Iterable[str], count: int):
-    print('Loading ZINC molecules')
+    print('----- Loading ZINC molecules -----')
     g        = lambda: list(getZincMolecules(path)) # A list dramatically increases matching speed after (iterable probably)
     trgs     = measureAndReport(g,'ZINC parsing',1)
-    print('')
-    print('Molecules loaded')
+    print(f"{bcolors.OKGREEN}\n[Info] Molecules loaded\n\n{bcolors.ENDC}")
+    print('----- Isomorphism search -----\n')
     for q in query:
        profileIsomorphism(q,trgs,count)
+       print('')
     return
 
 # Execution -------------------------------------------------------------------
