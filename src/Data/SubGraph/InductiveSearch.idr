@@ -40,24 +40,17 @@ public export
 Mapping : Type
 Mapping = List (Node, Node)
 
-||| A record that lists the possible mapping targets (vertices)
-||| for a specific query vertex.
-record EligibleTarget where
-  constructor MkElTrg
-  qryN : Node
-  trgs : List Node
-  {auto 0 prf : NonEmpty trgs}
-
-||| Alternate constructor to build the record from a list
-||| O(1)
-mkElTrg : Node -> List Node -> Maybe EligibleTarget
-mkElTrg _ [] = Nothing
-mkElTrg n (x :: xs) = Just $ MkElTrg n (x :: xs)
+||| Lists the possible mapping targets (vertices)
+||| for a specific query vertex. This is used where
+||| where it was validated, that the list is non-Empty,
+||| due to performance reasons, the proof has been removed.
+MappingTargets : Type
+MappingTargets = (Node, List Node)
 
 ||| A list that describes which target nodes are potential
 ||| mapping targets for each corresponding query.
 NextMatches : Type
-NextMatches = List EligibleTarget
+NextMatches = List (Node, List Node)
 
 ||| Record to goup up the vertices by their label
 ||| and degree. Counts the number of occurences and
@@ -134,10 +127,8 @@ bestContext : (qv -> tv -> Bool)
            -> List (NodeClass tv)
            -> (qcs : List (Context qe qv))
            -> (prf : NonEmpty qcs)
-           => Maybe (Context qe qv)
-bestContext p cls qcs = case minBy (nMapTrgs p cls) qcs of
-    (_,0) => Nothing
-    res   => Just $ fst res
+           => (Context qe qv, Nat)
+bestContext p cls qcs = minBy (nMapTrgs p cls) qcs
 
 
 ||| Get the possible target nodes for a specific
@@ -145,12 +136,12 @@ bestContext p cls qcs = case minBy (nMapTrgs p cls) qcs of
 possibleTrgs : (qv -> tv -> Bool)
             -> Context qe qv
             -> List (Context (te,tv) tv)
-            -> Maybe EligibleTarget
+            -> (Node, List Node)
 possibleTrgs p (MkContext nq lq neq) cg =
   let degQ = length neq
-  in mkElTrg nq $ foldl (pred degQ) Prelude.Nil cg
+  in (nq,) $ foldl (pred degQ) Prelude.Nil cg
   where pred : Nat -> List Node -> Context (te,tv) tv -> List Node
-        pred degq acc (MkContext nt lt net) = if p lq lt && length net >= degq
+        pred degq acc (MkContext nt lt net) = if length net >= degq && p lq lt
                                               then nt :: acc else acc
 
 ||| Build a list of the viable matching targets for
@@ -174,23 +165,24 @@ newQryNode : Eq tv
           -> List (NodeClass tv)
           -> List (Context (qe,qv) qv)
           -> List (Context (te,tv) tv)
-          -> Maybe EligibleTarget
+          -> Maybe MappingTargets
 newQryNode _ _ [] _ = Nothing
 newQryNode _ _ _ [] = Nothing
 newQryNode m ncs (cq :: cqs) cst =
-  let Just bc := bestContext (vertexMatcher m) ncs (cq :: cqs)
-               | Nothing => Nothing -- Should be an error
-  in possibleTrgs (vertexMatcher m) bc cst
+  let (bc,S k) := bestContext (vertexMatcher m) ncs (cq :: cqs)
+               | (_, 0) => Nothing -- Should be an error
+      mts = possibleTrgs (vertexMatcher m) bc cst
+  in if isNil (snd mts) then Nothing else Just mts
 
 -- Construction of new next matches -------------------------------------------
 
 ||| Filter possible mapping targets by node and edge label
 ||| O(p)     p: Length of the node list
 filt : Matchers qe qv te tv -> List (Node,te,tv)
-    -> (Node,qe,qv) -> Maybe EligibleTarget
-filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe
+    -> (Node,qe,qv) -> (Node, List Node)
+filt m xs (nq,eq,vq) = (nq, mapMaybe
   (\(n,e,v) => if (edgeMatcher m) eq e && (vertexMatcher m) vq v
-               then Just n else Nothing) xs
+               then Just n else Nothing) xs)
 
 ||| Filter possible target nodes to match for a query node.
 ||| The neighbours should be present, otherwise their invalid graphs.
@@ -200,19 +192,18 @@ filt m xs (nq,eq,vq) = mkElTrg nq $ mapMaybe
 |||          q: Length of the target neighbours node list
 neighbourTargets : Matchers qe qv te tv
                 -> Context (qe,qv) qv -> Context (te,tv) tv
-                -> Maybe NextMatches
-neighbourTargets m cq ct =
-  go (pairs $ neighbours ct) (pairs $ neighbours cq)
-  where go : List (Node,te,tv) -> List (Node, qe, qv) -> Maybe NextMatches
-        go nT []        = Just []
-        go nT (x :: xs) = [| (::) (filt m nT x) (go nT xs) |]
+                -> List (Node, List Node)
+neighbourTargets m cq ct = go (pairs $ neighbours ct) (pairs $ neighbours cq)
+   where go : List (Node,te,tv) -> List (Node, qe, qv) -> List (Node, List Node)
+         go nT []        = []
+         go nT (x :: xs) = (::) (filt m nT x) (go nT xs)
 
 -- Reduction of next matches --------------------------------------------------
 
 ||| Intended to remove the instantiated node from all potential target nodes
 ||| O(n)     n: Length of targets list
-rmNodeET : Node -> EligibleTarget -> Maybe EligibleTarget
-rmNodeET n (MkElTrg qryN trgs) = mkElTrg qryN $ filter (/= n) trgs
+rmNodeET : Node -> (Node, List Node) -> (Node, List Node)
+rmNodeET n (qryN, trgs) = (qryN, filter (/= n) trgs)
 
 ||| Merges two eligible target records to one. If the resulting list
 ||| of possible targets is empty, then no record is returned. The
@@ -220,17 +211,17 @@ rmNodeET n (MkElTrg qryN trgs) = mkElTrg qryN $ filter (/= n) trgs
 ||| query nodes. (Alternative: intersect instead of go)
 ||| O(m + n)     m,n: Length of the respective target lists
 ||| TODO: Not actually correct O notation?
-merge : EligibleTarget -> EligibleTarget -> Maybe EligibleTarget
-merge (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
-        then mkElTrg n1 $ go trgs1 trgs2
-        else Nothing
+merge : (Node, List Node) -> (Node, List Node) -> (Node, List Node)
+merge (n1, trgs1) (n2, trgs2) = if n1 == n2
+        then (n1, go trgs1 trgs2)
+        else (n1, []) -- The nodes do not match. This should not be called in this case: TODO: Use a type to proove equality?
   where go : List Node -> List Node -> List Node
         go [] _ = []
         go _ [] = []
         go (x :: xs) (y :: ys) = case compare x y of
                     GT => go (x :: xs) ys
                     LT => go xs (y :: ys)
-                    EQ => x :: (go xs ys)
+                    EQ => x :: go xs ys
 
 ||| Merges and reduces the exiting list of potential mappings for
 ||| previously adjacent nodes, with the new set of them. It also removes
@@ -240,21 +231,18 @@ merge (MkElTrg n1 trgs1) (MkElTrg n2 trgs2) = if n1 == n2
 ||| O(m * n)        m: (Sum of) Length of the eligible targets list
 |||                 n: Comparisons from rmNodeET and mergeV2
 reduce : Node
-      -> List EligibleTarget
-      -> List EligibleTarget
+      -> NextMatches
+      -> List (Node, List Node)
       -> Maybe NextMatches
-reduce  n [] ns                   = pure ns
-reduce  n os []                   = trav os
-  where trav : List EligibleTarget -> Maybe NextMatches
-        trav []        = pure []
-        trav (x :: xs) = [| (::) (rmNodeET n x) (trav xs) |]
-reduce  n (et1 :: os) (et2 :: ns) =
-  case compare (qryN et1) (qryN et2) of
-       GT => prepend (rmNodeET n et2) $ reduce n (et1 :: os) ns
-       LT => prepend (rmNodeET n et1) $ reduce n os (et2 :: ns)
-       EQ => prepend (merge et1 et2) $ reduce n os ns
-  where prepend : Maybe EligibleTarget -> Maybe NextMatches -> Maybe NextMatches
-        prepend e l = (::) <$> e <*> l
+reduce k os ns = let nm = go os ns
+                 in if any (Data.List.isNil . snd) nm then Nothing else pure nm
+  where go : List (Node, List Node) -> List (Node, List Node) -> List (Node, List Node)
+        go [] ns = ns
+        go os [] = map (rmNodeET k) os
+        go (o :: os) (n :: ns) = case compare (fst o) (fst n) of
+                          GT => rmNodeET k n :: go (o :: os) ns
+                          LT => rmNodeET k o :: go os (n :: ns)
+                          EQ => merge o n    :: go os ns
 
 -- Recursion engine -----------------------------------------------------------
 
@@ -276,31 +264,33 @@ recur : Eq tv => Matchers qe qv te tv
 ||| O(k * m * n )   k: Length of potential target nodes
 |||                 m: (Sum of) Length of the eligible targets list
 |||                 n: Comparisons from rmNodeET and mergeV2
-findTargetV : Eq tv => Matchers qe qv te tv
+findTargetV : Eq tv
+           => Matchers qe qv te tv
            -> List (NodeClass tv)
-           -> Context (qe,qv) qv
+           -> (cq : Context (qe,qv) qv)
            -> List Node
-           -> NextMatches
+           -> (ns : NextMatches)
            -> Graph (qe,qv) qv
            -> Graph (te,tv) tv
            -> Maybe Mapping
 findTargetV m ncs _ []         _  _ _ = Nothing
 findTargetV m ncs cq (x :: xs) ns q t =
   let Split ct rt := match x t                 | Empty   => findTargetV m ncs cq xs ns q t -- Should not occur if properly merged
-      Just nsPot  := neighbourTargets m cq ct  | Nothing => findTargetV m ncs cq xs ns q t
+      nsPot        = neighbourTargets m cq ct
       Just nsNew  := reduce (node ct) ns nsPot | Nothing => findTargetV m ncs cq xs ns q t
-      Just ms     := recur m ncs nsNew q rt        | Nothing => findTargetV m ncs cq xs ns q t
+      Just ms     := recur m ncs nsNew q rt    | Nothing => findTargetV m ncs cq xs ns q t
   in pure $ (node cq, node ct) :: ms
 
 
-recur m ncs (MkElTrg n nts :: ns) q t =
-    let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
-    in findTargetV m ncs c nts ns rq t
+recur m ncs ((n,nts) :: ns) q t =
+   let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
+   in findTargetV m ncs c nts ns rq t
 
 recur m ncs [] q t =
   if isEmpty q then Just []
   else let Just x := newQryNode m ncs (contexts q) (contexts t) | Nothing => Nothing -- Should not occur as node extracted from query
        in recur m ncs [x] q t
+
 
 -- Entry function -------------------------------------------------------------
 

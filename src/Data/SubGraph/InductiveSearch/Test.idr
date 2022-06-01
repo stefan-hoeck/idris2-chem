@@ -61,13 +61,6 @@ ncs1 = [ MkNodeCls (SubsetAtom C) 2 1
 
 -- Individual Tests -----------------------------------------------------------
 
-mET : Either InductiveTestError Success
-mET = if isNothing (mkElTrg 1 []) && isJust (mkElTrg 1 [1,2,4])
-      then Right Worked
-      else Left (TestFailure "mkElTrg")
-
----
-
 ncs : Either InductiveTestError Success
 ncs = do g  <- getGraph "CCCO"
          ge <- getGraph ""
@@ -98,7 +91,6 @@ export
 testInductiveFunctions : IO ()
 testInductiveFunctions = do
   _ <- putStrLn "Inductive Search subfunction tests"
-  _ <- test mET
   _ <- test ncs
   _ <- test newQN
   putStrLn "All Tests successful\n"
