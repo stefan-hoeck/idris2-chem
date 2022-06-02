@@ -16,10 +16,11 @@ from typing import Iterable, List, Callable, Any, Tuple
 import numpy as np
 import time
 import math
+import psutil # Access to system resources
 
 # Settings --------------------------------------------------------------------
 path        = "resources/zinc.txt"
-queries     = ["C(=O)O","CCC"]
+queries     = ["","CCC","C(=O)O"]
 repetitions = 3
 
 resultFile  = "resources/zincProfilingRDKit.txt"
@@ -111,6 +112,33 @@ def runTask(name: str, task: Callable[[None],Any], runs: int) -> ProfileResult:
 
 
 
+# Reporting of system resources
+
+
+def reportSystemUsage() -> str:
+    """
+    Note: Read the docs about what the individual values mean
+          https://psutil.readthedocs.io/en/latest/
+    """
+    mem = psutil.virtual_memory()
+    prc = psutil.Process()
+    prcmem = prc.memory_info()
+    return "\n".join([ ""
+                     # , "Memory used      / MB: " + str(mem.used / 1000000)
+                     # , "Memory free      / MB: " + str(mem.free / 1000000)
+                     # , "Memory active    / MB: " + str(mem.active / 1000000)
+                     # , "Memory inactive  / MB: " + str(mem.inactive / 1000000)
+                     # , "Memory shared    / MB: " + str(mem.shared / 1000000)
+                     , "Process name               :  " + prc.name()
+                     , "Process threads            :  " + str(prc.num_threads())
+                     , "Process memory         / MB:  " + str(prcmem.rss / 1000000)
+                     , "Process memor percent  /  %:  " +"%.2f" % round(prc.memory_percent() * 100,2)
+                     , "Process virtual memory / MB:  " + str(prcmem.vms / 1000000)
+                     , "Process shared memory  / MB:  " + str(prcmem.shared / 1000000)
+                     , "Memory devoted to code / MB:  " + str(prcmem.text / 1000000)
+                     , "CPU average load (1 min, 5 min, 15 min):" + str(psutil.getloadavg())
+                     ])
+
 # File Parsing ----------------------------------------------------------------
 def getZincSMILES(path: str) -> List[str]:
     with open(path,'r') as fh:
@@ -142,10 +170,14 @@ def writeResults(path: str, result: ProfileResult):
 def profile( queries:     Iterable[str]
            , path:        str
            , repetitions: int):
+
+
+    print(reportSystemUsage())
     # Read molecules from file
     targets = measureGetZincMolecules(path)
+    print(reportSystemUsage())
     # Clear contents of result file
-    open('file.txt', 'w').close()
+    open(resultFile, 'w').close()
 
     # Profile queries
     print(f"{bcolors.OKGREEN}\n[Info] Starting profiling\n{bcolors.ENDC}")
@@ -158,6 +190,8 @@ def profile( queries:     Iterable[str]
       print(res.pretty())
       # Write to file
       writeResults(resultFile,res)
+
+    print(reportSystemUsage())
     return
 
 
