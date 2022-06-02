@@ -1,22 +1,31 @@
-from rdkit import Chem
+"""
+Requires:      Installed RDKit
+Ubuntu:        > sudo apt-get install python-rdkit librdkit1 rdkit-data
+Installation:  https://www.rdkit.org/docs/Install.html
 
+----
+
+How to use:
+Invoke the file using: python3 src/Profile/RDKit/zincProfile.py
+while being in the top-level folder (idris2-chem)
+Adjust the Settings below.
+"""
+
+from rdkit  import Chem
 from typing import Iterable, List, Callable, Any, Tuple
-
 import numpy as np
 import time
 import math
 
-# How to use:
-# Invoke the file using: python3 src/resources/RDKit/zincProfile.py
-#
-# while being in the top-level folder (idris2-chem)
-#
-# Adjust the queries at the bottom of the file.
-
-
 # Settings --------------------------------------------------------------------
-path = "resources/zinc.txt"
+path        = "resources/zinc.txt"
+queries     = ["C(=O)O","CCC"]
+repetitions = 3
 
+resultFile  = "resources/zincProfilingRDKit.txt"
+delim       = ","
+
+# Terminal color customization ------------------------------------------------
 # See: https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
 class bcolors:
     HEADER = '\033[95m'
@@ -29,49 +38,52 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+# Classes for data handling ---------------------------------------------------
+# Note: Tried packing the lambda into a task class. Didn't work properly.
 
-# Time measurement utility functions ------------------------------------------
-def repeat(f: Callable[[None],Any],count: int) -> Any:
-    i = 1; # Start at count 1 to skip the one which will be used to return
-           # The return value
-    while i < count:
-        f()
-        i = i + 1
-    return f()
+class ProfileResult:
+    def __init__(self, name: str
+                     , time: float
+                     , runs: int
+                     , res:  Any):
+       self.name = name
+       self.time = time
+       self.runs = runs
+       self.res  = res
 
-def measureTime(f: Callable[[None],Any], count: int) -> Tuple[float,Any]:
-    start = time.time()
-    res = repeat(f,count)
-    end = time.time()
-    return (end - start, res)
+    def averageTime(self) -> float:
+        return self.time / self.runs
 
-def prettyTime(tPassed: float) -> str:
-    e10 = math.ceil(np.abs(np.log10(tPassed)))
-    if e10 >= 0:
-        return (str(tPassed) + " s")
-    if e10 <= 3:
-        return (str(tPassed*1000) + " ms")
-    if e10 <= 6:
-        return (str(tPassed*1000000) + " μs")
-    return (str(tPassed*1000000000) + " ns")
+    def showTotalSeconds(self) -> str:
+        return str(self.time) + " s"
 
-def printStats(desc: str, count: int, tPassed):
-    print('\n-',desc, '-')
-    print('Executions:   ',count)
-    print('Total time:   ',prettyTime(tPassed))
-    print('Average time: ',prettyTime(tPassed/count))
-    return
+    def showAverageSeconds(self) -> str:
+        return str(self.averageTime()) + " s"
 
+    def pretty(self) -> str:
+        return "\n".join([ "\nTask:         " + self.name
+                         , "Runs:         " + str(self.runs)
+                         , "Total Time:   " + self.showTotalSeconds()
+                         , "Average Time: " + self.showAverageSeconds()
+                         , "Result:       " + str(self.res) + "\n" ])
 
-def measureAndReport(f: Callable[[None],Any], desc: str, count: int) -> Any:
-    (t,res) = measureTime(f, count)
-    printStats(desc, count,t)
-    return res
+    def showNoResult(self) -> str:
+        return "\n".join([ "\nTask:         " + self.name
+                         , "Runs:         " + str(self.runs)
+                         , "Total Time:   " + self.showTotalSeconds()
+                         , "Average Time: " + self.showAverageSeconds() ])
 
 
-# RDKit utility functions -----------------------------------------------------
+    def getRow(self) -> str:
+        return delim.join([ self.name
+                        , str(self.runs)
+                        , self.showTotalSeconds()
+                        , self.showAverageSeconds()
+                        , str(self.res) ])
 
-# Matching result accumulators - RDKit
+
+# Profiling functions ---------------------------------------------------------
+
 def countMatches(query: Chem.rdchem.Mol, molList: Iterable[Chem.rdchem.Mol]) -> int:
     n = 0
     for t in molList:
@@ -81,10 +93,25 @@ def countMatches(query: Chem.rdchem.Mol, molList: Iterable[Chem.rdchem.Mol]) -> 
             if t.HasSubstructMatch(query): n = n + 1;
     return n
 
-def showMatchingOutcome(query: str, molList: Iterable[Chem.rdchem.Mol]):
-    return
 
-# Data accessors - ZINC
+def repeat(f: Callable[[None],Any],count: int) -> Any:
+    i = 1; # Start at count 1 to skip the one which will be used to return
+           # The return value
+    while i < count:
+        f()
+        i = i + 1
+    return f()
+
+
+def runTask(name: str, task: Callable[[None],Any], runs: int) -> ProfileResult:
+    start = time.time()
+    res   = repeat(task,runs)
+    end   = time.time()
+    return ProfileResult(name, end - start, runs, res)
+
+
+
+# File Parsing ----------------------------------------------------------------
 def getZincSMILES(path: str) -> List[str]:
     with open(path,'r') as fh:
       smilesList = fh.readlines()
@@ -95,33 +122,47 @@ def getZincMolecules(path: str) -> Iterable[Chem.rdchem.Mol]:
     ls = getZincSMILES(path)
     return map(Chem.MolFromSmiles,ls)
 
+def measureGetZincMolecules(path: str) -> Iterable[Chem.rdchem.Mol]:
+    print(f"{bcolors.OKGREEN}\n[Info] Loading ZINC molecules{bcolors.ENDC}")
+    f        = lambda: list(getZincMolecules(path)) # A list dramatically increases matching speed after (iterable probably)
+    pRes     = runTask('ZINC parsing',f,1)
+    print(pRes.showNoResult())
+    print(f"{bcolors.OKGREEN}\n[Info] Molecules loaded{bcolors.ENDC}")
+    return pRes.res
 
-# Profiling functionality -----------------------------------------------------
-
-def profileIsomorphism(query: str, targets: Iterable[Chem.rdchem.Mol], count: int):
-    qry = Chem.MolFromSmiles(query)
-    print('Searching matches for query:',query)
-    f        = lambda: countMatches(qry,targets)
-    nMatches = measureAndReport(f,'ZINC matching only',count)
-    print('Number of matches:',nMatches)
-
-
-def profileMatchingSeparately(query: Iterable[str], count: int):
-    print('----- Loading ZINC molecules -----')
-    g        = lambda: list(getZincMolecules(path)) # A list dramatically increases matching speed after (iterable probably)
-    trgs     = measureAndReport(g,'ZINC parsing',1)
-    print(f"{bcolors.OKGREEN}\n[Info] Molecules loaded\n\n{bcolors.ENDC}")
-    print('----- Isomorphism search -----\n')
-    for q in query:
-       profileIsomorphism(q,trgs,count)
-       print('')
+# Write results to a file -----------------------------------------------------
+def writeResults(path: str, result: ProfileResult):
+    f = open(path, "a")
+    f.write(result.getRow() + "\n")
+    f.close()
     return
 
+
+# Profiling functions ---------------------------------------------------------
+def profile( queries:     Iterable[str]
+           , path:        str
+           , repetitions: int):
+    # Read molecules from file
+    targets = measureGetZincMolecules(path)
+    # Clear contents of result file
+    open('file.txt', 'w').close()
+
+    # Profile queries
+    print(f"{bcolors.OKGREEN}\n[Info] Starting profiling\n{bcolors.ENDC}")
+    for query in queries:
+      # Parse query and create executable function
+      qry = Chem.MolFromSmiles(query)
+      print('Searching matches for query: ',query)
+      f   = lambda: countMatches(qry,targets)
+      res = runTask(query,f,repetitions)
+      print(res.pretty())
+      # Write to file
+      writeResults(resultFile,res)
+    return
+
+
 # Execution -------------------------------------------------------------------
-print('--------- RDKit profiling ---------')
-
-# Measure time with parsing and substructure search
 # Parsing takes a lot of time
-
 # Measure time only for substructure search
-profileMatchingSeparately(["CC(=O)C", "c1ccccc1O"],3)
+print('--------- RDKit profiling ---------')
+profile(queries,path, repetitions)

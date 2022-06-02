@@ -1,4 +1,5 @@
 build/
 profile/
 resources/zincProfiling.txt
+resources/zincProfilingRDKit.txt
 *.*~
