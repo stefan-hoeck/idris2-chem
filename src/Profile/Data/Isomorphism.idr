@@ -139,6 +139,9 @@ forListOfQueries k {prf = prf} path qryStrs =
           pure $ si :: su :: acc
 
 -- Invocation -----------------------------------------------------------------
+||| Adjust the queries for different searches and
+||| the number in forListOfQueries to change the
+||| number of repetitions per profiling
 partial export
 profile : IO ()
 profile =
