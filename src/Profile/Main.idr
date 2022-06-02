@@ -8,7 +8,7 @@ import Profile.Data.Isomorphism
 
 main : IO ()
 main = do
-  Zinc.profile
-  Refined.profile
-  Molfile.profile
+ -- Zinc.profile
+ -- Refined.profile
+ -- Molfile.profile
   Isomorphism.profile

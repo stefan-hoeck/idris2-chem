@@ -13,18 +13,19 @@ import Data.SubGraph.InductiveSearch
 import Data.SubGraph.Ullmann
 
 -- Query parsing for search ---------------------------------------------------
-data ParseError = ParseErr String
+data ParseError = ParseErr String | WithVertexLabelsErr
 Show ParseError where
-  show (ParseErr s) = "Failed to parse string to molecule: " ++ s
+  show (ParseErr s)        = "Failed to parse string to molecule: " ++ s
+  show WithVertexLabelsErr = "Failed to add vertex labels to bonds"
 
 parseNormal : String -> Either ParseError (Graph Bond Atom)
 parseNormal s = case parse s of
     End x => Right x
     _     => Left $ ParseErr s
 
+-- Due to type scrutinee own function
 relabel : List (Graph e v) -> Maybe (List (Graph (e,v) v))
 relabel = traverse withVertexLabels
-
 
 fromOrgSubset : OrgSubset -> SmilesElem
 fromOrgSubset C = El C
@@ -46,21 +47,9 @@ toSmilesElem (MkAtom _ e _ _ _) = e
 graphtoSmilesElem : Graph Bond Atom -> Graph Bond SmilesElem
 graphtoSmilesElem = gmap (\(MkContext k l ns) => MkContext k (toSmilesElem l) ns)
 
--- File parsing ---------------------------------------------------------------
 
-||| Parse the whole file to a list of molecules
-parseFile : (String -> Either ParseError (Graph e v)) -> File
-         -> IO (Either FileError (List (Graph e v)))
-parseFile prse f = go 1
-  where go : Nat -> IO (Either FileError (List (Graph e v)))
-        go n = do
-          False     <- fEOF f     | True => pure $ Right []
-          Right str <- fGetLine f | Left err => pure $ Left err
-          Right t     <- pure (prse $ trim str)
-           | Left st => putStrLn #"Line \#{show n}: \#{show st}. (\#{str})"# >> go (n+1)
-          map (map ((::) t)) $ go (n+1)
-
--- Apply substructure search --------------------------------------------------
+-- Accumulate a result for the substructure search ----------------------------
+||| Count the number of hits
 countMatches : (qry -> trg -> Maybe _)
             -> qry -> List trg
             -> Nat
@@ -68,46 +57,97 @@ countMatches f qry l = foldl go 0 l
   where go : Nat -> trg -> Nat
         go k t = if isJust (f qry t) then S k else k
 
--- Profile function -----------------------------------------------------------
-||| Parse the file contents to
-parseOnly : IO (Either FileError (List (Graph Bond SmilesElem)))
-parseOnly = withFile "resources/zinc.txt" Read pure (parseFile (map graphtoSmilesElem . parseNormal))
+-- Graph data preparation -----------------------------------------------------
+record QueryData where
+  constructor MkQueryData
+  str      : String
+  graph    : Graph Bond SmilesElem
+  graphVL  : Graph (Bond, SmilesElem) SmilesElem
 
-prepInductive : Eq tv => List (Graph te tv) -> Maybe (List (List (NodeClass tv), Graph (te,tv) tv))
-prepInductive l = let Just gs := relabel l | Nothing => Nothing
-                  in pure $ map (\g => (nodeClasses $ contexts g, g)) gs
+record TargetData where
+  constructor MkTargetData
+  str      : String
+  graph    : Graph Bond SmilesElem
+  graphVL  : Graph (Bond, SmilesElem) SmilesElem
+  nclasses : List (NodeClass SmilesElem)
 
--- Add IO to show errors in creating the nodeclasses
+mkQD : String -> Either ParseError QueryData
+mkQD s =
+  let Right g  := map graphtoSmilesElem (parseNormal s) | Left e  => Left e
+      Just grl := withVertexLabels g | Nothing => Left WithVertexLabelsErr
+  in pure $ MkQueryData s g grl
 
-||| Apply Inductive search algorithm
-applyInd : Eq le => Eq lv => (q : Graph (le, lv) lv)
-        -> (List (NodeClass lv), Graph (le, lv) lv)
-        -> Maybe Mapping
-applyInd q (ncs,t) = inductiveSearch (MkMatchers (==) (==)) ncs q t
+mkTD : String -> Either ParseError TargetData
+mkTD s =
+  let Right g  := map graphtoSmilesElem (parseNormal s) | Left e  => Left e
+      Just grl := withVertexLabels g | Nothing => Left WithVertexLabelsErr
+  in pure $ MkTargetData s g grl (nodeClasses $ contexts g)
 
+-- algorithm application of input type
+applyInductive : QueryData -> TargetData -> Maybe Mapping
+applyInductive q t = inductiveSearch (MkMatchers (==) (==))
+                                     t.nclasses q.graphVL t.graphVL
 
-||| Apply Ullmann
-applyUllmann :  Eq le => Eq lv => (q : Graph le lv) -> Graph le lv -> Maybe ()
-applyUllmann q t = map (const ()) $ ullmann $ MkTask (==) (==) (fromList $ contexts q) t
+||| Return type due to constraint errors
+applyUllmann : QueryData -> TargetData -> Maybe ()
+applyUllmann q t = map (const ()) $ ullmann $
+                   MkTask (==) (==) (fromList $ contexts q.graph) t.graph
+
+-- File handling --------------------------------------------------------------
+||| Parse the whole file to a list of molecules
+parseFile : (String -> Either ParseError a) -> File
+         -> IO (Either FileError (List a))
+parseFile prse f = go 1
+  where go : Nat -> IO (Either FileError (List a))
+        go n = do
+          False     <- fEOF f     | True => pure $ Right []
+          Right str <- fGetLine f | Left err => pure $ Left err
+          Right t     <- pure (prse $ trim str)
+           | Left st => putStrLn #"Line \#{show n}: \#{show st}. (\#{str})"# >> go (n+1)
+          map (map ((::) t)) $ go (n+1)
+
+||| Parse the targets from a file
+parseTargets : String -> IO (Either FileError (List TargetData))
+parseTargets path = withFile path Read pure (parseFile mkTD)
+
+||| Writes the contents of the result list to the specified file
+writeToFile : String -> List String -> String -> IO ()
+writeToFile head resList path = do
+     Right _ <- writeFile path $ fastUnlines (head :: resList)
+       | Left e => putStrLn (show e)
+     pure ()
+
+-- Profiling a list of queries ------------------------------------------------
+||| Profiling for a list of queries
+forListOfQueries : (k : Nat) -> (prf : IsSucc k) => String -> List String
+                -> IO (List String)
+forListOfQueries k {prf = prf} path qryStrs =
+  let Right qs := mkqd qryStrs | Left e => putStrLn (show e) >> pure []
+  in do
+    putStrLn $ "Profiling with multiple queries of file: " ++ path
+    Right ts <- parseTargets path | Left e => putStrLn (show e) >> pure []
+    go ts qs
+  where mkqd : List String -> Either ParseError (List QueryData)
+        mkqd = traverse mkQD -- Due to type scrutinee
+        go : List TargetData -> List QueryData -> IO (List String)
+        go _ [] = pure []
+        go td (q :: qs) = do
+          putStrLn  $ "Query: " ++ q.str
+          si <- profileAndReportRes $ MkProfileTask "inductive" q.str (\_ => countMatches applyInductive q td) Z k prf
+          su <- profileAndReportRes $ MkProfileTask "ullmann"  q.str (\_ => countMatches applyUllmann q td) Z k prf
+          acc <- go td qs
+          pure $ si :: su :: acc
 
 -- Invocation -----------------------------------------------------------------
-||| Profile the ullmann and inductive search
 partial export
 profile : IO ()
 profile =
-  let file = "resources/zinc.txt"
-      qry  = "C(=O)O"
+  let path     = "resources/zinc.txt"
+      queries  = ["C(=O)O","CCCC"]
+      resFile  = "resources/zincProfiling.txt"
   in do
     putStrLn   "Profiling Isomon Algorithms on ZINC file"
     putStrLn   "Result: Number of matches"
-    putStrLn $ "Query:  " ++ qry
-    Right q  <- pure $ map graphtoSmilesElem $ parseNormal qry | Left _ => putStrLn "Failed to parse query, abort profiling"
-    Right l  <- parseOnly                      | Left _ => putStrLn "Failed to parse file, abort profiling"
-    Just  qr <- pure $ withVertexLabels q      | Nothing => putStrLn "Failed to relabel the query"
-    Just  lr <- pure $ prepInductive l         | Nothing => putStrLn "Failed to prepare list for inductive search"
-    profileAndReportRes $ MkProfileTask "inductive" (\_ => countMatches applyInd qr lr) Z 3 ItIsSucc
-    profileAndReportRes $ MkProfileTask "ullmann" (\_ => countMatches applyUllmann q l) Z 3 ItIsSucc
+    resList <- forListOfQueries 5 path queries
+    writeToFile "Process;Repetitions;TotalTime;AverageTime;Result" resList resFile
     pure ()
-
-
-

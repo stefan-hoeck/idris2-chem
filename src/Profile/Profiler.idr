@@ -1,6 +1,7 @@
 module Profile.Profiler
 
 import Data.Nat
+import Data.String
 import System.Clock
 
 public export
@@ -76,6 +77,7 @@ public export
 record ProfileTask a where
   constructor MkProfileTask
   name : String
+  desc : String
   task : a -> a
   dres : a
   runs : Nat
@@ -99,6 +101,13 @@ measure t = do
   stop  <- clockTime UTC
   pure $ MkProfileResult start stop t res
 
+-- Don't like clockTime, so here's that
+showDuration : Clock Duration -> String
+showDuration (MkClock s ns) =
+  let nano    = padLeft 9 '0' $ show ns
+      seconds = show s
+  in #"\#{seconds}.\#{nano} s"#
+
 -- Report & show result
 reportResult : Show a => ProfileResult a -> String
 reportResult (MkProfileResult start stop t res) =
@@ -106,17 +115,25 @@ reportResult (MkProfileResult start stop t res) =
       avg = average dur t.runs t.prf
   in #"""
      \#{t.name}: \#{show t.runs} runs.
-       Result:     \#{show res}
-       Start Time: \#{show start}
-       End Time:   \#{show stop}
-       Duration:   \#{prettyDuration dur}
-       Per run:    \#{prettyDuration avg}
+       Description: \#{show t.desc}
+       Result:      \#{show res}
+       Start Time:  \#{show start}
+       End Time:    \#{show stop}
+       Duration:    \#{prettyDuration dur}
+       Per run:     \#{prettyDuration avg}
      """#
 
+resultRow : Show a => ProfileResult a -> String
+resultRow (MkProfileResult start stop t res) =
+  let dur = timeDifference stop start
+      avg = average dur t.runs t.prf
+  in #"\#{t.name};\#{t.desc};\#{show t.runs};\#{showDuration dur};\#{showDuration avg};\#{show res}"#
+
 export
-profileAndReportRes : Show a => ProfileTask a -> IO ()
+profileAndReportRes : Show a => ProfileTask a -> IO String
 profileAndReportRes t = do
   putStrLn ""
   res <- measure t
   putStrLn $ reportResult res
   putStrLn ""
+  pure $ resultRow res
