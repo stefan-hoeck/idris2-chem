@@ -296,6 +296,11 @@ recur m ncs [] q t =
 
 ||| Function to invoke the substructure search with
 ||| external graph relabelling and nodeclass calculation
+||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
+||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
+||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
+||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
+||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
 export
 inductiveSearch : Eq tv
                 => Matchers qe qv te tv

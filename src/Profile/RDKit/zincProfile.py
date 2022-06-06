@@ -20,7 +20,10 @@ import psutil # Access to system resources
 
 # Settings --------------------------------------------------------------------
 path        = "resources/zinc.txt"
-queries     = ["","CCC","C(=O)O"]
+queries     = ["CC(C)(C)","CCC(CC)(CC)","CCCC(CCC)(CCC)","CCCCC(CCCC)(CCCC)","CCCCC(C)(C)","CCCCC(CC)(CC)"]
+#queries     = ["C1(=CC=CC=C1)O","c1ccccc1O"]
+#queries     = ["C(C(CO[N+](=O)[O-])O[N+](=O)[O-])O[N+](=O)[O-]"]
+#queries     = ["C1CC1","C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1"]
 repetitions = 3
 
 resultFile  = "resources/zincProfilingRDKit.txt"
@@ -111,34 +114,6 @@ def runTask(name: str, task: Callable[[None],Any], runs: int) -> ProfileResult:
     return ProfileResult(name, end - start, runs, res)
 
 
-
-# Reporting of system resources
-
-
-def reportSystemUsage() -> str:
-    """
-    Note: Read the docs about what the individual values mean
-          https://psutil.readthedocs.io/en/latest/
-    """
-    mem = psutil.virtual_memory()
-    prc = psutil.Process()
-    prcmem = prc.memory_info()
-    return "\n".join([ ""
-                     # , "Memory used      / MB: " + str(mem.used / 1000000)
-                     # , "Memory free      / MB: " + str(mem.free / 1000000)
-                     # , "Memory active    / MB: " + str(mem.active / 1000000)
-                     # , "Memory inactive  / MB: " + str(mem.inactive / 1000000)
-                     # , "Memory shared    / MB: " + str(mem.shared / 1000000)
-                     , "Process name               :  " + prc.name()
-                     , "Process threads            :  " + str(prc.num_threads())
-                     , "Process memory         / MB:  " + str(prcmem.rss / 1000000)
-                     , "Process memor percent  /  %:  " +"%.2f" % round(prc.memory_percent() * 100,2)
-                     , "Process virtual memory / MB:  " + str(prcmem.vms / 1000000)
-                     , "Process shared memory  / MB:  " + str(prcmem.shared / 1000000)
-                     , "Memory devoted to code / MB:  " + str(prcmem.text / 1000000)
-                     , "CPU average load (1 min, 5 min, 15 min):" + str(psutil.getloadavg())
-                     ])
-
 # File Parsing ----------------------------------------------------------------
 def getZincSMILES(path: str) -> List[str]:
     with open(path,'r') as fh:
@@ -171,27 +146,71 @@ def profile( queries:     Iterable[str]
            , path:        str
            , repetitions: int):
 
-
-    print(reportSystemUsage())
-    # Read molecules from file
+    # Print system usage - Initial
+    #print(reportSystemUsage())
+    print("Process name               :  " + psutil.Process().name())
+    print("Process threads            :  " + str(psutil.Process().num_threads()))
+    print("Process memory         / MB:  ")
+    print(psutil.Process().memory_info().rss / 1000000)
+    print("Process memory percent /  %:  ")
+    print("%.2f" % round(psutil.Process().memory_percent() * 100,2))
+    print("Process virtual memory / MB:  ")
+    print(psutil.Process().memory_info().vms / 1000000)
+    print("Process shared memory  / MB:  ")
+    print(psutil.Process().memory_info().shared / 1000000)
+    print("Memory devoted to code / MB:  ")
+    print(psutil.Process().memory_info().text / 1000000)
+    print("CPU average load (1 min, 5 min, 15 min):")
+    print(psutil.getloadavg())
     targets = measureGetZincMolecules(path)
-    print(reportSystemUsage())
+    #print(reportSystemUsage())
+    print("Process memory         / MB:  ")
+    print(psutil.Process().memory_info().rss / 1000000)
+    print("Process memory percent /  %:  ")
+    print("%.2f" % round(psutil.Process().memory_percent() * 100,2))
+    print("Process virtual memory / MB:  ")
+    print(psutil.Process().memory_info().vms / 1000000)
+    print("Process shared memory  / MB:  ")
+    print(psutil.Process().memory_info().shared / 1000000)
+    print("Memory devoted to code / MB:  ")
+    print(psutil.Process().memory_info().text / 1000000)
+    print("CPU average load (1 min, 5 min, 15 min):")
+    print(psutil.getloadavg())
+    print("")
+
+    # Read molecules from file
+    # targets = measureGetZincMolecules(path)
+    # print(reportSystemUsage())
     # Clear contents of result file
     open(resultFile, 'w').close()
 
     # Profile queries
     print(f"{bcolors.OKGREEN}\n[Info] Starting profiling\n{bcolors.ENDC}")
     for query in queries:
-      # Parse query and create executable function
-      qry = Chem.MolFromSmiles(query)
-      print('Searching matches for query: ',query)
-      f   = lambda: countMatches(qry,targets)
-      res = runTask(query,f,repetitions)
-      print(res.pretty())
-      # Write to file
-      writeResults(resultFile,res)
+       # Parse query and create executable function
+       qry = Chem.MolFromSmiles(query)
+       print('Searching matches for query: ',query)
+       f   = lambda: countMatches(qry,targets)
+       res = runTask(query,f,repetitions)
+       print(res.pretty())
+       # Write to file
+       writeResults(resultFile,res)
 
-    print(reportSystemUsage())
+       # System usage reports do not work when placed in an external function
+       # (return always the same values)
+       print("Process memory         / MB:  ")
+       print(psutil.Process().memory_info().rss / 1000000)
+       print("Process memory percent /  %:  ")
+       print("%.2f" % round(psutil.Process().memory_percent() * 100,2))
+       print("Process virtual memory / MB:  ")
+       print(psutil.Process().memory_info().vms / 1000000)
+       print("Process shared memory  / MB:  ")
+       print(psutil.Process().memory_info().shared / 1000000)
+       print("Memory devoted to code / MB:  ")
+       print(psutil.Process().memory_info().text / 1000000)
+       print("CPU average load (1 min, 5 min, 15 min):")
+       print(psutil.getloadavg())
+       print("")
     return
 
 
