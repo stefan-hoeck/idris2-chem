@@ -20,11 +20,15 @@ import psutil # Access to system resources
 
 # Settings --------------------------------------------------------------------
 path        = "resources/zinc.txt"
-queries     = ["CC(C)(C)","CCC(CC)(CC)","CCCC(CCC)(CCC)","CCCCC(CCCC)(CCCC)","CCCCC(C)(C)","CCCCC(CC)(CC)"]
+#queries     = ["CC(C)(C)","CCC(CC)(CC)","CCCC(CCC)(CCC)","CCCCC(CCCC)(CCCC)","CCCCC(C)(C)","CCCCC(CC)(CC)"]
 #queries     = ["C1(=CC=CC=C1)O","c1ccccc1O"]
 #queries     = ["C(C(CO[N+](=O)[O-])O[N+](=O)[O-])O[N+](=O)[O-]"]
 #queries     = ["C1CC1","C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1"]
-repetitions = 3
+#queries     = ["C1CC1","C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1","CC(C)(C)","CCC(CC)(CC)","CCCC(CCC)(CCC)","CCCCC(CCCC)(CCCC)","CCCCC(C)(C)","CCCCC(CC)(CC)","C1(=CC=CC=C1)O","c1ccccc1O","C(C(CO[N+](=O)[O-])O[N+](=O)[O-])O[N+](=O)[O-]"]
+queries     = ["c1ccccc1.Cl"]
+targets     = ["c1ccc(cc1)Cl","c1ccc(cc1)CCl","c1ccc(cc1)[N+]#N.[Cl-]"] # Ph-Cl, Ph-CCl, Ph-N+#N Cl-
+repetitions = 10
+repForTrgs  = 100000
 
 resultFile  = "resources/zincProfilingRDKit.txt"
 delim       = ","
@@ -133,6 +137,11 @@ def measureGetZincMolecules(path: str) -> Iterable[Chem.rdchem.Mol]:
     print(f"{bcolors.OKGREEN}\n[Info] Molecules loaded{bcolors.ENDC}")
     return pRes.res
 
+def parseTargetMolecules(trgs : Iterable[str]) -> Iterable[Chem.rdchem.Mol]:
+    """ Requires a list of targets"""
+    return list(map(Chem.MolFromSmiles,trgs))
+
+
 # Write results to a file -----------------------------------------------------
 def writeResults(path: str, result: ProfileResult):
     f = open(path, "a")
@@ -142,9 +151,9 @@ def writeResults(path: str, result: ProfileResult):
 
 
 # Profiling functions ---------------------------------------------------------
-def profile( queries:     Iterable[str]
-           , path:        str
-           , repetitions: int):
+def profileZinc( queries:     Iterable[str]
+               , path:        str
+               , repetitions: int):
 
     # Print system usage - Initial
     #print(reportSystemUsage())
@@ -214,8 +223,99 @@ def profile( queries:     Iterable[str]
     return
 
 
+
+def profileTargets( queries:     Iterable[str]
+                  , targets:     Iterable[str]
+                  , repetitions: int):
+
+    # Parsing & display system parameters
+    print("Process name               :  " + psutil.Process().name())
+    print("Process threads            :  " + str(psutil.Process().num_threads()))
+    print("Process memory         / MB:  ")
+    print(psutil.Process().memory_info().rss / 1000000)
+    print("Process memory percent /  %:  ")
+    print("%.2f" % round(psutil.Process().memory_percent() * 100,2))
+    print("Process virtual memory / MB:  ")
+    print(psutil.Process().memory_info().vms / 1000000)
+    print("Process shared memory  / MB:  ")
+    print(psutil.Process().memory_info().shared / 1000000)
+    print("Memory devoted to code / MB:  ")
+    print(psutil.Process().memory_info().text / 1000000)
+    print("CPU average load (1 min, 5 min, 15 min):")
+    print(psutil.getloadavg())
+    trgs = parseTargetMolecules(targets)
+    #print(reportSystemUsage())
+    print("Process memory         / MB:  ")
+    print(psutil.Process().memory_info().rss / 1000000)
+    print("Process memory percent /  %:  ")
+    print("%.2f" % round(psutil.Process().memory_percent() * 100,2))
+    print("Process virtual memory / MB:  ")
+    print(psutil.Process().memory_info().vms / 1000000)
+    print("Process shared memory  / MB:  ")
+    print(psutil.Process().memory_info().shared / 1000000)
+    print("Memory devoted to code / MB:  ")
+    print(psutil.Process().memory_info().text / 1000000)
+    print("CPU average load (1 min, 5 min, 15 min):")
+    print(psutil.getloadavg())
+    print("")
+
+    # Empty result file
+    open(resultFile, 'w').close()
+
+    # Profile queries
+    print(f"{bcolors.OKGREEN}\n[Info] Profiling individual Results\n{bcolors.ENDC}")
+
+    # Display the individual results
+    for query in queries:
+       # Parse query and create executable function
+       qry = Chem.MolFromSmiles(query)
+       print('Searching matches for query: ',query)
+
+       for i in range(len(trgs)):
+
+         f   = lambda: trgs[i].HasSubstructMatch(qry)
+         res = runTask(query,f,repetitions)
+
+         print(res.pretty())
+         # Write to file
+         writeResults(resultFile,res)
+
+       # System usage reports do not work when placed in an external function
+       # (return always the same values)
+       print("Process memory         / MB:  ")
+       print(psutil.Process().memory_info().rss / 1000000)
+       print("Process memory percent /  %:  ")
+       print("%.2f" % round(psutil.Process().memory_percent() * 100,2))
+       print("Process virtual memory / MB:  ")
+       print(psutil.Process().memory_info().vms / 1000000)
+       print("Process shared memory  / MB:  ")
+       print(psutil.Process().memory_info().shared / 1000000)
+       print("Memory devoted to code / MB:  ")
+       print(psutil.Process().memory_info().text / 1000000)
+       print("CPU average load (1 min, 5 min, 15 min):")
+       print(psutil.getloadavg())
+       print("")
+
+
+    print(f"{bcolors.OKGREEN}\n[Info] Profiling accumulated matches\n{bcolors.ENDC}")
+    # Count the matches
+    for query in queries:
+       # Parse query and create executable function
+       qry = Chem.MolFromSmiles(query)
+       print('Searching matches for query: ',query)
+       f   = lambda: countMatches(qry,trgs)
+       res = runTask(query,f,repetitions)
+       print(res.pretty())
+       # Write to file
+       writeResults(resultFile,res)
+
+    print("Matched targets:")
+    print(targets)
+    return
+
 # Execution -------------------------------------------------------------------
 # Parsing takes a lot of time
 # Measure time only for substructure search
 print('--------- RDKit profiling ---------')
-profile(queries,path, repetitions)
+#profileZinc(queries, path, repetitions)
+profileTargets(queries, targets, repForTrgs)
