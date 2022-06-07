@@ -57,6 +57,11 @@ countMatches f qry l = foldl go 0 l
   where go : Nat -> trg -> Nat
         go k t = if isJust (f qry t) then S k else k
 
+matchingResults : (qry -> trg -> Maybe _)
+               -> qry -> List trg
+               -> List Bool
+matchingResults f q = foldl (\acc, t => isJust (f q t) :: acc) []
+
 -- Graph data preparation -----------------------------------------------------
 record QueryData where
   constructor MkQueryData
@@ -118,25 +123,58 @@ writeToFile head resList path = do
      pure ()
 
 -- Profiling a list of queries ------------------------------------------------
+
+mkqd : List String -> Either ParseError (List QueryData)
+mkqd = traverse mkQD -- Due to type scrutinee
+mktd : List String -> Either ParseError (List TargetData)
+mktd = traverse mkTD -- Due to type scrutinee
+
+profileTargets : (k : Nat) -> (prf : IsSucc k)
+              => List TargetData -> List QueryData -> IO (List String)
+profileTargets _ _ [] = pure []
+profileTargets k {prf = prf} td (q :: qs) = do
+          putStrLn  $ "Query: " ++ q.str
+          -- Remove the ullmann if it takes too long for some queries
+          si <- profileAndReportRes $ MkProfileTask "inductive" q.str (\_ => countMatches applyInductive q td) Z k prf
+          -- su <- profileAndReportRes $ MkProfileTask "ullmann"  q.str (\_ => countMatches applyUllmann q td) Z k prf
+          acc <- profileTargets k {prf = prf} td qs
+          pure $ si :: acc -- alsp adjust this when removing su
+          -- pure $ si :: su :: acc -- alsp adjust this when removing su
+
+
 ||| Profiling for a list of queries
-forListOfQueries : (k : Nat) -> (prf : IsSucc k) => String -> List String
-                -> IO (List String)
-forListOfQueries k {prf = prf} path qryStrs =
+profileZinc : (k : Nat) -> (prf : IsSucc k) => String -> List String
+           -> IO (List String)
+profileZinc k {prf = prf} path qryStrs =
   let Right qs := mkqd qryStrs | Left e => putStrLn (show e) >> pure []
   in do
     putStrLn $ "Profiling with multiple queries of file: " ++ path
     Right ts <- parseTargets path | Left e => putStrLn (show e) >> pure []
-    go ts qs
-  where mkqd : List String -> Either ParseError (List QueryData)
-        mkqd = traverse mkQD -- Due to type scrutinee
-        go : List TargetData -> List QueryData -> IO (List String)
-        go _ [] = pure []
-        go td (q :: qs) = do
-          putStrLn  $ "Query: " ++ q.str
-          si <- profileAndReportRes $ MkProfileTask "inductive" q.str (\_ => countMatches applyInductive q td) Z k prf
-          su <- profileAndReportRes $ MkProfileTask "ullmann"  q.str (\_ => countMatches applyUllmann q td) Z k prf
-          acc <- go td qs
-          pure $ si :: su :: acc
+    profileTargets k {prf = prf} ts qs
+
+||| Profiling by applying a matching k times for each query-target pair
+profilePairs : (k : Nat) -> (prf : IsSucc k)
+                 => List TargetData -> List QueryData
+                 -> IO (List String)
+profilePairs _ _ [] = pure []
+profilePairs k {prf = prf} ts (q :: qs) = do
+          new <- go k {prf = prf} q ts
+          acc <- profilePairs k {prf = prf} ts qs
+          pure $ new ++ acc -- alsp adjust this when removing su
+  where go : (k: Nat) -> (prf : IsSucc k ) => QueryData -> List TargetData -> IO (List String)
+        go _ _ [] = pure []
+        go k {prf = prf} q (t :: ts) = do
+          si <- profileAndReportRes $ MkProfileTask "inductive" (q.str ++ " -> " ++ t.str) (\_ => isJust (applyInductive q t)) False k prf
+          acc <- go k {prf = prf} q ts
+          pure $ si :: acc
+
+profileIndividual : (k : Nat) -> (prf : IsSucc k)
+                 => (qsStr : List String) -> (tsStr : List String)
+                 -> IO (List String)
+profileIndividual k {prf = prf} qsStr tsStr =
+  let Right qs := mkqd qsStr | Left e => putStrLn (show e) >> pure []
+      Right ts := mktd tsStr | Left e => putStrLn (show e) >> pure []
+      in profilePairs k {prf = prf} ts qs
 
 -- Invocation -----------------------------------------------------------------
 ||| Adjust the queries for different searches and
@@ -146,11 +184,14 @@ partial export
 profile : IO ()
 profile =
   let path     = "resources/zinc.txt"
-      queries  = ["C(=O)O","CCCC"]
+      queries  = ["C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","c1ccccc1O"]
+      --queries  = ["C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCCC1","CC(C)(C)","CCC(CC)(CC)","CCCC(CCC)(CCC)","CCCCC(CCCC)(CCCC)","CCCCC(C)(C)","CCCCC(CC)(CC)","C1(=CC=CC=C1)O","c1ccccc1O","C(C(CO[N+](=O)[O-])O[N+](=O)[O-])O[N+](=O)[O-]"]
+      targets  = ["C1CC1O","C1CCCCC1Cl","COC","CCCCCC","C(CC)CC(C)C"]
       resFile  = "resources/zincProfiling.txt"
   in do
     putStrLn   "Profiling Isomon Algorithms on ZINC file"
     putStrLn   "Result: Number of matches"
-    resList <- forListOfQueries 5 path queries
+    -- resList <- profileZinc 5 path queries
+    resList <- profileIndividual 100000 queries targets
     writeToFile "Process;Repetitions;TotalTime;AverageTime;Result" resList resFile
     pure ()
