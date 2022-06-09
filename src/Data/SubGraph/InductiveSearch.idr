@@ -8,12 +8,15 @@ import Data.BitMap
 import Data.List
 import Data.Vect
 
+||| Addition of node labels to adjacency lists
+||| O(n^2)
 export
 withVertexLabels : Graph e v -> Maybe (Graph (e,v) v)
 withVertexLabels g = MkGraph <$> traverse adj g.graph
+        -- label: O(log n)
   where label : (Node,e) -> Maybe (e,v)
         label (k,ve) = (ve,) <$> lab g k
-
+        -- adj: O(n * log n)
         adj : Adj e v -> Maybe (Adj (e,v) v)
         adj (MkAdj l ps) = MkAdj l <$> traverseKV label ps
 
@@ -91,8 +94,7 @@ insertNC xs c = go (label c) (deg c) xs
 
 ||| Generates a list of nodes grouped with their label
 ||| and their degree.
-||| O(n * m)     n: Length of the contexts
-||| TODO:        m: From insertTargets (grows in each iteration)
+||| O(n^2)
 export
 nodeClasses : Eq tv => List (Context te tv) -> List (NodeClass tv)
 nodeClasses = foldl insertNC []
@@ -101,7 +103,7 @@ nodeClasses = foldl insertNC []
 
 ||| Returns the number of possible mapping targets
 ||| for a context, given the targets node classes.
-||| O(k)  k: Length of NodeClass list
+||| O(n)  n: Length of NodeClass list
 nMapTrgs : (qv -> tv -> Bool)
         -> List (NodeClass tv)
         -> Context qe qv
@@ -114,6 +116,7 @@ nMapTrgs p cls (MkContext nq lq ne) = go (length ne) cls
         go degq (x :: xs) = if pred degq x then plus (size x) (go degq xs)
                                            else go degq xs
 
+||| Returns the smallest element with its evaluated order criteria b
 minBy : Ord b => (a -> b) -> (as : List a) -> (0 prf : NonEmpty as) => (a,b)
 minBy f (x :: xs) = foldl go (x, f x) xs
    where go : (a,b) -> a -> (a,b)
@@ -121,8 +124,8 @@ minBy f (x :: xs) = foldl go (x, f x) xs
 
 ||| Selects the best query context (least no. of possible
 ||| targets nodes).
-||| O(n * m)  n: Length of Context list
-|||           m: Length of NodeClass list
+||| O(n * m)  n: Length of Context list (query size)
+|||           m: Length of NodeClass list (target size in worst case)
 bestContext : (qv -> tv -> Bool)
            -> List (NodeClass tv)
            -> (qcs : List (Context qe qv))
@@ -133,6 +136,7 @@ bestContext p cls qcs = minBy (nMapTrgs p cls) qcs
 
 ||| Get the possible target nodes for a specific
 ||| context from the target graph
+||| O(n)    n: Target graph size (contexts)
 possibleTrgs : (qv -> tv -> Bool)
             -> Context qe qv
             -> List (Context (te,tv) tv)
@@ -158,8 +162,8 @@ possibleTrgs p (MkContext nq lq neq) cg =
 ||| query vertex are viable mapping targets.
 ||| A Nothing is returned in case no isomorphism is
 ||| possible (no viable mapping target).
-||| O(bestET) + O(n) + O(nodeClasses)  n: Length of Context list
-||| TODO
+||| O(n * m)  n: Length of Context list (query)
+|||           m: Lenth of nodeclass list (target graph size in worst case)
 newQryNode : Eq tv
           => Matchers qe qv te tv
           -> List (NodeClass tv)
@@ -177,7 +181,7 @@ newQryNode m ncs (cq :: cqs) cst =
 -- Construction of new next matches -------------------------------------------
 
 ||| Filter possible mapping targets by node and edge label
-||| O(p)     p: Length of the node list
+||| O(n)     n: Length of the node list
 filt : Matchers qe qv te tv -> List (Node,te,tv)
     -> (Node,qe,qv) -> (Node, List Node)
 filt m xs (nq,eq,vq) = (nq, mapMaybe
@@ -188,15 +192,15 @@ filt m xs (nq,eq,vq) = (nq, mapMaybe
 ||| The neighbours should be present, otherwise their invalid graphs.
 ||| Will fail for an invalid query. Ignores invalid target nodes.
 ||| Local traverse replacement
-||| O(p * q) p: Length of the query neighbours list
-|||          q: Length of the target neighbours node list
+||| O(n * m) n: Length of the query neighbours list
+|||          m: Length of the target neighbours node list
 neighbourTargets : Matchers qe qv te tv
                 -> Context (qe,qv) qv -> Context (te,tv) tv
                 -> List (Node, List Node)
 neighbourTargets m cq ct = go (pairs $ neighbours ct) (pairs $ neighbours cq)
    where go : List (Node,te,tv) -> List (Node, qe, qv) -> List (Node, List Node)
          go nT []        = []
-         go nT (x :: xs) = (::) (filt m nT x) (go nT xs)
+         go nT (x :: xs) = filt m nT x :: go nT xs
 
 -- Reduction of next matches --------------------------------------------------
 
@@ -209,12 +213,11 @@ rmNodeET n (qryN, trgs) = (qryN, filter (/= n) trgs)
 ||| of possible targets is empty, then no record is returned. The
 ||| same is the case, if two records should be combined of different
 ||| query nodes. (Alternative: intersect instead of go)
-||| O(m + n)     m,n: Length of the respective target lists
-||| TODO: Not actually correct O notation?
+||| O(m + n) m,n: Length of the respective target lists
 merge : (Node, List Node) -> (Node, List Node) -> (Node, List Node)
 merge (n1, trgs1) (n2, trgs2) = if n1 == n2
         then (n1, go trgs1 trgs2)
-        else (n1, []) -- The nodes do not match. This should not be called in this case: TODO: Use a type to proove equality?
+        else (n1, [])
   where go : List Node -> List Node -> List Node
         go [] _ = []
         go _ [] = []
@@ -228,8 +231,8 @@ merge (n1, trgs1) (n2, trgs2) = if n1 == n2
 ||| a specified node from all lists describing potential mapping targets.
 ||| Note: As in merge, ys must be sorted in ascending order of the
 |||       first tuple element.
-||| O(m * n)        m: (Sum of) Length of the eligible targets list
-|||                 n: Comparisons from rmNodeET and mergeV2
+||| O((m + n)^2)        m: (Sum of) Length of the eligible targets list
+|||                     n: Comparisons from rmNodeET and mergeV2
 reduce : Node
       -> NextMatches
       -> List (Node, List Node)
@@ -248,6 +251,7 @@ reduce k os ns = let nm = go os ns
 
 ||| Continues a subgraph isomorphism search by selecting a starting
 ||| node if none is present and checking if the query is empty.
+||| Om * log n)
 recur : Eq tv => Matchers qe qv te tv
      -> List (NodeClass tv)
      -> NextMatches
@@ -260,10 +264,7 @@ recur : Eq tv => Matchers qe qv te tv
 ||| the current one is possible.
 ||| If the current mapping target is not eligible, continue
 ||| with the next potential target.
-||| TODO: THis is not correct
-||| O(k * m * n )   k: Length of potential target nodes
-|||                 m: (Sum of) Length of the eligible targets list
-|||                 n: Comparisons from rmNodeET and mergeV2
+||| O(n * log n)   n: Query graph size
 findTargetV : Eq tv
            => Matchers qe qv te tv
            -> List (NodeClass tv)
@@ -297,10 +298,7 @@ recur m ncs [] q t =
 ||| Function to invoke the substructure search with
 ||| external graph relabelling and nodeclass calculation
 ||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
-||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
-||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
-||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
-||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
+||| O(n * log n)
 export
 inductiveSearch : Eq tv
                 => Matchers qe qv te tv
@@ -313,6 +311,8 @@ inductiveSearch m ncs q t = recur m ncs [] q t
 ||| Function to invoke the substructure search
 ||| without external graph relabelling and nodeclass
 ||| calculation
+||| O(n^3 * m^2)   n: Query size
+|||                m: Target graph size
 export
 inductiveSearch' : Eq tv
                => Matchers qe qv te tv
