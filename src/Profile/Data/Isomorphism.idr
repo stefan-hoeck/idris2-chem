@@ -158,6 +158,7 @@ profilePairs : (k : Nat) -> (prf : IsSucc k)
                  -> IO (List String)
 profilePairs _ _ [] = pure []
 profilePairs k {prf = prf} ts (q :: qs) = do
+          putStrLn  $ "Query: " ++ q.str
           new <- go k {prf = prf} q ts
           acc <- profilePairs k {prf = prf} ts qs
           pure $ new ++ acc -- alsp adjust this when removing su
@@ -184,9 +185,9 @@ partial export
 profile : IO ()
 profile =
   let path     = "resources/zinc.txt"
-      queries  = ["C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","c1ccccc1O"]
+      queries  = ["C1CCCCC1.C(=O)O.c1ccccc1"]
       --queries  = ["C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCCC1","CC(C)(C)","CCC(CC)(CC)","CCCC(CCC)(CCC)","CCCCC(CCCC)(CCCC)","CCCCC(C)(C)","CCCCC(CC)(CC)","C1(=CC=CC=C1)O","c1ccccc1O","C(C(CO[N+](=O)[O-])O[N+](=O)[O-])O[N+](=O)[O-]"]
-      targets  = ["C1CC1O","C1CCCCC1Cl","COC","CCCCCC","C(CC)CC(C)C"]
+      targets  = ["CC1(CC(C(C(C1)OC(=O)c2cc(c(c(c2)O)O)O)OC(=O)c3cc(c(c(c3)O)O)O)OC(=O)c4cc(c(c(c4)O)O)O)OC(=O)c5cc(c(c(c5)O)O)O"]
       resFile  = "resources/zincProfiling.txt"
   in do
     putStrLn   "Profiling Isomon Algorithms on ZINC file"

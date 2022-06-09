@@ -25,7 +25,8 @@ path        = "resources/zinc.txt"
 #queries     = ["C(C(CO[N+](=O)[O-])O[N+](=O)[O-])O[N+](=O)[O-]"]
 #queries     = ["C1CC1","C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1"]
 #queries     = ["C1CC1","C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1","CC(C)(C)","CCC(CC)(CC)","CCCC(CCC)(CCC)","CCCCC(CCCC)(CCCC)","CCCCC(C)(C)","CCCCC(CC)(CC)","C1(=CC=CC=C1)O","c1ccccc1O","C(C(CO[N+](=O)[O-])O[N+](=O)[O-])O[N+](=O)[O-]"]
-queries     = ["c1ccccc1.Cl"]
+queries     = ["C1CC1Cl","C1CC1Cl","C1CCC1Cl","C1CCCC1Cl","C1CCCCC1Cl","C1CCCCCC1Cl","C1CCCCCCC1Cl","C1CCCCCCCC1Cl","C1CCCCCCCCC1Cl","C1CCCCCCCCCC1Cl","C1CCCCCCCCCCC1Cl","C1CCCCCCCCCCCC1Cl","C1CCCCCCCCCCCC1Cl","C1CCCCCCCCCCCCC1Cl","C1CCCCCCCCCCCCCC1Cl","C1CCCCCCCCCCCCCCC1Cl","C1CCCCCCCCCCCCCCCC1C","C1CCCCCCCCCCCCCCCCC1C"]
+# queries     = ["c1ccccc1.Cl"]
 targets     = ["c1ccc(cc1)Cl","c1ccc(cc1)CCl","c1ccc(cc1)[N+]#N.[Cl-]"] # Ph-Cl, Ph-CCl, Ph-N+#N Cl-
 repetitions = 10
 repForTrgs  = 100000
@@ -317,5 +318,5 @@ def profileTargets( queries:     Iterable[str]
 # Parsing takes a lot of time
 # Measure time only for substructure search
 print('--------- RDKit profiling ---------')
-#profileZinc(queries, path, repetitions)
-profileTargets(queries, targets, repForTrgs)
+profileZinc(queries, path, repetitions)
+#profileTargets(queries, targets, repForTrgs)
