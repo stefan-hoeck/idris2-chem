@@ -253,7 +253,6 @@ reduce k os ns = let nm = go os ns
 ||| node if none is present and checking if the query is empty.
 ||| Om * log n)
 recur : Eq tv => Matchers qe qv te tv
-     -> List (NodeClass tv)
      -> NextMatches
      -> Graph (qe,qv) qv
      -> Graph (te,tv) tv
@@ -267,30 +266,29 @@ recur : Eq tv => Matchers qe qv te tv
 ||| O(n * log n)   n: Query graph size
 findTargetV : Eq tv
            => Matchers qe qv te tv
-           -> List (NodeClass tv)
            -> (cq : Context (qe,qv) qv)
            -> List Node
            -> (ns : NextMatches)
            -> Graph (qe,qv) qv
            -> Graph (te,tv) tv
            -> Maybe Mapping
-findTargetV m ncs _ []         _  _ _ = Nothing
-findTargetV m ncs cq (x :: xs) ns q t =
-  let Split ct rt := match x t                 | Empty   => findTargetV m ncs cq xs ns q t -- Should not occur if properly merged
+findTargetV m _ []         _  _ _ = Nothing
+findTargetV m cq (x :: xs) ns q t =
+  let Split ct rt := match x t                 | Empty   => findTargetV m cq xs ns q t -- Should not occur if properly merged
       nsPot        = neighbourTargets m cq ct
-      Just nsNew  := reduce (node ct) ns nsPot | Nothing => findTargetV m ncs cq xs ns q t
-      Just ms     := recur m ncs nsNew q rt    | Nothing => findTargetV m ncs cq xs ns q t
+      Just nsNew  := reduce (node ct) ns nsPot | Nothing => findTargetV m cq xs ns q t
+      Just ms     := recur m nsNew q rt    | Nothing => findTargetV m cq xs ns q t
   in pure $ (node cq, node ct) :: ms
 
 
-recur m ncs ((n,nts) :: ns) q t =
+recur m ((n,nts) :: ns) q t =
    let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
-   in findTargetV m ncs c nts ns rq t
+   in findTargetV m c nts ns rq t
 
-recur m ncs [] q t =
+recur m [] q t =
   if isEmpty q then Just []
-  else let Just x := newQryNode m ncs (contexts q) (contexts t) | Nothing => Nothing -- Should not occur as node extracted from query
-       in recur m ncs [x] q t
+  else let Just x := newQryNode m (nodeClasses $ contexts t) (contexts q) (contexts t) | Nothing => Nothing -- Should not occur as node extracted from query
+       in recur m [x] q t
 
 
 -- Entry function -------------------------------------------------------------
@@ -306,7 +304,9 @@ inductiveSearch : Eq tv
                 -> Graph (qe,qv) qv
                 -> Graph (te,tv) tv
                 -> Maybe Mapping
-inductiveSearch m ncs q t = recur m ncs [] q t
+inductiveSearch m ncs q t =
+  let Just x := newQryNode m ncs (contexts q) (contexts t) | Nothing => Nothing
+  in recur m [x] q t
 
 ||| Function to invoke the substructure search
 ||| without external graph relabelling and nodeclass
@@ -321,4 +321,4 @@ inductiveSearch' : Eq tv
                -> Maybe Mapping
 inductiveSearch' m q t = let Just q' := withVertexLabels q | Nothing => Nothing
                              Just t' := withVertexLabels t | Nothing => Nothing
-                         in recur m (nodeClasses $ contexts t') [] q' t'
+                         in inductiveSearch m (nodeClasses $ contexts t') q' t'
