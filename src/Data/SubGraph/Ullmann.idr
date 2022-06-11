@@ -79,18 +79,18 @@ select :  Task n qe qv te tv
        -> Context qe qv
        -> List (Context te tv)
        -> Matrix m qe qv te tv
-       -> Maybe (Vect (S m) Node)
+       -> Maybe (Vect (S m) (Node, Node))
 
 ||| Progresses to select a value for the next query vertex or row
 step :  Task n qe qv te tv
      -> Matrix k qe qv te tv
-     -> Maybe (Vect k Node)
+     -> Maybe (Vect k (Node, Node))
 
 select _  _ []        _ = Nothing
 select ta q (t :: ts) m =
   let Just m1 := reduce (edgeMatcher ta) q t m | Nothing => select ta q ts m
       Just m2  := step ta m1                    | Nothing => select ta q ts m
-  in  Just $ node t :: m2
+  in  Just $ (node q, node t) :: m2
 
 step _ [] = Just []
 step ta (r :: rs) = select ta (ctxt r) (trgs r) rs
@@ -100,12 +100,12 @@ step ta (r :: rs) = select ta (ctxt r) (trgs r) rs
 
 ||| Isomorphism search
 export
-ullmann : Task n qe qv te tv -> Maybe (Vect n Node)
+ullmann : Task n qe qv te tv -> Maybe (Vect n (Node,Node))
 ullmann ta = init ta >>= step ta
 
 ||| Alternative accessor function
 export
 ullmann' : (qe -> te -> Bool) -> (qv -> tv -> Bool)
         -> (q : Graph qe qv) -> Graph te tv
-        -> Maybe (Vect (length $ contexts q) Node)
+        -> Maybe (Vect (length $ contexts q) (Node,Node))
 ullmann' em vm q t = ullmann $ MkTask em vm (fromList $ contexts q) t
