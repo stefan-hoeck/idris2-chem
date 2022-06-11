@@ -304,9 +304,9 @@ inductiveSearch : Eq tv
                 -> Graph (qe,qv) qv
                 -> Graph (te,tv) tv
                 -> Maybe Mapping
-inductiveSearch m ncs q t =
-  let Just x := newQryNode m ncs (contexts q) (contexts t) | Nothing => Nothing
-  in recur m [x] q t
+inductiveSearch m ncs q t = if isEmpty q then Just []
+  else let Just x := newQryNode m ncs (contexts q) (contexts t) | Nothing => Nothing
+       in recur m [x] q t
 
 ||| Function to invoke the substructure search
 ||| without external graph relabelling and nodeclass
