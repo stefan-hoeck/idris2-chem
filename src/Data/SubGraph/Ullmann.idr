@@ -35,11 +35,26 @@ makeRow : Context qe qv -> List (Context te tv) -> Maybe (Row qe qv te tv)
 makeRow q []          = Nothing
 makeRow q ts@(_ :: _) = pure $ MkRow q ts IsNonEmpty
 
+||| Removes every element in a list xs that has a matching
+||| element in the second list ys. Each element of the
+||| second list can only be matched positively once, e.g.:
+||| > deleteBothBy (==) [1,2,3,3,2,1,3,3,1] [1,2,3,4,3,2,1]
+||| [3,3,1]
+deleteBothBy : (a -> b -> Bool) -> List a -> List b -> List a
+deleteBothBy _ [] _         = []
+deleteBothBy _ xs []        = xs
+deleteBothBy q (x :: xs) ys = case go x ys of
+                  Nothing  => x :: deleteBothBy q xs ys
+                  Just ys' =>      deleteBothBy q xs ys'
+  where go : a -> List b -> Maybe (List b)
+        go _ []        = Nothing
+        go x (y :: ys) = if q x y then Just ys else go x ys
+
 ||| Matches vertice labels & the type and number of the required edges
 match : Task n qe qv te tv -> Context qe qv -> Context te tv -> Bool
 match ta q t =
   let vm = (vertexMatcher ta) (label q) (label t)
-      em = isNil $ deleteFirstsBy (flip $ edgeMatcher ta)
+      em = isNil $ deleteBothBy (edgeMatcher ta)
            (values $ neighbours q) (values $ neighbours t)
   in vm && em
 
