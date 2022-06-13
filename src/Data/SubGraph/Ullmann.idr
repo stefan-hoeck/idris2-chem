@@ -31,6 +31,8 @@ Matrix n qe qv te tv = Vect n (Row qe qv te tv)
 
 -- Construct the matrix -------------------------------------------------------
 
+||| Construction of Row with possibility of failure
+||| O(1)
 makeRow : Context qe qv -> List (Context te tv) -> Maybe (Row qe qv te tv)
 makeRow q []          = Nothing
 makeRow q ts@(_ :: _) = pure $ MkRow q ts IsNonEmpty
@@ -40,6 +42,9 @@ makeRow q ts@(_ :: _) = pure $ MkRow q ts IsNonEmpty
 ||| second list can only be matched positively once, e.g.:
 ||| > deleteBothBy (==) [1,2,3,3,2,1,3,3,1] [1,2,3,4,3,2,1]
 ||| [3,3,1]
+|||
+||| O(n * m)     n: Length of List a
+|||              m: Length of List b
 deleteInjectiveBy : (a -> b -> Bool) -> List a -> List b -> List a
 deleteInjectiveBy _ [] _         = []
 deleteInjectiveBy _ xs []        = xs
@@ -51,6 +56,8 @@ deleteInjectiveBy q (x :: xs) ys = case go x ys of
         go x (y :: ys) = if q x y then Just ys else go x ys
 
 ||| Matches vertice labels & the type and number of the required edges
+||| O(n * m)     n: Length of the adjacency list of the query context
+|||              m: Length of the adjacency list of the target context
 match : Task n qe qv te tv -> Context qe qv -> Context te tv -> Bool
 match ta q t =
   let vm = (vertexMatcher ta) (label q) (label t)
@@ -60,6 +67,9 @@ match ta q t =
 
 
 ||| Build initial mapping with all possible mapping targets
+||| O(n * m)     n: Length of query context list
+|||              m: Size of target graph
+||| O(match) assumed constant by an average node degree
 init : Task n qe qv te tv -> Maybe (Matrix n qe qv te tv)
 init ta = let trgs     = contexts $ target ta
          in traverse (\q => makeRow q $ filter (match ta q) trgs) (query ta)
@@ -75,6 +85,8 @@ init ta = let trgs     = contexts $ target ta
 |||    Filters the possible mapping targets (ts) for values which are:
 |||      I.  Adjacent to the set target (tn).
 |||      II. Have a matching bond to the set target (tn).
+|||
+||| O(n * m)    n,m: Number of rows & average number of columns
 reduce :  (qe -> te -> Bool)
        -> Context qe qv
        -> Context te tv
@@ -83,13 +95,16 @@ reduce :  (qe -> te -> Bool)
 reduce em (MkContext _ _ qns) (MkContext tn _ tns) = traverse red
   where red : Row qe qv te tv -> Maybe (Row qe qv te tv)
         red (MkRow c ts _) = case lookup c.node qns of
+          -- Non adjacent: Remove initialzed node
           Nothing  => makeRow c $ filter ((tn /=) . node) ts
-          Just bnd => makeRow c $ filter (\c => maybe False (em bnd) $ lookup c.node tns) ts
+          -- Adjacent: Retains only edges with correct label and adjacent to current target tn
+          Just bnd => makeRow c $ filter (\t => maybe False (em bnd) $ lookup t.node tns) ts
 
 
 -- Ullmann core procedure -----------------------------------------------------
 
 ||| Selects a value to instantiate
+||| O(n^3)
 select :  Task n qe qv te tv
        -> Context qe qv
        -> List (Context te tv)
@@ -97,6 +112,7 @@ select :  Task n qe qv te tv
        -> Maybe (Vect (S m) (Node, Node))
 
 ||| Progresses to select a value for the next query vertex or row
+||| O(n^3)
 step :  Task n qe qv te tv
      -> Matrix k qe qv te tv
      -> Maybe (Vect k (Node, Node))
@@ -114,6 +130,7 @@ step ta (r :: rs) = select ta (ctxt r) (trgs r) rs
 -- Accessor function ----------------------------------------------------------
 
 ||| Isomorphism search
+||| O(n^3)
 export
 ullmann : Task n qe qv te tv -> Maybe (Vect n (Node,Node))
 ullmann ta = init ta >>= step ta
