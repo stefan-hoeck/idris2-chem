@@ -264,7 +264,7 @@ recur : Eq tv => Matchers qe qv te tv
 ||| If the current mapping target is not eligible, continue
 ||| with the next potential target.
 ||| O(n * log n)   n: Query graph size
-findTargetV : Eq tv
+select : Eq tv
            => Matchers qe qv te tv
            -> (cq : Context (qe,qv) qv)
            -> List Node
@@ -272,18 +272,18 @@ findTargetV : Eq tv
            -> Graph (qe,qv) qv
            -> Graph (te,tv) tv
            -> Maybe Mapping
-findTargetV m _ []         _  _ _ = Nothing
-findTargetV m cq (x :: xs) ns q t =
-  let Split ct rt := match x t                 | Empty   => findTargetV m cq xs ns q t -- Should not occur if properly merged
+select m _ []         _  _ _ = Nothing
+select m cq (x :: xs) ns q t =
+  let Split ct rt := match x t                 | Empty   => select m cq xs ns q t -- Should not occur if properly merged
       nsPot        = neighbourTargets m cq ct
-      Just nsNew  := reduce (node ct) ns nsPot | Nothing => findTargetV m cq xs ns q t
-      Just ms     := recur m nsNew q rt    | Nothing => findTargetV m cq xs ns q t
+      Just nsNew  := reduce (node ct) ns nsPot | Nothing => select m cq xs ns q t
+      Just ms     := recur m nsNew q rt    | Nothing => select m cq xs ns q t
   in pure $ (node cq, node ct) :: ms
 
 
 recur m ((n,nts) :: ns) q t =
    let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
-   in findTargetV m c nts ns rq t
+   in select m c nts ns rq t
 
 recur m [] q t =
   if isEmpty q then Just []
