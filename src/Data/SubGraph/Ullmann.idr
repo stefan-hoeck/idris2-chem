@@ -37,23 +37,6 @@ makeRow : Context qe qv -> List (Context te tv) -> Maybe (Row qe qv te tv)
 makeRow q []          = Nothing
 makeRow q ts@(_ :: _) = pure $ MkRow q ts IsNonEmpty
 
-||| Removes every element in a list xs that has a matching
-||| element in the second list ys. Each element of the
-||| second list can only be matched positively once, e.g.:
-||| > deleteBothBy (==) [1,2,3,3,2,1,3,3,1] [1,2,3,4,3,2,1]
-||| [3,3,1]
-|||
-||| O(n * m)     n: Length of List a
-|||              m: Length of List b
-deleteInjectiveBy : (a -> b -> Bool) -> List a -> List b -> List a
-deleteInjectiveBy _ [] _         = []
-deleteInjectiveBy _ xs []        = xs
-deleteInjectiveBy q (x :: xs) ys = case go x ys of
-                  Nothing  => x :: deleteInjectiveBy q xs ys
-                  Just ys' =>      deleteInjectiveBy q xs ys'
-  where go : a -> List b -> Maybe (List b)
-        go _ []        = Nothing
-        go x (y :: ys) = if q x y then Just ys else go x ys
 
 ||| Matches vertice labels & the type and number of the required edges
 ||| O(n * m)     n: Length of the adjacency list of the query context
@@ -61,7 +44,7 @@ deleteInjectiveBy q (x :: xs) ys = case go x ys of
 match : Task n qe qv te tv -> Context qe qv -> Context te tv -> Bool
 match ta q t =
   let vm = (vertexMatcher ta) (label q) (label t)
-      em = isNil $ deleteInjectiveBy (edgeMatcher ta)
+      em = isNil $ deleteFirstsBy (flip $ edgeMatcher ta)
            (values $ neighbours q) (values $ neighbours t)
   in vm && em
 

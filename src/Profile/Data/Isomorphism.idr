@@ -136,10 +136,10 @@ profileTargets k {prf = prf} td (q :: qs) = do
           putStrLn  $ "Query: " ++ q.str
           -- Remove the ullmann if it takes too long for some queries
           si <- profileAndReportRes $ MkProfileTask "inductive" q.str (\_ => countMatches applyInductive q td) Z k prf
-          -- su <- profileAndReportRes $ MkProfileTask "ullmann"  q.str (\_ => countMatches applyUllmann q td) Z k prf
+          su <- profileAndReportRes $ MkProfileTask "ullmann"  q.str (\_ => countMatches applyUllmann q td) Z k prf
           acc <- profileTargets k {prf = prf} td qs
-          pure $ si :: acc -- alsp adjust this when removing su
-          -- pure $ si :: su :: acc -- alsp adjust this when removing su
+          -- pure $ si :: acc -- alsp adjust this when removing su
+          pure $ si :: su :: acc -- alsp adjust this when removing su
 
 
 ||| Profiling for a list of queries
@@ -185,14 +185,14 @@ partial export
 profile : IO ()
 profile =
   let path     = "resources/zinc.txt"
-      queries  = ["C1CCCCC1.C(=O)O.c1ccccc1"]
+      queries  = ["C1CCCCC1.C(=O)O.c1ccccc1","C(=O)O"]
       --queries  = ["C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCCC1","CC(C)(C)","CCC(CC)(CC)","CCCC(CCC)(CCC)","CCCCC(CCCC)(CCCC)","CCCCC(C)(C)","CCCCC(CC)(CC)","C1(=CC=CC=C1)O","c1ccccc1O","C(C(CO[N+](=O)[O-])O[N+](=O)[O-])O[N+](=O)[O-]"]
-      targets  = ["CC1(CC(C(C(C1)OC(=O)c2cc(c(c(c2)O)O)O)OC(=O)c3cc(c(c(c3)O)O)O)OC(=O)c4cc(c(c(c4)O)O)O)OC(=O)c5cc(c(c(c5)O)O)O"]
+      -- targets  = ["CC1(CC(C(C(C1)OC(=O)c2cc(c(c(c2)O)O)O)OC(=O)c3cc(c(c(c3)O)O)O)OC(=O)c4cc(c(c(c4)O)O)O)OC(=O)c5cc(c(c(c5)O)O)O"]
       resFile  = "resources/zincProfiling.txt"
   in do
     putStrLn   "Profiling Isomon Algorithms on ZINC file"
     putStrLn   "Result: Number of matches"
-    -- resList <- profileZinc 5 path queries
-    resList <- profileIndividual 100000 queries targets
+    resList <- profileZinc 1 path queries
+    -- resList <- profileIndividual 100000 queries targets
     writeToFile "Process;Repetitions;TotalTime;AverageTime;Result" resList resFile
     pure ()
