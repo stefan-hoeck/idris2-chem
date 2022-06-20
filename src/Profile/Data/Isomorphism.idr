@@ -122,6 +122,13 @@ writeToFile head resList path = do
        | Left e => putStrLn (show e)
      pure ()
 
+||| Writes the contents of the result list to the specified file
+appendToFile : List String -> String -> IO ()
+appendToFile resList path = do
+     Right _ <- appendFile path $ fastUnlines (resList)
+       | Left e => putStrLn (show e)
+     pure ()
+
 -- Profiling a list of queries ------------------------------------------------
 
 mkqd : List String -> Either ParseError (List QueryData)
@@ -136,10 +143,10 @@ profileTargets k {prf = prf} td (q :: qs) = do
           putStrLn  $ "Query: " ++ q.str
           -- Remove the ullmann if it takes too long for some queries
           si <- profileAndReportRes $ MkProfileTask "inductive" q.str (\_ => countMatches applyInductive q td) Z k prf
-          su <- profileAndReportRes $ MkProfileTask "ullmann"  q.str (\_ => countMatches applyUllmann q td) Z k prf
+          --su <- profileAndReportRes $ MkProfileTask "ullmann"  q.str (\_ => countMatches applyUllmann q td) Z k prf
           acc <- profileTargets k {prf = prf} td qs
-          -- pure $ si :: acc -- alsp adjust this when removing su
-          pure $ si :: su :: acc -- alsp adjust this when removing su
+          pure $ si :: acc -- alsp adjust this when removing su
+          -- pure $ si :: su :: acc -- alsp adjust this when removing su
 
 
 ||| Profiling for a list of queries
@@ -185,14 +192,42 @@ partial export
 profile : IO ()
 profile =
   let path     = "resources/zinc.txt"
-      queries  = ["C1CCCCC1.C(=O)O.c1ccccc1","C(=O)O"]
-      --queries  = ["C1CC1","C1CCC1","C1CCCC1","C1CCCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCCC1","CC(C)(C)","CCC(CC)(CC)","CCCC(CCC)(CCC)","CCCCC(CCCC)(CCCC)","CCCCC(C)(C)","CCCCC(CC)(CC)","C1(=CC=CC=C1)O","c1ccccc1O","C(C(CO[N+](=O)[O-])O[N+](=O)[O-])O[N+](=O)[O-]"]
+    --  queries = ["C1CC1","C1CCC1","C1CCCC1","C1CCCC1","C1CCCCCC1","C1CCCCCCC1","C1CCCCCCCC1","C1CCCCCCCCC1","C1CCCCCCCCCC1","C1CCCCCCCCCCC1","C1CCCCCCCCCCCC1","C1CCCCCCCCCCCCC1","C1CCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCCC1","C1CCCCCCCCCCCCCCCCCC1"]
+      queries  = ["C1C(Cl)C1","C1C(Cl)CC1","C1C(Cl)CCC1","C1C(Cl)CCCC1","C1C(Cl)CCCCC1"]
       -- targets  = ["CC1(CC(C(C(C1)OC(=O)c2cc(c(c(c2)O)O)O)OC(=O)c3cc(c(c(c3)O)O)O)OC(=O)c4cc(c(c(c4)O)O)O)OC(=O)c5cc(c(c(c5)O)O)O"]
       resFile  = "resources/zincProfiling.txt"
   in do
     putStrLn   "Profiling Isomon Algorithms on ZINC file"
     putStrLn   "Result: Number of matches"
-    resList <- profileZinc 1 path queries
+    putStrLn   "Profiling 1"
+    resList1 <- profileZinc 5 path queries
+    writeToFile "Process;Description;Repetitions;TotalTime;AverageTime;Result" resList1 resFile
+    putStrLn   "Profiling 2"
+    resList2 <- profileZinc 5 path queries
+    appendToFile resList2 resFile
+    putStrLn   "Profiling 3"
+    resList3 <- profileZinc 5 path queries
+    appendToFile resList3 resFile
+    putStrLn   "Profiling 4"
+    resList4 <- profileZinc 5 path queries
+    appendToFile resList4 resFile
+    putStrLn   "Profiling 5"
+    resList5 <- profileZinc 5 path queries
+    appendToFile resList5 resFile
+    putStrLn   "Profiling 6"
+    resList6 <- profileZinc 5 path queries
+    appendToFile resList6 resFile
+    putStrLn   "Profiling 7"
+    resList7 <- profileZinc 5 path queries
+    appendToFile resList7 resFile
+    putStrLn   "Profiling 8"
+    resList8 <- profileZinc 5 path queries
+    appendToFile resList8 resFile
+    putStrLn   "Profiling 9"
+    resList9 <- profileZinc 5 path queries
+    appendToFile resList9 resFile
+    putStrLn   "Profiling 10"
+    resList0 <- profileZinc 5 path queries
+    appendToFile resList0 resFile
     -- resList <- profileIndividual 100000 queries targets
-    writeToFile "Process;Repetitions;TotalTime;AverageTime;Result" resList resFile
     pure ()
