@@ -8,6 +8,8 @@ import Data.BitMap
 import Data.List
 import Data.Vect
 
+%default total
+
 ||| Addition of node labels to adjacency lists
 ||| O(n^2)
 export
@@ -83,8 +85,10 @@ insertNC : Eq lv
         -> Context le lv
         -> List (NodeClass lv)
 insertNC xs c = go (label c) (deg c) xs
+
  where incCls : NodeClass lv -> NodeClass lv
        incCls (MkNodeCls l d k) = MkNodeCls l d (S k)
+
        go : lv -> Nat -> List (NodeClass lv) -> List (NodeClass lv)
        go lblc degc []          = [MkNodeCls lblc degc 1]
        go lblc degc (cl :: cls) = if deg cl == degc && lblc == lbl cl
@@ -109,8 +113,10 @@ nMapTrgs : (qv -> tv -> Bool)
         -> Context qe qv
         -> Nat
 nMapTrgs p cls (MkContext nq lq ne) = go (length ne) cls
+
   where pred : Nat -> NodeClass tv -> Bool
         pred degq (MkNodeCls l d s) = d >= degq && p lq l
+
         go : Nat -> List (NodeClass tv) -> Nat
         go _ [] = Z
         go degq (x :: xs) = if pred degq x then plus (size x) (go degq xs)
@@ -144,6 +150,7 @@ possibleTrgs : (qv -> tv -> Bool)
 possibleTrgs p (MkContext nq lq neq) cg =
   let degQ = length neq
   in (nq,) $ foldl (pred degQ) Prelude.Nil cg
+
   where pred : Nat -> List Node -> Context (te,tv) tv -> List Node
         pred degq acc (MkContext nt lt net) = if length net >= degq && p lq lt
                                               then nt :: acc else acc
@@ -198,6 +205,7 @@ neighbourTargets : Matchers qe qv te tv
                 -> Context (qe,qv) qv -> Context (te,tv) tv
                 -> List (Node, List Node)
 neighbourTargets m cq ct = go (pairs $ neighbours ct) (pairs $ neighbours cq)
+
    where go : List (Node,te,tv) -> List (Node, qe, qv) -> List (Node, List Node)
          go nT []        = []
          go nT (x :: xs) = filt m nT x :: go nT xs
@@ -214,10 +222,12 @@ rmNodeET n (qryN, trgs) = (qryN, filter (/= n) trgs)
 ||| same is the case, if two records should be combined of different
 ||| query nodes. (Alternative: intersect instead of go)
 ||| O(m + n) m,n: Length of the respective target lists
+covering
 merge : (Node, List Node) -> (Node, List Node) -> (Node, List Node)
 merge (n1, trgs1) (n2, trgs2) = if n1 == n2
         then (n1, go trgs1 trgs2)
         else (n1, [])
+
   where go : List Node -> List Node -> List Node
         go [] _ = []
         go _ [] = []
@@ -233,12 +243,14 @@ merge (n1, trgs1) (n2, trgs2) = if n1 == n2
 |||       first tuple element.
 ||| O((m + n)^2)        m: (Sum of) Length of the eligible targets list
 |||                     n: Comparisons from rmNodeET and mergeV2
+covering
 reduce : Node
       -> NextMatches
       -> List (Node, List Node)
       -> Maybe NextMatches
 reduce k os ns = let nm = go os ns
                  in if any (Data.List.isNil . snd) nm then Nothing else pure nm
+
   where go : List (Node, List Node) -> List (Node, List Node) -> List (Node, List Node)
         go [] ns = ns
         go os [] = map (rmNodeET k) os
@@ -252,6 +264,7 @@ reduce k os ns = let nm = go os ns
 ||| Continues a subgraph isomorphism search by selecting a starting
 ||| node if none is present and checking if the query is empty.
 ||| Om * log n)
+covering
 recur : Eq tv => Matchers qe qv te tv
      -> NextMatches
      -> Graph (qe,qv) qv
@@ -264,6 +277,7 @@ recur : Eq tv => Matchers qe qv te tv
 ||| If the current mapping target is not eligible, continue
 ||| with the next potential target.
 ||| O(n * log n)   n: Query graph size
+covering
 select : Eq tv
            => Matchers qe qv te tv
            -> (cq : Context (qe,qv) qv)
@@ -277,7 +291,7 @@ select m cq (x :: xs) ns q t =
   let Split ct rt := match x t                 | Empty   => select m cq xs ns q t -- Should not occur if properly merged
       nsPot        = neighbourTargets m cq ct
       Just nsNew  := reduce (node ct) ns nsPot | Nothing => select m cq xs ns q t
-      Just ms     := recur m nsNew q rt    | Nothing => select m cq xs ns q t
+      Just ms     := recur m nsNew q rt        | Nothing => select m cq xs ns q t
   in pure $ (node cq, node ct) :: ms
 
 
@@ -297,7 +311,7 @@ recur m [] q t =
 ||| external graph relabelling and nodeclass calculation
 ||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
 ||| O(n * log n)
-export
+covering export
 inductiveSearch : Eq tv
                 => Matchers qe qv te tv
                 -> List (NodeClass tv)
@@ -313,7 +327,7 @@ inductiveSearch m ncs q t = if isEmpty q then Just []
 ||| calculation
 ||| O(n^3 * m^2)   n: Query size
 |||                m: Target graph size
-export
+covering export
 inductiveSearch' : Eq tv
                => Matchers qe qv te tv
                -> Graph qe qv
