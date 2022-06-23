@@ -8,6 +8,7 @@ import System.File
 
 import Text.Smiles
 import Chem.Element
+import Chem.Formula
 import Profile.Profiler
 import Data.SubGraph.InductiveSearch
 import Data.SubGraph.Ullmann
@@ -68,6 +69,7 @@ record QueryData where
   str      : String
   graph    : Graph Bond SmilesElem
   graphVL  : Graph (Bond, SmilesElem) SmilesElem
+  formula  : Formula
 
 record TargetData where
   constructor MkTargetData
@@ -75,28 +77,46 @@ record TargetData where
   graph    : Graph Bond SmilesElem
   graphVL  : Graph (Bond, SmilesElem) SmilesElem
   nclasses : List (NodeClass SmilesElem)
+  formula  : Formula
+
+elToFormula : SmilesElem -> Formula
+elToFormula (El x) = singleton x 1
+elToFormula (A (SA BArom)) = singleton B 1
+elToFormula (A (SA CArom)) = singleton C 1
+elToFormula (A (SA NArom)) = singleton N 1
+elToFormula (A (SA OArom)) = singleton O 1
+elToFormula (A (SA SArom)) = singleton S 1
+elToFormula (A (SA PArom)) = singleton P 1
+elToFormula (A SeArom) = singleton Se 1
+elToFormula (A AsArom) = singleton As 1
+
+
 
 mkQD : String -> Either ParseError QueryData
 mkQD s =
   let Right g  := map graphtoSmilesElem (parseNormal s) | Left e  => Left e
       Just grl := withVertexLabels g | Nothing => Left WithVertexLabelsErr
-  in pure $ MkQueryData s g grl
+  in pure $ MkQueryData s g grl (foldMap elToFormula g)
 
 mkTD : String -> Either ParseError TargetData
 mkTD s =
   let Right g  := map graphtoSmilesElem (parseNormal s) | Left e  => Left e
       Just grl := withVertexLabels g | Nothing => Left WithVertexLabelsErr
-  in pure $ MkTargetData s g grl (nodeClasses $ contexts g)
+  in pure $ MkTargetData s g grl (nodeClasses $ contexts g) (foldMap elToFormula g)
 
 -- algorithm application of input type
 applyInductive : QueryData -> TargetData -> Maybe Mapping
-applyInductive q t = inductiveSearch (MkMatchers (==) (==))
-                                     t.nclasses q.graphVL t.graphVL
+applyInductive q t = case contains t.formula q.formula of
+  True => inductiveSearch (MkMatchers (==) (==))
+                          t.nclasses q.graphVL t.graphVL
+  False => Nothing
 
 ||| Return type due to constraint errors
 applyUllmann : QueryData -> TargetData -> Maybe ()
-applyUllmann q t = map (const ()) $ ullmann $
-                   MkTask (==) (==) (fromList $ contexts q.graph) t.graph
+applyUllmann q t = case contains t.formula q.formula of
+  True => map (const ()) $ ullmann $
+            MkTask (==) (==) (fromList $ contexts q.graph) t.graph
+  False => Nothing
 
 -- File handling --------------------------------------------------------------
 ||| Parse the whole file to a list of molecules
@@ -199,36 +219,36 @@ profile =
   in do
     putStrLn   "Profiling Isomon Algorithms on ZINC file"
     putStrLn   "Result: Number of matches"
-    -- putStrLn   "Profiling 1"
-    -- resList1 <- profileZinc 5 path queries
-    -- writeToFile "Process;Description;Repetitions;TotalTime;AverageTime;Result" resList1 resFile
-    -- putStrLn   "Profiling 2"
-    -- resList2 <- profileZinc 5 path queries
-    -- appendToFile resList2 resFile
-    -- putStrLn   "Profiling 3"
-    -- resList3 <- profileZinc 5 path queries
-    -- appendToFile resList3 resFile
-    -- putStrLn   "Profiling 4"
-    -- resList4 <- profileZinc 5 path queries
-    -- appendToFile resList4 resFile
-    -- putStrLn   "Profiling 5"
-    -- resList5 <- profileZinc 5 path queries
-    -- appendToFile resList5 resFile
-    -- putStrLn   "Profiling 6"
-    -- resList6 <- profileZinc 5 path queries
-    -- appendToFile resList6 resFile
-    -- putStrLn   "Profiling 7"
-    -- resList7 <- profileZinc 5 path queries
-    -- appendToFile resList7 resFile
-    -- putStrLn   "Profiling 8"
-    -- resList8 <- profileZinc 5 path queries
-    -- appendToFile resList8 resFile
-    -- putStrLn   "Profiling 9"
-    -- resList9 <- profileZinc 5 path queries
-    -- appendToFile resList9 resFile
-    -- putStrLn   "Profiling 10"
-    -- resList0 <- profileZinc 5 path queries
-    -- appendToFile resList0 resFile
+    putStrLn   "Profiling 1"
+    resList1 <- profileZinc 5 path queries
+    writeToFile "Process;Description;Repetitions;TotalTime;AverageTime;Result" resList1 resFile
+    putStrLn   "Profiling 2"
+    resList2 <- profileZinc 5 path queries
+    appendToFile resList2 resFile
+    putStrLn   "Profiling 3"
+    resList3 <- profileZinc 5 path queries
+    appendToFile resList3 resFile
+    putStrLn   "Profiling 4"
+    resList4 <- profileZinc 5 path queries
+    appendToFile resList4 resFile
+    putStrLn   "Profiling 5"
+    resList5 <- profileZinc 5 path queries
+    appendToFile resList5 resFile
+    putStrLn   "Profiling 6"
+    resList6 <- profileZinc 5 path queries
+    appendToFile resList6 resFile
+    putStrLn   "Profiling 7"
+    resList7 <- profileZinc 5 path queries
+    appendToFile resList7 resFile
+    putStrLn   "Profiling 8"
+    resList8 <- profileZinc 5 path queries
+    appendToFile resList8 resFile
+    putStrLn   "Profiling 9"
+    resList9 <- profileZinc 5 path queries
+    appendToFile resList9 resFile
+    putStrLn   "Profiling 10"
+    resList0 <- profileZinc 5 path queries
+    appendToFile resList0 resFile
     resList <- profileIndividual 100000 queries targets
     writeToFile "Process;Description;Repetitions;TotalTime;AverageTime;Result" resList resFile
     -- appendToFile resList resFile
