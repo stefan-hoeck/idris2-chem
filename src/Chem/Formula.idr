@@ -174,6 +174,27 @@ export %inline
 Monoid Formula where
   neutral = F []
 
-export
+export %inline
 singleton : Elem -> (n : Nat) -> (0 prf : IsSucc n) => Formula
 singleton e n = F [(e,n)]
+
+export %inline
+contains : Formula -> Formula -> Bool
+contains (F x) (F y) = contains_ x y
+
+--------------------------------------------------------------------------------
+--          Tests
+--------------------------------------------------------------------------------
+
+0 containsTest1 : contains (F [(C,2),(H,6), (O,1)]) (F [(H,2),(O,1)]) === True
+containsTest1 = Refl
+
+0 containsTest2 : contains (F [(H,1),(F,1)]) (F [(H,2),(O,1)]) === False
+containsTest2 = Refl
+
+0 containsTest3 : contains (F []) (F [(H,2)]) === False
+containsTest3 = Refl
+
+0 containsTest4 : contains (F []) (F []) === True
+containsTest4 = Refl
+
