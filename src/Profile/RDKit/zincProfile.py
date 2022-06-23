@@ -20,8 +20,8 @@ import psutil # Access to system resources
 
 # Settings --------------------------------------------------------------------
 path        = "resources/zinc.txt"
-queries     = ["C1C(Cl)C1","C1C(Cl)CC1","C1C(Cl)CCC1","C1C(Cl)CCCC1","C1C(Cl)CCCCC1"]
-targets     = ["c1ccc(cc1)Cl","c1ccc(cc1)CCl","c1ccc(cc1)[N+]#N.[Cl-]"] # Ph-Cl, Ph-CCl, Ph-N+#N Cl-
+queries     = ["c1ccccc1.Cl","c1ccccc1.[Cl-]","c1ccccc1Cl"]
+targets     = ["c1ccc(cc1)Cl","c1ccc(cc1)CCl","c1ccc(cc1)[N+]#N.[Cl-]"]
 repetitions = 10
 repForTrgs  = 100000
 
@@ -263,14 +263,14 @@ def profileTargets( queries:     Iterable[str]
        print('Searching matches for query: ',query)
 
        for i in range(len(trgs)):
-
          f   = lambda: trgs[i].HasSubstructMatch(qry)
-         res = runTask(query,f,repetitions)
+         res = runTask(query + " -> " + targets[i],f,repetitions)
 
          print(res.pretty())
          # Write to file
          writeResults(resultFile,res)
 
+       print(f"{bcolors.OKGREEN}\n[Info] System statistics\n{bcolors.ENDC}")
        # System usage reports do not work when placed in an external function
        # (return always the same values)
        print("Process memory         / MB:  ")
@@ -304,26 +304,21 @@ def profileTargets( queries:     Iterable[str]
     print(targets)
     return
 
-def test(text: str, num: int) -> str:
-    print(text)
-    return
-
 # Execution -------------------------------------------------------------------
 # Parsing takes a lot of time
 # Measure time only for substructure search
 print('--------- RDKit profiling ---------')
-print(type(test("hello","3")))
 # Empty result file
-# open(resultFile, 'w').close()
-#
-# profileZinc(queries, path, repetitions)
-# profileZinc(queries, path, repetitions)
-# profileZinc(queries, path, repetitions)
-# profileZinc(queries, path, repetitions)
-# profileZinc(queries, path, repetitions)
-# profileZinc(queries, path, repetitions)
-# profileZinc(queries, path, repetitions)
-# profileZinc(queries, path, repetitions)
-# profileZinc(queries, path, repetitions)
-# profileZinc(queries, path, repetitions)
-#profileTargets(queries, targets, repForTrgs)
+open(resultFile, 'w').close()
+
+#profileZinc(queries, path, repetitions)
+#profileZinc(queries, path, repetitions)
+#profileZinc(queries, path, repetitions)
+#profileZinc(queries, path, repetitions)
+#profileZinc(queries, path, repetitions)
+#profileZinc(queries, path, repetitions)
+#profileZinc(queries, path, repetitions)
+#profileZinc(queries, path, repetitions)
+#profileZinc(queries, path, repetitions)
+#profileZinc(queries, path, repetitions)
+profileTargets(queries, targets, repForTrgs)
