@@ -265,7 +265,7 @@ reduce k os ns = let nm = go os ns
 ||| node if none is present and checking if the query is empty.
 ||| Om * log n)
 covering
-recur : Eq tv => Matchers qe qv te tv
+step : Eq tv => Matchers qe qv te tv
      -> NextMatches
      -> Graph (qe,qv) qv
      -> Graph (te,tv) tv
@@ -291,18 +291,18 @@ select m cq (x :: xs) ns q t =
   let Split ct rt := match x t                 | Empty   => select m cq xs ns q t -- Should not occur if properly merged
       nsPot        = neighbourTargets m cq ct
       Just nsNew  := reduce (node ct) ns nsPot | Nothing => select m cq xs ns q t
-      Just ms     := recur m nsNew q rt        | Nothing => select m cq xs ns q t
+      Just ms     := step m nsNew q rt        | Nothing => select m cq xs ns q t
   in pure $ (node cq, node ct) :: ms
 
 
-recur m ((n,nts) :: ns) q t =
+step m ((n,nts) :: ns) q t =
    let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
    in select m c nts ns rq t
 
-recur m [] q t =
+step m [] q t =
   if isEmpty q then Just []
   else let Just x := newQryNode m (nodeClasses $ contexts t) (contexts q) (contexts t) | Nothing => Nothing -- Should not occur as node extracted from query
-       in recur m [x] q t
+       in step m [x] q t
 
 
 -- Entry function -------------------------------------------------------------
@@ -320,7 +320,7 @@ inductiveSearch : Eq tv
                 -> Maybe Mapping
 inductiveSearch m ncs q t = if isEmpty q then Just []
   else let Just x := newQryNode m ncs (contexts q) (contexts t) | Nothing => Nothing
-       in recur m [x] q t
+       in step m [x] q t
 
 ||| Function to invoke the substructure search
 ||| without external graph relabelling and nodeclass

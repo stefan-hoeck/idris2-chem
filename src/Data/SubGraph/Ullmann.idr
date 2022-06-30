@@ -87,7 +87,8 @@ reduce em (MkContext _ _ qns) (MkContext tn _ tns) = traverse red
 -- Ullmann core procedure -----------------------------------------------------
 
 ||| Selects a value to instantiate
-||| O(n^3)
+||| O(n^3) best case without backtracking
+||| O(n! * n^2) otherwise
 select :  Task n qe qv te tv
        -> Context qe qv
        -> List (Context te tv)
@@ -95,7 +96,8 @@ select :  Task n qe qv te tv
        -> Maybe (Vect (S m) (Node, Node))
 
 ||| Progresses to select a value for the next query vertex or row
-||| O(n^3)
+||| O(n^3) best case without backtracking
+||| O(n! * n^2) otherwise
 step :  Task n qe qv te tv
      -> Matrix k qe qv te tv
      -> Maybe (Vect k (Node, Node))
@@ -103,7 +105,7 @@ step :  Task n qe qv te tv
 select _  _ []        _ = Nothing
 select ta q (t :: ts) m =
   let Just m1 := reduce (edgeMatcher ta) q t m | Nothing => select ta q ts m
-      Just m2  := step ta m1                    | Nothing => select ta q ts m
+      Just m2 := step ta m1                    | Nothing => select ta q ts m
   in  Just $ (node q, node t) :: m2
 
 step _ [] = Just []
@@ -113,7 +115,8 @@ step ta (r :: rs) = select ta (ctxt r) (trgs r) rs
 -- Accessor function ----------------------------------------------------------
 
 ||| Isomorphism search
-||| O(n^3)
+||| O(n^3) best case without backtracking
+||| O(n! * n^2) otherwise
 export
 ullmann : Task n qe qv te tv -> Maybe (Vect n (Node,Node))
 ullmann ta = init ta >>= step ta
