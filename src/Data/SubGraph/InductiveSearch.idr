@@ -11,7 +11,7 @@ import Data.Vect
 %default total
 
 ||| Addition of node labels to adjacency lists
-||| O(n^2)
+||| O(n)
 export
 withVertexLabels : Graph e v -> Maybe (Graph (e,v) v)
 withVertexLabels g = MkGraph <$> traverse adj g.graph
@@ -171,8 +171,7 @@ possibleTrgs p (MkContext nq lq neq) cg =
 ||| possible (no viable mapping target).
 ||| O(n * m)  n: Length of Context list (query)
 |||           m: Lenth of nodeclass list (target graph size in worst case)
-newQryNode : Eq tv
-          => Matchers qe qv te tv
+newQryNode : Matchers qe qv te tv
           -> List (NodeClass tv)
           -> List (Context (qe,qv) qv)
           -> List (Context (te,tv) tv)
