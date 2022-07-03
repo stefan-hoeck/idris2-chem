@@ -295,7 +295,7 @@ select m cq (x :: xs) ns q t =
 
 
 step m ((n,nts) :: ns) q t =
-   let Split c rq := match n q | Empty => Nothing -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
+   let Split c rq := match n q | Empty => step m ns q t -- Should not occur as proper merging prevents this (exceptions are invalid graphs)
    in select m c nts ns rq t
 
 step m [] q t =
@@ -308,8 +308,8 @@ step m [] q t =
 
 ||| Function to invoke the substructure search with
 ||| external graph relabelling and nodeclass calculation
-||| TODO: Add the newQryNode here and remove the passing of the nodeclass list. Actually compare the two implementations.. Actually compare the two implementations.
-||| O(n * log n)
+||| Best case: O(n)
+||| Worst case: O(n!)
 covering export
 inductiveSearch : Eq tv
                 => Matchers qe qv te tv
