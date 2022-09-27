@@ -239,7 +239,7 @@ namespace StereoCareBox
 ||| NOTE: In a V2000 molfile 15 is zero valence,
 ||| while 0 means no marking
 public export
-data Valence : Type where 
+data Valence : Type where
   NoValence : Valence
   MkValence : (n : Bits8) -> (0 prf : So (n <= 14)) -> Valence
 
@@ -306,7 +306,7 @@ namespace H0Designator
 -- AtomCharge
 
 public export
-data AtomCharge : Type where 
+data AtomCharge : Type where
   DoubletRadical : AtomCharge
   MkCharge : (v : Int8) -> (0 prf : So (abs v <= 3)) -> AtomCharge
 
@@ -730,7 +730,7 @@ writeN8 : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> (a -> String) -> String
 writeN8 c ps wa = padLeft 3 ' ' (write c) ++ foldMap (wpair wa) ps
 
 rpairs :  {n : _}
-       -> (re : String -> Either String a) 
+       -> (re : String -> Either String a)
        -> String
        -> Either String (Vect n (AtomRef,a))
 rpairs re s = go n 9

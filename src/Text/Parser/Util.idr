@@ -24,7 +24,7 @@ import Data.Vect
 ||| @a       : Result type in case of a success.
 public export
 data Res :  (canFail : Bool)
-         -> (strict  : Bool) 
+         -> (strict  : Bool)
          -> (ts      : List tok)
          -> (err     : Type)
          -> (a       : Type)
