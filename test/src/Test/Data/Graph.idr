@@ -48,14 +48,14 @@ lgraph nrn nre el nl = do
 -- a graph with characters '-', '=', or '#' as edge labels
 -- and lower case characters ('a' .. 'z')
 smallGraph : Gen (Graph Char Char)
-smallGraph = 
+smallGraph =
   let bond = element ['-', '=', '#']
    in lgraph (linear 0 10) (linear 0 25) bond lower
 
 -- a non-empty graph with characters '-', '=', or '#' as edge labels
 -- and lower case characters ('a' .. 'z')
 nonEmptySmallGraph : Gen (Graph Char Char)
-nonEmptySmallGraph = 
+nonEmptySmallGraph =
   let bond = element ['-', '=', '#']
    in lgraph (linear 1 10) (linear 0 25) bond lower
 

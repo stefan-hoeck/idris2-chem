@@ -105,7 +105,7 @@ atomRef = fromMaybe 1 . refine <$> bits32 (linear 1 999)
 export
 coordinate : Gen Coordinate
 coordinate =
-  fromMaybe (MkFloat 0 0 Oh Oh) <$> 
+  fromMaybe (MkFloat 0 0 Oh Oh) <$>
   [| refine (int32 (linear (-9999) 99999)) (bits32 (linear 0 9999)) |]
 
 export
@@ -183,9 +183,9 @@ rw gen rd wt = property $ do
   v <- forAll gen
   let str : String
       str = wt v
-  
+
   footnote ("Encoded: " ++ str)
-  
+
   rd str === Right v
 
 

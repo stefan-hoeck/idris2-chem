@@ -264,8 +264,8 @@ fromAtomicNr 113 = Nh
 fromAtomicNr 114 = Fl
 fromAtomicNr 115 = Mc
 fromAtomicNr 116 = Lv
-fromAtomicNr 117 = Ts 
-fromAtomicNr 118 = Og 
+fromAtomicNr 117 = Ts
+fromAtomicNr 118 = Og
 
 -- this is just an additional measure of safety:
 -- if we ever increase the valid range of atomic numbers

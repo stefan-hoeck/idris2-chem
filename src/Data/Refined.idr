@@ -91,7 +91,7 @@ readIntPlus s = case strM s of
 |||      `(n : Integer) -> {0 auto _ : IsJust (refine n)} -> dt`
 |||    * function `read` of type `String -> Maybe dt`
 |||    * function `write` of type `dt -> String`
-||| 
+|||
 ||| @dataType Name of the data type (for instance "MassNr")
 ||| @reader   quoted function used for reading the unrefined
 |||           integral from a string (for instance `(readInt))

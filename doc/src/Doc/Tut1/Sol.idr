@@ -112,7 +112,7 @@ Foldable BTree where
 
   foldr _ acc Leaf         = acc
   foldr f acc (Node x y z) = foldr f (f y $ foldr f acc z) x
-  
+
   foldl _ acc Leaf         = acc
   foldl f acc (Node x y z) = foldl f (f (foldl f acc x) y) z
 
