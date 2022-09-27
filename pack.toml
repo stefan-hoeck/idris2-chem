@@ -1,0 +1,19 @@
+[custom.all.chem]
+type   = "local"
+path   = "."
+ipkg   = "chem.ipkg"
+
+[custom.all.chem-test]
+type   = "local"
+path   = "test"
+ipkg   = "test.ipkg"
+
+[custom.all.chem-doc]
+type   = "local"
+path   = "doc"
+ipkg   = "doc.ipkg"
+
+[custom.all.chem-profile]
+type   = "local"
+path   = "profile"
+ipkg   = "profile.ipkg"
