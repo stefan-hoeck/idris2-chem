@@ -19,36 +19,29 @@ chirality SP3    = "@SP3"
 chirality (TB x) = #"@TB\#{show x}"#
 chirality (OH x) = #"@OH\#{show x}"#
 
-subsetAromatic : SubsetAromatic -> String
-subsetAromatic BArom = "b"
-subsetAromatic CArom = "c"
-subsetAromatic NArom = "n"
-subsetAromatic OArom = "o"
-subsetAromatic SArom = "s"
-subsetAromatic PArom = "p"
-
-aromatic : Aromatic -> String
-aromatic (SA x) = subsetAromatic x
-aromatic SeArom = "se"
-aromatic AsArom = "as"
-
-orgSubset : OrgSubset -> String
-orgSubset B      = "B"
-orgSubset C      = "C"
-orgSubset N      = "N"
-orgSubset O      = "O"
-orgSubset F      = "F"
-orgSubset P      = "P"
-orgSubset S      = "S"
-orgSubset Cl     = "Cl"
-orgSubset Br     = "Br"
-orgSubset I      = "I"
-orgSubset (OA x) = subsetAromatic x
-
-export
-smilesElem : SmilesElem -> String
-smilesElem (El x) = symbol x
-smilesElem (A x)  = aromatic x
+validElem : Elem -> Bool -> String
+validElem B False  = "B"
+validElem B True = "b"
+validElem C False = "C"
+validElem C True = "c"
+validElem N False = "N"
+validElem N True = "n"
+validElem O False = "O"
+validElem O True = "o"
+validElem F False = "F"
+validElem P False = "P"
+validElem P True = "p"
+validElem S False = "S"
+validElem S True = "s"
+validElem Cl False = "Cl"
+validElem Br False = "Br"
+validElem I False = "I"
+validElem Se False = "Se"
+validElem Se True = "se"
+validElem As False = "As"
+validElem As True = "as"
+validElem elem False = show elem
+validElem elem True = show elem
 
 export
 hcount : HCount -> String
@@ -63,11 +56,12 @@ charge (MkCharge 1 _)    = "+"
 charge (MkCharge (-1) _) = "-"
 charge (MkCharge v _)    = if v > 0 then "+" ++ show v else show v
 
+---- nicht sauber gelöst ----
 export
 atom : Atom -> String
-atom (SubsetAtom a) = orgSubset a
-atom (MkAtom m e chi h chg) =
-  "[" ++ maybe "" show m ++ smilesElem e ++ chirality chi ++
+atom (SubsetAtom a arom _) = validElem a arom
+atom (Bracket m e arom chi h chg prf) =
+  "[" ++ maybe "" show m ++ validElem e arom ++ chirality chi ++
   hcount h ++ charge chg ++ "]"
 
 export
