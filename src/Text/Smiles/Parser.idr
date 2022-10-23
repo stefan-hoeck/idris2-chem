@@ -34,7 +34,7 @@ data Err : Type where
   UnexpectedCP           : Err
   UnexpectedOP           : Err
 
---%runElab derive "Err" [Generic,Meta,Eq,Show]
+%runElab derive "Err" [Generic,Meta,Eq,Show]
 
 ||| An atom paired with its node index
 public export
@@ -65,7 +65,7 @@ data Result : Type where
   Stuck : Err -> List Char -> Result
 
 --%runElab derive "Result" [Generic,Meta,Eq,Show]
-
+-- TODO : Interfaces for Result
 --------------------------------------------------------------------------------
 --          Updating State
 --------------------------------------------------------------------------------
@@ -161,7 +161,6 @@ charge ('-'::     t) = case digs t of
   Y ds t' p => maybe (N $ InvalidCharge ds) (y t') $ read ("-" ++ ds)
 charge cs            = y cs 0
 
----- Korrekt? ----
 bracket : (cs : List Char) -> ResS cs Err Atom
 bracket ('['::cs1) =
   let Y mn  cs2      p2 = massNr cs1       | N err => N err
@@ -170,8 +169,9 @@ bracket ('['::cs1) =
       Y h   cs5      p5 = hcount cs4       | N err => N err
       Y chg (']'::t) p6 = charge cs5       | N err => N err
                                            | _     => N ExpectedClosingBracket
-      arom              = ?jlkafd
-   in Y (Bracket mn a.elem arom chi h chg _) t $
+      --- correct? ---
+      VE el ar prf = a
+   in Y (Bracket mn a.elem a.arom chi h chg prf) t $
         slConsLeft p6 ~> p5 ~> p4 ~> p3 ~> p2 ~> cons1
 bracket cs = N ExpectedAtom
 
