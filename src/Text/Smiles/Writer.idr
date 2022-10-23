@@ -56,7 +56,7 @@ charge (MkCharge 1 _)    = "+"
 charge (MkCharge (-1) _) = "-"
 charge (MkCharge v _)    = if v > 0 then "+" ++ show v else show v
 
----- nicht sauber gelöst ----
+---- not a nice solution ----
 export
 atom : Atom -> String
 atom (SubsetAtom a arom _) = validElem a arom
