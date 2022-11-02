@@ -65,14 +65,13 @@ data Result : Type where
   Stuck : Err -> List Char -> Result
 
 --%runElab derive "Result" [Generic,Meta,Eq,Show]
--- TODO : Interfaces for Result
 --------------------------------------------------------------------------------
 --          Updating State
 --------------------------------------------------------------------------------
 
 isAromatic : Atom -> Bool
-isAromatic (SubsetAtom _ arom _) = arom
-isAromatic (Bracket _ _ isArom _ _ _ _) = isArom
+isAromatic (SubsetAtom _ arom) = arom
+isAromatic (Bracket _ _ isArom _ _ _) = isArom
 
 -- TODO : We should be able to proof that the second
 --        `Node` is strictly larger than the first
@@ -169,29 +168,28 @@ bracket ('['::cs1) =
       Y h   cs5      p5 = hcount cs4       | N err => N err
       Y chg (']'::t) p6 = charge cs5       | N err => N err
                                            | _     => N ExpectedClosingBracket
-      --- correct? ---
       VE el ar prf = a
-   in Y (Bracket mn a.elem a.arom chi h chg prf) t $
+   in Y (Bracket mn a.elem a.arom chi h chg) t $
         slConsLeft p6 ~> p5 ~> p4 ~> p3 ~> p2 ~> cons1
 bracket cs = N ExpectedAtom
 
 atom : (cs : List Char) -> ResS cs Err Atom
-atom ('C'::'l'::t) = y t (SubsetAtom Cl False %search)
-atom ('C'     ::t) = y t (SubsetAtom C False %search)
-atom ('c'     ::t) = y t (SubsetAtom C True %search)
-atom ('N'     ::t) = y t (SubsetAtom N False %search)
-atom ('n'     ::t) = y t (SubsetAtom N True %search)
-atom ('O'     ::t) = y t (SubsetAtom O False %search)
-atom ('o'     ::t) = y t (SubsetAtom O True %search)
-atom ('F'     ::t) = y t (SubsetAtom F False %search)
-atom ('B'::'r'::t) = y t (SubsetAtom Br False %search)
-atom ('S'     ::t) = y t (SubsetAtom S False %search)
-atom ('s'     ::t) = y t (SubsetAtom S True %search)
-atom ('P'     ::t) = y t (SubsetAtom P False %search)
-atom ('p'     ::t) = y t (SubsetAtom P True %search)
-atom ('I'     ::t) = y t (SubsetAtom I False %search)
-atom ('B'     ::t) = y t (SubsetAtom B False %search)
-atom ('b'     ::t) = y t (SubsetAtom B True %search)
+atom ('C'::'l'::t) = y t (SubsetAtom Cl False)
+atom ('C'     ::t) = y t (SubsetAtom C False)
+atom ('c'     ::t) = y t (SubsetAtom C True)
+atom ('N'     ::t) = y t (SubsetAtom N False)
+atom ('n'     ::t) = y t (SubsetAtom N True)
+atom ('O'     ::t) = y t (SubsetAtom O False)
+atom ('o'     ::t) = y t (SubsetAtom O True)
+atom ('F'     ::t) = y t (SubsetAtom F False)
+atom ('B'::'r'::t) = y t (SubsetAtom Br False)
+atom ('S'     ::t) = y t (SubsetAtom S False)
+atom ('s'     ::t) = y t (SubsetAtom S True)
+atom ('P'     ::t) = y t (SubsetAtom P False)
+atom ('p'     ::t) = y t (SubsetAtom P True)
+atom ('I'     ::t) = y t (SubsetAtom I False)
+atom ('B'     ::t) = y t (SubsetAtom B False)
+atom ('b'     ::t) = y t (SubsetAtom B True)
 atom cs            = bracket cs
 --------------------------------------------------------------------------------
 --          Rings and Bonds
