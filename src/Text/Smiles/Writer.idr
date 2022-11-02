@@ -3,6 +3,7 @@ module Text.Smiles.Writer
 import Chem.Element
 import Chem.Types
 import Text.Smiles.Types
+import Data.String
 
 export
 chirality : Chirality -> String
@@ -19,29 +20,10 @@ chirality SP3    = "@SP3"
 chirality (TB x) = #"@TB\#{show x}"#
 chirality (OH x) = #"@OH\#{show x}"#
 
-validElem : Elem -> Bool -> String
-validElem B False  = "B"
-validElem B True = "b"
-validElem C False = "C"
-validElem C True = "c"
-validElem N False = "N"
-validElem N True = "n"
-validElem O False = "O"
-validElem O True = "o"
-validElem F False = "F"
-validElem P False = "P"
-validElem P True = "p"
-validElem S False = "S"
-validElem S True = "s"
-validElem Cl False = "Cl"
-validElem Br False = "Br"
-validElem I False = "I"
-validElem Se False = "Se"
-validElem Se True = "se"
-validElem As False = "As"
-validElem As True = "as"
-validElem elem False = show elem
-validElem elem True = show elem
+export
+validElem : (e : Elem) -> (b : Bool) -> (0 _ : ValidAromatic e b) => String
+validElem x False = show x
+validElem x True = toLower $ show x
 
 export
 hcount : HCount -> String
@@ -56,11 +38,10 @@ charge (MkCharge 1 _)    = "+"
 charge (MkCharge (-1) _) = "-"
 charge (MkCharge v _)    = if v > 0 then "+" ++ show v else show v
 
----- not a nice solution ----
 export
 atom : Atom -> String
-atom (SubsetAtom a arom _) = validElem a arom
-atom (Bracket m e arom chi h chg prf) =
+atom (SubsetAtom a arom) = validElem a arom
+atom (Bracket m e arom chi h chg) =
   "[" ++ maybe "" show m ++ validElem e arom ++ chirality chi ++
   hcount h ++ charge chg ++ "]"
 
