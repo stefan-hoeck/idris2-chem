@@ -87,7 +87,7 @@ record ValidElem where
   constructor VE
   elem : Elem
   arom : Bool
-  0 prf : ValidAromatic elem arom
+  {auto 0 prf : ValidAromatic elem arom}
 
 public export
 data Atom : Type where
@@ -115,7 +115,7 @@ Show Atom where
   showPrec p (SubsetAtom elem arom) =
     showCon p "SubsetAtom" $ showArg elem ++ showArg arom ++ " prf"
   showPrec p (Bracket ma e a ch hy char) =
-    showCon p "Bracket" $ showArg ma ++ showArg e ++ showArg a ++ 
+    showCon p "Bracket" $ showArg ma ++ showArg e ++ showArg a ++
                          showArg ch ++ showArg hy ++ showArg char ++ " prf"
 
 

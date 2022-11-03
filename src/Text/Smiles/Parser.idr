@@ -106,17 +106,17 @@ massNr cs = case digs cs of
   Y ds t p => maybe (N $ InvalidMassNr ds) (y t . Just) $ read ds
 
 vl : Elem -> ValidElem
-vl x = VE x False %search
+vl x = VE x False
 
 elem : (cs : List Char) -> ResS cs Err ValidElem
-elem ('c'     ::t) = y t (VE C True %search)
-elem ('b'     ::t) = y t (VE B True %search)
-elem ('n'     ::t) = y t (VE N True %search)
-elem ('o'     ::t) = y t (VE O True %search)
-elem ('p'     ::t) = y t (VE P True %search)
-elem ('s'::'e'::t) = y t (VE Se True %search)
-elem ('s'     ::t) = y t (VE S True %search)
-elem ('a'::'s'::t) = y t (VE As True %search)
+elem ('c'     ::t) = y t (VE C True)
+elem ('b'     ::t) = y t (VE B True)
+elem ('n'     ::t) = y t (VE N True)
+elem ('o'     ::t) = y t (VE O True)
+elem ('p'     ::t) = y t (VE P True)
+elem ('s'::'e'::t) = y t (VE Se True)
+elem ('s'     ::t) = y t (VE S True)
+elem ('a'::'s'::t) = y t (VE As True)
 elem (c1::c2::t)   =
   if isLower c2
      then either N (y t       . vl) $ readE (pack [c1,c2]) InvalidElement
@@ -168,7 +168,7 @@ bracket ('['::cs1) =
       Y h   cs5      p5 = hcount cs4       | N err => N err
       Y chg (']'::t) p6 = charge cs5       | N err => N err
                                            | _     => N ExpectedClosingBracket
-      VE el ar prf = a
+      VE el ar = a
    in Y (Bracket mn a.elem a.arom chi h chg) t $
         slConsLeft p6 ~> p5 ~> p4 ~> p3 ~> p2 ~> cons1
 bracket cs = N ExpectedAtom
