@@ -76,12 +76,8 @@ data ValidAromatic : Elem -> Bool -> Type where
   VAC    : ValidAromatic C b
   VAN    : ValidAromatic N b
   VAO    : ValidAromatic O b
-  VAF    : ValidAromatic F False
   VAP    : ValidAromatic P b
   VAS    : ValidAromatic S b
-  VACl   : ValidAromatic Cl False
-  VABr   : ValidAromatic Br False
-  VAI    : ValidAromatic I False
   VASe   : ValidAromatic Se b
   VAAs   : ValidAromatic As b
   VARest : ValidAromatic _ False
@@ -98,7 +94,7 @@ data Atom : Type where
   SubsetAtom :  (elem : Elem)
              -> (arom : Bool)
              -> (0 prf : ValidSubset elem arom)
-             -> Atom
+             => Atom
   Bracket    :  (massNr    : Maybe MassNr)
              -> (elem      : Elem)
              -> (isArom    : Bool)
@@ -106,19 +102,19 @@ data Atom : Type where
              -> (hydrogens : HCount)
              -> (charge    : Charge)
              -> (0 prf     : ValidAromatic elem isArom)
-             -> Atom
+             => Atom
 
 public export
 Eq Atom where
-  (SubsetAtom e ar _) == (SubsetAtom e2 ar2 _) = e == e2 && ar == ar2
-  (Bracket ma e ar ch hy char _) == (Bracket ma2 e2 ar2 ch2 hy2 char2 _) =
+  (SubsetAtom e ar) == (SubsetAtom e2 ar2) = e == e2 && ar == ar2
+  (Bracket ma e ar ch hy char) == (Bracket ma2 e2 ar2 ch2 hy2 char2) =
       ma == ma2 && e == e2 && ar == ar2 && ch == ch2 && hy == hy2 && char == char2
   _ == _ = False
 
 Show Atom where
-  showPrec p (SubsetAtom elem arom prf) =
+  showPrec p (SubsetAtom elem arom) =
     showCon p "SubsetAtom" $ showArg elem ++ showArg arom ++ " prf"
-  showPrec p (Bracket ma e a ch hy char _) =
+  showPrec p (Bracket ma e a ch hy char) =
     showCon p "Bracket" $ showArg ma ++ showArg e ++ showArg a ++ 
                          showArg ch ++ showArg hy ++ showArg char ++ " prf"
 
@@ -153,3 +149,17 @@ Eq Bond where
 public export
 SmilesMol : Type
 SmilesMol = Graph Bond Atom
+
+
+export %hint
+toValidArom : ValidSubset e b => ValidAromatic e b
+toValidArom @{VB}  = VAB
+toValidArom @{VC}  = VAC
+toValidArom @{VN}  = VAN
+toValidArom @{VO}  = VAO
+toValidArom @{VF}  = VARest
+toValidArom @{VP}  = VAP
+toValidArom @{VS}  = VAS
+toValidArom @{VCl} = VARest
+toValidArom @{VBr} = VARest
+toValidArom @{VI}  = VARest
