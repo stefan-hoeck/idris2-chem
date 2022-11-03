@@ -2,6 +2,7 @@
 type   = "local"
 path   = "."
 ipkg   = "chem.ipkg"
+test   = "test/test.ipkg"
 
 [custom.all.chem-test]
 type   = "local"

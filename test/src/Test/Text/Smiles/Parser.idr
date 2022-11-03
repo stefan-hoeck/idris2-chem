@@ -25,34 +25,53 @@ chirality = frequency
   ]
 
 export
-subsetAromatic : Gen SubsetAromatic
-subsetAromatic = element [ BArom, CArom, NArom, OArom, PArom, SArom]
-
-export
-aromatic : Gen Aromatic
-aromatic =
-  frequency [(1, element [SeArom, AsArom]), (5, map SA subsetAromatic)]
-
-export
-orgSubset : Gen OrgSubset
-orgSubset = frequency
-  [ (5, element [B,C,N,O,F,P,S,Cl,Br,I])
-  , (1, map OA subsetAromatic)
+subset : Gen Atom
+subset = element
+  [ SubsetAtom B False
+  , SubsetAtom C False
+  , SubsetAtom N False
+  , SubsetAtom O False
+  , SubsetAtom P False
+  , SubsetAtom S False
+  , SubsetAtom F False
+  , SubsetAtom Cl False
+  , SubsetAtom Br False
+  , SubsetAtom I False
+  , SubsetAtom B True
+  , SubsetAtom C True
+  , SubsetAtom N True
+  , SubsetAtom O True
+  , SubsetAtom P True
+  , SubsetAtom S True
   ]
 
+ve : Atom -> ValidElem
+ve (SubsetAtom elem arom)      = VE elem arom
+ve (Bracket _ elem arom _ _ _) = VE elem arom
+
+el : Elem -> ValidElem
+el e = VE e False
+
 export
-smilesElem : Gen SmilesElem
-smilesElem = frequency [(5, map El element), (1, map A aromatic)]
+validElem : Gen ValidElem
+validElem = frequency
+  [ (7, map el element)
+  , (1, element [VE Se True, VE As True])
+  , (3, map ve subset)
+  ]
 
 export
 hcount : Gen HCount
 hcount = fromMaybe 0 . refine <$> bits8 (linear 0 9)
 
+bracket : Maybe MassNr -> ValidElem -> Chirality -> HCount -> Charge -> Atom
+bracket x (VE e a) z w v = Bracket x e a z w v
+
 export
 atom : Gen Atom
-atom = choice
-  [ [| MkAtom (maybe massNr) smilesElem chirality hcount charge |]
-  , map SubsetAtom orgSubset
+atom = frequency
+  [ (5, [| bracket (maybe massNr) validElem chirality hcount charge |])
+  , (1, subset)
   ]
 
 export
@@ -67,29 +86,29 @@ parse_atom : Property
 parse_atom = property $ do
   a <- forAll atom
   let str = Writer.atom a
-  footnote #"Encoded: \#{str}"#
+  footnote "Encoded: \{str}"
   parse str === End (mkGraph [0 :> a] Nil)
 
 parse_bond : Property
 parse_bond = property $ do
   [a1,a2,b] <- forAll $ np [atom,atom,bond]
-  let str = #"\#{atom a1}\#{bond b}\#{atom a2}"#
-  footnote #"Encoded: \#{str}"#
+  let str = "\{atom a1}\{bond b}\{atom a2}"
+  footnote "Encoded: \{str}"
   parse str === End (mkGraph [0 :> a1, 1 :> a2] [0 <> 1 :> b])
 
 parse_branch : Property
 parse_branch = property $ do
   [a1,a2,a3,b1,b2] <- forAll $ np [atom,atom,atom,bond,bond]
-  let str = #"\#{atom a1}(\#{bond b1}\#{atom a2})\#{bond b2}\#{atom a3}"#
-  footnote #"Encoded: \#{str}"#
+  let str = "\{atom a1}(\{bond b1}\{atom a2})\{bond b2}\{atom a3}"
+  footnote "Encoded: \{str}"
   parse str === End (mkGraph [0 :> a1, 1 :> a2, 2 :> a3]
                              [0 <> 1 :> b1, 0 <> 2 :> b2])
 
 parse_ring : Property
 parse_ring = property $ do
   [a1,a2,b1] <- forAll $ np [atom,atom,bond]
-  let str = #"\#{atom a1}\#{bond b1}1.\#{atom a2}1"#
-  footnote #"Encoded: \#{str}"#
+  let str = "\{atom a1}\{bond b1}1.\{atom a2}1"
+  footnote "Encoded: \{str}"
   parse str === End (mkGraph [0 :> a1, 1 :> a2] [0 <> 1 :> b1])
 
 --------------------------------------------------------------------------------

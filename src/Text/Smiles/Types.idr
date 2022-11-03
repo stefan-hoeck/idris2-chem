@@ -57,79 +57,68 @@ data Chirality =
 --------------------------------------------------------------------------------
 --          Atoms
 --------------------------------------------------------------------------------
+public export
+data ValidSubset : Elem -> Bool -> Type where
+  VB  : ValidSubset B b
+  VC  : ValidSubset C b
+  VN  : ValidSubset N b
+  VO  : ValidSubset O b
+  VF  : ValidSubset F False
+  VP  : ValidSubset P b
+  VS  : ValidSubset S b
+  VCl : ValidSubset Cl False
+  VBr : ValidSubset Br False
+  VI  : ValidSubset I False
 
 public export
-data SubsetAromatic = BArom | CArom | NArom | OArom | SArom | PArom
+data ValidAromatic : Elem -> Bool -> Type where
+  VAB    : ValidAromatic B b
+  VAC    : ValidAromatic C b
+  VAN    : ValidAromatic N b
+  VAO    : ValidAromatic O b
+  VAP    : ValidAromatic P b
+  VAS    : ValidAromatic S b
+  VASe   : ValidAromatic Se b
+  VAAs   : ValidAromatic As b
+  VARest : ValidAromatic _ False
 
 public export
-Eq SubsetAromatic where
-  CArom == CArom = True
-  BArom == BArom = True
-  NArom == NArom = True
-  OArom == OArom = True
-  SArom == SArom = True
-  PArom == PArom = True
-  _     == _     = False
-
-
-%runElab derive "SubsetAromatic" [Generic,Meta,Show]
-
-public export
-data Aromatic = SA SubsetAromatic | SeArom | AsArom
-
-public export
-Eq Aromatic where
-  SA x   == SA y   = x == y
-  SeArom == SeArom = True
-  AsArom == AsArom = True
-  _      == _      = False
-
-
-%runElab derive "Aromatic" [Generic,Meta,Show]
-
-
-public export
-data OrgSubset = B | C | N | O | F | P | S | Cl | Br | I | OA SubsetAromatic
-
-public export
-Eq OrgSubset where
-  C    == C    = True
-  O    == O    = True
-  N    == N    = True
-  F    == F    = True
-  P    == P    = True
-  S    == S    = True
-  Cl   == Cl   = True
-  Br   == Br   = True
-  I    == I    = True
-  B    == B    = True
-  OA x == OA y = True
-  _    == _    = False
-
-%runElab derive "OrgSubset" [Generic,Meta,Show]
-
-public export
-data SmilesElem = El Elem | A Aromatic
-
-public export
-Eq SmilesElem where
-  El x == El y = x == y
-  A  x == A  y = x == y
-  _    == _    = False
-
-%runElab derive "SmilesElem" [Generic,Meta,Show]
+record ValidElem where
+  constructor VE
+  elem : Elem
+  arom : Bool
+  {auto 0 prf : ValidAromatic elem arom}
 
 public export
 data Atom : Type where
-  SubsetAtom :  (elem : OrgSubset) -> Atom
-  MkAtom     :  (massNr    : Maybe MassNr)
-             -> (elem      : SmilesElem)
+  SubsetAtom :  (elem : Elem)
+             -> (arom : Bool)
+             -> (0 prf : ValidSubset elem arom)
+             => Atom
+  Bracket    :  (massNr    : Maybe MassNr)
+             -> (elem      : Elem)
+             -> (isArom    : Bool)
              -> (chirality : Chirality)
              -> (hydrogens : HCount)
              -> (charge    : Charge)
-             -> Atom
+             -> (0 prf     : ValidAromatic elem isArom)
+             => Atom
 
-%runElab derive "Atom" [Generic,Meta,Eq,Show]
+public export
+Eq Atom where
+  (SubsetAtom e ar) == (SubsetAtom e2 ar2) = e == e2 && ar == ar2
+  (Bracket ma e ar ch hy char) == (Bracket ma2 e2 ar2 ch2 hy2 char2) =
+      ma == ma2 && e == e2 && ar == ar2 && ch == ch2 && hy == hy2 && char == char2
+  _ == _ = False
+
+export
+Show Atom where
+  showPrec p (SubsetAtom elem arom) =
+    showCon p "SubsetAtom" $ showArg elem ++ showArg arom ++ " prf"
+  showPrec p (Bracket ma e a ch hy char) =
+    showCon p "Bracket" $ showArg ma ++ showArg e ++ showArg a ++
+                         showArg ch ++ showArg hy ++ showArg char ++ " prf"
+
 
 --------------------------------------------------------------------------------
 --          Bonds
@@ -161,3 +150,17 @@ Eq Bond where
 public export
 SmilesMol : Type
 SmilesMol = Graph Bond Atom
+
+
+export %hint
+toValidArom : ValidSubset e b => ValidAromatic e b
+toValidArom @{VB}  = VAB
+toValidArom @{VC}  = VAC
+toValidArom @{VN}  = VAN
+toValidArom @{VO}  = VAO
+toValidArom @{VF}  = VARest
+toValidArom @{VP}  = VAP
+toValidArom @{VS}  = VAS
+toValidArom @{VCl} = VARest
+toValidArom @{VBr} = VARest
+toValidArom @{VI}  = VARest

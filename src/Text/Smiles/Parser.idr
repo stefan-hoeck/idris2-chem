@@ -71,9 +71,8 @@ data Result : Type where
 --------------------------------------------------------------------------------
 
 isAromatic : Atom -> Bool
-isAromatic (SubsetAtom $ OA _)    = True
-isAromatic (MkAtom _ (A _) _ _ _) = True
-isAromatic _                      = False
+isAromatic (SubsetAtom _ arom) = arom
+isAromatic (Bracket _ _ isArom _ _ _) = isArom
 
 -- TODO : We should be able to proof that the second
 --        `Node` is strictly larger than the first
@@ -107,19 +106,22 @@ massNr cs = case digs cs of
   Y "" _ _ => y cs Nothing
   Y ds t p => maybe (N $ InvalidMassNr ds) (y t . Just) $ read ds
 
-elem : (cs : List Char) -> ResS cs Err SmilesElem
-elem ('c'     ::t) = y t (A $ SA CArom)
-elem ('b'     ::t) = y t (A $ SA BArom)
-elem ('n'     ::t) = y t (A $ SA NArom)
-elem ('o'     ::t) = y t (A $ SA OArom)
-elem ('p'     ::t) = y t (A $ SA PArom)
-elem ('s'::'e'::t) = y t (A SeArom)
-elem ('s'     ::t) = y t (A $ SA SArom)
-elem ('a'::'s'::t) = y t (A AsArom)
+vl : Elem -> ValidElem
+vl x = VE x False
+
+elem : (cs : List Char) -> ResS cs Err ValidElem
+elem ('c'     ::t) = y t (VE C True)
+elem ('b'     ::t) = y t (VE B True)
+elem ('n'     ::t) = y t (VE N True)
+elem ('o'     ::t) = y t (VE O True)
+elem ('p'     ::t) = y t (VE P True)
+elem ('s'::'e'::t) = y t (VE Se True)
+elem ('s'     ::t) = y t (VE S True)
+elem ('a'::'s'::t) = y t (VE As True)
 elem (c1::c2::t)   =
   if isLower c2
-     then either N (y t       . El) $ readE (pack [c1,c2]) InvalidElement
-     else either N (y (c2::t) . El) $ readE (singleton c1) InvalidElement
+     then either N (y t       . vl) $ readE (pack [c1,c2]) InvalidElement
+     else either N (y (c2::t) . vl) $ readE (singleton c1) InvalidElement
 elem cs        = N ExpectedElement
 
 chirality : (cs : List Char) -> ResM cs Err Chirality
@@ -167,29 +169,29 @@ bracket ('['::cs1) =
       Y h   cs5      p5 = hcount cs4       | N err => N err
       Y chg (']'::t) p6 = charge cs5       | N err => N err
                                            | _     => N ExpectedClosingBracket
-   in Y (MkAtom mn a chi h chg) t $
+      VE el ar = a
+   in Y (Bracket mn a.elem a.arom chi h chg) t $
         slConsLeft p6 ~> p5 ~> p4 ~> p3 ~> p2 ~> cons1
 bracket cs = N ExpectedAtom
 
 atom : (cs : List Char) -> ResS cs Err Atom
-atom ('C'::'l'::t) = y t (SubsetAtom Cl)
-atom ('C'     ::t) = y t (SubsetAtom C)
-atom ('c'     ::t) = y t (SubsetAtom $ OA CArom)
-atom ('N'     ::t) = y t (SubsetAtom N)
-atom ('n'     ::t) = y t (SubsetAtom $ OA NArom)
-atom ('O'     ::t) = y t (SubsetAtom O)
-atom ('o'     ::t) = y t (SubsetAtom $ OA OArom)
-atom ('F'     ::t) = y t (SubsetAtom F)
-atom ('B'::'r'::t) = y t (SubsetAtom Br)
-atom ('S'     ::t) = y t (SubsetAtom S)
-atom ('s'     ::t) = y t (SubsetAtom $ OA SArom)
-atom ('P'     ::t) = y t (SubsetAtom P)
-atom ('p'     ::t) = y t (SubsetAtom $ OA PArom)
-atom ('I'     ::t) = y t (SubsetAtom I)
-atom ('B'     ::t) = y t (SubsetAtom B)
-atom ('b'     ::t) = y t (SubsetAtom $ OA BArom)
+atom ('C'::'l'::t) = y t (SubsetAtom Cl False)
+atom ('C'     ::t) = y t (SubsetAtom C False)
+atom ('c'     ::t) = y t (SubsetAtom C True)
+atom ('N'     ::t) = y t (SubsetAtom N False)
+atom ('n'     ::t) = y t (SubsetAtom N True)
+atom ('O'     ::t) = y t (SubsetAtom O False)
+atom ('o'     ::t) = y t (SubsetAtom O True)
+atom ('F'     ::t) = y t (SubsetAtom F False)
+atom ('B'::'r'::t) = y t (SubsetAtom Br False)
+atom ('S'     ::t) = y t (SubsetAtom S False)
+atom ('s'     ::t) = y t (SubsetAtom S True)
+atom ('P'     ::t) = y t (SubsetAtom P False)
+atom ('p'     ::t) = y t (SubsetAtom P True)
+atom ('I'     ::t) = y t (SubsetAtom I False)
+atom ('B'     ::t) = y t (SubsetAtom B False)
+atom ('b'     ::t) = y t (SubsetAtom B True)
 atom cs            = bracket cs
-
 --------------------------------------------------------------------------------
 --          Rings and Bonds
 --------------------------------------------------------------------------------
@@ -274,6 +276,7 @@ prs cs (Access rec) st =
         if null (st.rings) && null (st.stack) then End st.mol
         else Stuck EndOfInput []
       _        => Stuck err cs
+
 
 export
 parse : String -> Result
