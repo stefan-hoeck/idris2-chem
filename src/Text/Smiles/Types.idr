@@ -111,6 +111,7 @@ Eq Atom where
       ma == ma2 && e == e2 && ar == ar2 && ch == ch2 && hy == hy2 && char == char2
   _ == _ = False
 
+export
 Show Atom where
   showPrec p (SubsetAtom elem arom) =
     showCon p "SubsetAtom" $ showArg elem ++ showArg arom ++ " prf"

@@ -64,7 +64,8 @@ data Result : Type where
   End   : (result : Graph Bond Atom) -> Result
   Stuck : Err -> List Char -> Result
 
---%runElab derive "Result" [Generic,Meta,Eq,Show]
+%runElab derive "Result" [Generic,Meta,Eq,Show]
+
 --------------------------------------------------------------------------------
 --          Updating State
 --------------------------------------------------------------------------------
