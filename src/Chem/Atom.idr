@@ -53,6 +53,6 @@ Eq a => Eq (Atom a) where
 -- Changed Type of HCount.value from Bits8 to Nat -> no negative value possible
 public export
 toFormula : Atom a -> Formula
-toFormula (MkAtom e _ _ _ _ h) = case h.value of
+toFormula (MkAtom e _ _ _ _ h) = case cast {to = Nat} (h.value) of
     0     => singleton e 1
     (S v) => singleton e 1 <+> singleton H (S v)
