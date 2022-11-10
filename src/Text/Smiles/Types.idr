@@ -23,10 +23,10 @@ import Text.RW
 public export
 record HCount where
   constructor MkHCount
-  value : Nat
+  value : Bits8
   0 prf : So (value < 10)
 
-%runElab rwInt "HCount" `(Nat)
+%runElab rwInt "HCount" `(Bits8)
 
 --------------------------------------------------------------------------------
 --          Chirality
