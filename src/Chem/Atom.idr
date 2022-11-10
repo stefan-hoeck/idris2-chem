@@ -50,7 +50,6 @@ Eq a => Eq (Atom a) where
     e1 == e2 && a1 == a2 && ma1 == ma2 && ch1 == ch2 && l1 == l2 && hy1 == hy2
 
 
--- Changed Type of HCount.value from Bits8 to Nat -> no negative value possible
 public export
 toFormula : Atom a -> Formula
 toFormula (MkAtom e _ _ _ _ h) = case cast {to = Nat} (h.value) of
