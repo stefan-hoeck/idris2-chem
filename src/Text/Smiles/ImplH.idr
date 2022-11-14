@@ -71,37 +71,6 @@ dispATError (WrongElementOrCharge elem c) = "Wrong Element and/or Charge for thi
 dispATError (WrongAmountBonds elem c b)   = "Wrong amount of bonds for this element. Element: " ++ show elem ++ " Charge: " ++ show c ++ " Bonds: " ++ showBonds b
 dispATError (AtomNotRecordedNow elem)     = "Atom is not recorded now: " ++ show elem
 
--- transformation functions
-{-
-fromSmilesElem : SmilesElem -> (Elem, Bool)
-fromSmilesElem (El x)         = (x, False)
-fromSmilesElem (A (SA BArom)) = (B, True)
-fromSmilesElem (A (SA CArom)) = (C, True)
-fromSmilesElem (A (SA NArom)) = (N, True)
-fromSmilesElem (A (SA OArom)) = (O, True)
-fromSmilesElem (A (SA SArom)) = (S, True)
-fromSmilesElem (A (SA PArom)) = (P, True)
-fromSmilesElem (A SeArom)     = (Se, True)
-fromSmilesElem (A AsArom)     = (As, True)
-
-fromOrgSubset : OrgSubset -> Elem
-fromOrgSubset B          = B
-fromOrgSubset C          = C
-fromOrgSubset N          = N
-fromOrgSubset O          = O
-fromOrgSubset F          = F
-fromOrgSubset P          = P
-fromOrgSubset S          = S
-fromOrgSubset Cl         = Cl
-fromOrgSubset Br         = Br
-fromOrgSubset I          = I
-fromOrgSubset (OA BArom) = B
-fromOrgSubset (OA CArom) = C
-fromOrgSubset (OA NArom) = N
-fromOrgSubset (OA OArom) = O
-fromOrgSubset (OA SArom) = S
-fromOrgSubset (OA PArom) = P
--}
 
 -- further help functions
 
