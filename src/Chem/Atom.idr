@@ -42,7 +42,7 @@ export
 Show a => Show (Atom a) where
   showPrec p (MkAtom e a ma ch l hy) =
     showCon p "MkAtom" $ showArg e ++ showArg a ++ showArg ma ++ showArg ch ++ 
-      showArg l ++ showArg hy ++ "prf"
+      showArg l ++ showArg hy
 
 public export
 Eq a => Eq (Atom a) where
