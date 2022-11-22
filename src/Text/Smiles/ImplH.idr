@@ -210,3 +210,10 @@ implHTest = do
        End result => case graphWithH result of
                           Left y  => putStrLn (dispImplHError y)
                           Right y => putStrLn (pretty show show y)
+
+
+{- TODO :
+      - Type AWH -> Atom a
+      - Pattern match nonArom -> algoritm (saveMinus)
+      - List Bonds -> Maybe (Maybe Bond, Nat)
+-}
