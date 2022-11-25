@@ -2,6 +2,7 @@ module Text.Smiles.ImplH
 
 import Data.List
 import Chem
+import Chem.Atom
 import Text.Smiles
 import Data.String
 import Data.Graph
@@ -11,14 +12,6 @@ import Data.Either
 import System.File
 
 %default total
-
--- new datatypes
-record AtomWithH where
-  constructor AWH
-  elem      : Elem
-  aromatic  : Bool
-  charge    : Charge
-  hcount    : HCount
 
 record Bonds where
   constructor BS
@@ -33,6 +26,7 @@ Semigroup Bonds where
 Monoid Bonds where
   neutral = BS 0 0 0
 
+
 bondsToNat : Bonds -> Nat
 bondsToNat (BS s d t) = s + d * 2 + t * 3
 
@@ -40,37 +34,9 @@ showBonds : Bonds -> String
 showBonds (BS s d t) =
   "Sngl: " ++ show s ++ ", Dbl: "++ show d ++ ", Trpl: " ++ show t
 
-
-Show AtomWithH where
-  showPrec p (AWH e ar ch hc) =
-    showCon p "AWH" $  showArg e
-                    ++  showArg ar
-                    ++  showArg ch
-                    ++  showArg hc
-
 showBond : List Bond -> String
 showBond [] = ""
 showBond (x :: xs) = show x ++ " " <+> showBond xs 
-
--- definition of errortypes
-data ImplHError : Type where
-  WrongBondCount  : (num : Nat   ) -> (value : Atom)  -> ImplHError
-  WrongBonds      : (value : Atom) -> ImplHError
-
-dispImplHError : ImplHError -> String
-dispImplHError (WrongBondCount n v) = "Wrong number of Bonds for this Atom: " ++ show v ++ " Bonds: " ++ show n
-dispImplHError (WrongBonds v)       = "Impossible assignment of bonds to this Atom: " ++ show v
-
-data AtomTypeError : Type where
-  WrongElementOrCharge: (elem : Elem) -> (charge : Charge) -> AtomTypeError
-  WrongAmountBonds    : (elem : Elem) -> (charge : Charge) -> (bonds : Bonds) -> AtomTypeError
-  AtomNotRecordedNow  : (elem : Elem) -> AtomTypeError
-
-dispATError : AtomTypeError -> String
-dispATError (WrongElementOrCharge elem c) = "Wrong Element and/or Charge for this function: " ++ show elem ++ show c
-dispATError (WrongAmountBonds elem c b)   = "Wrong amount of bonds for this element. Element: " ++ show elem ++ " Charge: " ++ show c ++ " Bonds: " ++ showBonds b
-dispATError (AtomNotRecordedNow elem)     = "Atom is not recorded now: " ++ show elem
-
 
 -- further help functions
 
@@ -109,111 +75,107 @@ hCountToBonds : HCount -> Bonds
 hCountToBonds (MkHCount value _) = BS (cast value) 0 0
 
 
-fromOrg : Elem -> HCount -> Either ImplHError AtomWithH
-fromOrg e h = Right $ AWH e False 0 h
+-- generates a pair with a list of non aromatic bonds and a
+-- aromatic bond counter 
+toPairBondsNat : List Bond -> (List Bond, Nat)
+toPairBondsNat = foldl fun ([],0)
+  where fun : (List Bond, Nat) -> Bond -> (List Bond, Nat)
+        fun (x, z) Arom = (x, S z)
+        fun (x, z) b = (b :: x, z)
 
-fromOrgArom : Elem -> HCount -> Either ImplHError AtomWithH
-fromOrgArom e h = Right $ AWH e True 0 h
+
+fromOrg : Elem -> HCount -> Maybe (Atom Chirality)
+fromOrg e h = Just $ MkAtom e False Nothing 0 None h
+
+fromOrgArom : (e : Elem)
+           -> (0 prf : ValidAromatic e True)
+           => HCount
+           -> Maybe (Atom Chirality)
+fromOrgArom e h = Just $ MkAtom e True Nothing 0 None h
+
+
+-- implementation missing!!!
+toImplH : (val : Nat) -> (bonds : Nat) -> Maybe HCount
+
 
 -- determination of implicit hydrogens
 --- non-aromatic atoms
-toAtomWithHnonArom :  Atom
+toAtomExplicitH :  Atom
             -> (numberOfbonds : Nat)
-            -> Either ImplHError AtomWithH
-toAtomWithHnonArom (SubsetAtom B _) 0  = fromOrg B 3
-toAtomWithHnonArom (SubsetAtom B _) 1  = fromOrg B 2
-toAtomWithHnonArom (SubsetAtom B _) 2  = fromOrg B 1
-toAtomWithHnonArom (SubsetAtom B _) 3  = fromOrg B 0
-toAtomWithHnonArom (SubsetAtom C _) 0  = fromOrg C 4
-toAtomWithHnonArom (SubsetAtom C _) 1  = fromOrg C 3
-toAtomWithHnonArom (SubsetAtom C _) 2  = fromOrg C 2
-toAtomWithHnonArom (SubsetAtom C _) 3  = fromOrg C 1
-toAtomWithHnonArom (SubsetAtom C _) 4  = fromOrg C 0
-toAtomWithHnonArom (SubsetAtom N _) 0  = fromOrg N 3
-toAtomWithHnonArom (SubsetAtom N _) 1  = fromOrg N 2
-toAtomWithHnonArom (SubsetAtom N _) 2  = fromOrg N 1
-toAtomWithHnonArom (SubsetAtom N _) 3  = fromOrg N 0
-toAtomWithHnonArom (SubsetAtom N _) 4  = fromOrg N 1
-toAtomWithHnonArom (SubsetAtom N _) 5  = fromOrg N 0
-toAtomWithHnonArom (SubsetAtom O _) 0  = fromOrg O 2
-toAtomWithHnonArom (SubsetAtom O _) 1  = fromOrg O 1
-toAtomWithHnonArom (SubsetAtom O _) 2  = fromOrg O 0
-toAtomWithHnonArom (SubsetAtom F _) 0  = fromOrg F 1
-toAtomWithHnonArom (SubsetAtom F _) 1  = fromOrg F 0
-toAtomWithHnonArom (SubsetAtom P _) 0  = fromOrg P 3
-toAtomWithHnonArom (SubsetAtom P _) 1  = fromOrg P 2
-toAtomWithHnonArom (SubsetAtom P _) 2  = fromOrg P 1
-toAtomWithHnonArom (SubsetAtom P _) 3  = fromOrg P 0
-toAtomWithHnonArom (SubsetAtom P _) 4  = fromOrg P 1
-toAtomWithHnonArom (SubsetAtom P _) 5  = fromOrg P 0
-toAtomWithHnonArom (SubsetAtom S _) 0  = fromOrg S 2
-toAtomWithHnonArom (SubsetAtom S _) 1  = fromOrg S 1
-toAtomWithHnonArom (SubsetAtom S _) 2  = fromOrg S 0
-toAtomWithHnonArom (SubsetAtom S _) 3  = fromOrg S 1
-toAtomWithHnonArom (SubsetAtom S _) 4  = fromOrg S 0
-toAtomWithHnonArom (SubsetAtom S _) 5  = fromOrg S 1
-toAtomWithHnonArom (SubsetAtom S _) 6  = fromOrg S 0
-toAtomWithHnonArom (SubsetAtom Cl _) 0 = fromOrg Cl 1
-toAtomWithHnonArom (SubsetAtom Cl _) 1 = fromOrg Cl 0
-toAtomWithHnonArom (SubsetAtom Br _) 0 = fromOrg Br 1
-toAtomWithHnonArom (SubsetAtom Br _) 1 = fromOrg Br 0
-toAtomWithHnonArom (SubsetAtom I _) 0  = fromOrg I 1
-toAtomWithHnonArom (SubsetAtom I _) 1  = fromOrg I 0
-toAtomWithHnonArom (Bracket _ elem arom _ hydrogens charge)  _ =
-   Right $ AWH elem arom charge hydrogens
-toAtomWithHnonArom a@(SubsetAtom y _) x = Left $ WrongBondCount x a
+            -> Maybe (Atom Chirality)
+toAtomExplicitH (SubsetAtom B _) n =
+  case toImplH 3 n of
+    Just x => fromOrg B x
+    Nothing => Nothing
+toAtomExplicitH (SubsetAtom C _) n =
+  case toImplH 4 n of
+    Just x => fromOrg C x
+    Nothing => Nothing
+toAtomExplicitH (SubsetAtom N _) n =
+  case (toImplH 3 n <|> toImplH 5 n) of
+       Nothing => Nothing
+       Just x  => fromOrg N x
+toAtomExplicitH (SubsetAtom O _) n =
+  case toImplH 2 n of
+       Nothing => Nothing
+       Just x  => fromOrg O x
+toAtomExplicitH (SubsetAtom F _) n =
+  case toImplH 1 n of
+       Nothing => Nothing
+       Just x  => fromOrg F x
+toAtomExplicitH (SubsetAtom P _) n =
+  case (toImplH 3 n <|> toImplH 5 n) of
+       Nothing => Nothing
+       Just x  => fromOrg P x
+toAtomExplicitH (SubsetAtom S _) n =
+  case (toImplH 2 n <|> toImplH 4 n <|> toImplH 6 n) of
+       Nothing => Nothing
+       Just x  => fromOrg S x
+toAtomExplicitH (SubsetAtom Cl _) n =
+  case toImplH 1 n of
+       Nothing => Nothing
+       Just x  => fromOrg Cl x
+toAtomExplicitH (SubsetAtom Br _) n =
+  case toImplH 1 n of
+       Nothing => Nothing
+       Just x  => fromOrg Br x
+toAtomExplicitH (SubsetAtom I _) n =
+  case toImplH 1 n of
+       Nothing => Nothing
+       Just x  => fromOrg I x
+toAtomExplicitH (Bracket m e a chi h cha) n =
+  Just $ MkAtom e a m cha chi h
 
 
 --- aromatic atoms
-toAtomWithHArom : Atom -> List Bond -> Either ImplHError AtomWithH
-toAtomWithHArom (SubsetAtom C _) [Dbl,Arom,Arom]  = fromOrgArom C 0
-toAtomWithHArom (SubsetAtom C _) [Sngl,Arom,Arom] = fromOrgArom C 0
-toAtomWithHArom (SubsetAtom C _) [Arom,Arom]      = fromOrgArom C 1
-toAtomWithHArom (SubsetAtom C _) [Arom,Arom,Arom] = fromOrgArom C 0
-toAtomWithHArom (SubsetAtom B _) [Arom,Arom]      = fromOrgArom B 0
-toAtomWithHArom (SubsetAtom B _) [Sngl,Arom,Arom] = fromOrgArom B 0
-toAtomWithHArom (SubsetAtom N _) [Arom,Arom]      = fromOrgArom N 0
-toAtomWithHArom (SubsetAtom N _) [Sngl,Arom,Arom] = fromOrgArom N 0
-toAtomWithHArom (SubsetAtom N _) [Arom,Arom,Arom] = fromOrgArom N 0
-toAtomWithHArom (SubsetAtom O _) [Arom,Arom]      = fromOrgArom O 0
-toAtomWithHArom (SubsetAtom S _) [Arom,Arom]      = fromOrgArom S 0
-toAtomWithHArom (SubsetAtom P _) [Arom,Arom]      = fromOrgArom P 0
-toAtomWithHArom a _                                      = Left $ WrongBonds a
+toAtomExplicitHArom : Atom -> List Bond -> Maybe (Atom Chirality)
+toAtomExplicitHArom (SubsetAtom C _) [Dbl,Arom,Arom]  = fromOrgArom C 0
+toAtomExplicitHArom (SubsetAtom C _) [Sngl,Arom,Arom] = fromOrgArom C 0
+toAtomExplicitHArom (SubsetAtom C _) [Arom,Arom]      = fromOrgArom C 1
+toAtomExplicitHArom (SubsetAtom C _) [Arom,Arom,Arom] = fromOrgArom C 0
+toAtomExplicitHArom (SubsetAtom B _) [Arom,Arom]      = fromOrgArom B 0
+toAtomExplicitHArom (SubsetAtom B _) [Sngl,Arom,Arom] = fromOrgArom B 0
+toAtomExplicitHArom (SubsetAtom N _) [Arom,Arom]      = fromOrgArom N 0
+toAtomExplicitHArom (SubsetAtom N _) [Sngl,Arom,Arom] = fromOrgArom N 0
+toAtomExplicitHArom (SubsetAtom N _) [Arom,Arom,Arom] = fromOrgArom N 0
+toAtomExplicitHArom (SubsetAtom O _) [Arom,Arom]      = fromOrgArom O 0
+toAtomExplicitHArom (SubsetAtom S _) [Arom,Arom]      = fromOrgArom S 0
+toAtomExplicitHArom (SubsetAtom P _) [Arom,Arom]      = fromOrgArom P 0
+toAtomExplicitHArom a _                               = Nothing
 
 
 --- differentiation aromaticity
-toAtomWithH : Atom -> List Bond -> Either ImplHError AtomWithH
+toAtomWithH : Atom -> List Bond -> Maybe (Atom Chirality)
 toAtomWithH a@(SubsetAtom elem arom) xs = if arom == True
-                then toAtomWithHArom a xs
-                else toAtomWithHnonArom a $ bondTotal xs
+                then toAtomExplicitHArom a xs
+                else toAtomExplicitH a $ bondTotal xs
 toAtomWithH (Bracket _ elem isArom _ hydrogens charge) _ =
-  Right $ AWH elem isArom charge hydrogens
+  Just $ MkAtom elem isArom Nothing charge None hydrogens
 
 --- atom to AtomWithH
-adjToAtomH : Adj Bond Atom -> Either ImplHError (Adj Bond AtomWithH)
+adjToAtomH : Adj Bond Atom -> Maybe (Adj Bond (Atom Chirality))
 adjToAtomH (MkAdj label ns) = map (`MkAdj` ns) (toAtomWithH label (values ns))
 
 --- graph to AtomWithH
-graphWithH : Graph Bond Atom -> Either ImplHError (Graph Bond AtomWithH)
+graphWithH : Graph Bond Atom -> Maybe (Graph Bond (Atom Chirality))
 graphWithH (MkGraph graph) = map MkGraph (traverse adjToAtomH graph)
-
-
--------------------------------------------------------------------------------
--- Testing
--------------------------------------------------------------------------------
-
--- TODO : output not pretty
-implHTest : IO ()
-implHTest = do
-  case parse "CCO" of
-       Stuck x xs => putStrLn (show x ++ pack xs)
-       End result => case graphWithH result of
-                          Left y  => putStrLn (dispImplHError y)
-                          Right y => putStrLn (pretty show show y)
-
-
-{- TODO :
-      - Type AWH -> Atom a
-      - Pattern match nonArom -> algoritm (saveMinus)
-      - List Bonds -> Maybe (Maybe Bond, Nat)
--}
