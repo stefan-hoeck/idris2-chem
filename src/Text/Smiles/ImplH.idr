@@ -13,6 +13,7 @@ import System.File
 
 %default total
 
+public export
 record Bonds where
   constructor BS
   single : Nat
@@ -20,20 +21,25 @@ record Bonds where
   triple : Nat
 
 -- interfaces and help functions
+public export
 Semigroup Bonds where
   (BS s1 d1 t1) <+> (BS s2 d2 t2) = BS (s1 + s2) (d1 + d2) (t1 + t2)
 
+public export
 Monoid Bonds where
   neutral = BS 0 0 0
 
 
+public export
 bondsToNat : Bonds -> Nat
 bondsToNat (BS s d t) = s + d * 2 + t * 3
 
+public export
 showBonds : Bonds -> String
 showBonds (BS s d t) =
   "Sngl: " ++ show s ++ ", Dbl: "++ show d ++ ", Trpl: " ++ show t
 
+public export
 showBond : List Bond -> String
 showBond [] = ""
 showBond (x :: xs) = show x ++ " " <+> showBond xs 
@@ -42,6 +48,7 @@ showBond (x :: xs) = show x ++ " " <+> showBond xs
 
 --- Counts Arom Bonds as 1!
 --- Can lead to wrong Bondcount!
+public export
 bondTotal : List Bond -> Nat
 bondTotal [] = 0
 bondTotal (Sngl :: xs) = 1 + (bondTotal xs)
@@ -50,6 +57,7 @@ bondTotal (Dbl :: xs)  = 2 + (bondTotal xs)
 bondTotal (Trpl :: xs) = 3 + (bondTotal xs)
 bondTotal (Quad :: xs) = 4 + (bondTotal xs)
 
+public export
 orderBond' : Bond -> Nat
 orderBond' Sngl  = 0
 orderBond' Dbl   = 1
@@ -57,12 +65,15 @@ orderBond' Trpl  = 2
 orderBond' Quad  = 3
 orderBond' Arom  = 4
 
+public export
 orderBond : Bond -> Bond -> Ordering
 orderBond = compare `on` orderBond'
 
+public export
 sortBond : (Bond -> Bond -> Ordering) -> List Bond -> List Bond
 sortBond f xs = sortBy f xs
 
+public export
 toBonds : List Bond -> Bonds
 toBonds []           = BS 0 0 0
 toBonds (Sngl :: xs) = BS 1 0 0 <+> toBonds xs
@@ -71,12 +82,14 @@ toBonds (Trpl :: xs) = BS 0 0 1 <+> toBonds xs
 toBonds (Arom :: xs) = BS 1 0 0 <+> toBonds xs
 toBonds (x :: xs)    = BS 0 0 0 <+> toBonds xs
 
+public export
 hCountToBonds : HCount -> Bonds
 hCountToBonds (MkHCount value _) = BS (cast value) 0 0
 
 
 -- generates a pair with a list of non aromatic bonds and a
 -- aromatic bond counter 
+public export
 toPairBondsNat : List Bond -> (List Bond, Nat)
 toPairBondsNat = foldl fun ([],0)
   where fun : (List Bond, Nat) -> Bond -> (List Bond, Nat)
@@ -84,9 +97,11 @@ toPairBondsNat = foldl fun ([],0)
         fun (x, z) b = (b :: x, z)
 
 
+public export
 fromOrg : Elem -> HCount -> Maybe (Atom Chirality)
 fromOrg e h = Just $ MkAtom e False Nothing 0 None h
 
+public export
 fromOrgArom : (e : Elem)
            -> (0 prf : ValidAromatic e True)
            => HCount
@@ -95,11 +110,13 @@ fromOrgArom e h = Just $ MkAtom e True Nothing 0 None h
 
 
 -- implementation missing!!!
+public export
 toImplH : (val : Nat) -> (bonds : Nat) -> Maybe HCount
 
 
 -- determination of implicit hydrogens
 --- non-aromatic atoms
+public export
 toAtomExplicitH :  Atom
             -> (numberOfbonds : Nat)
             -> Maybe (Atom Chirality)
@@ -148,6 +165,7 @@ toAtomExplicitH (Bracket m e a chi h cha) n =
 
 
 --- aromatic atoms
+public export
 toAtomExplicitHArom : Atom -> List Bond -> Maybe (Atom Chirality)
 toAtomExplicitHArom (SubsetAtom C _) [Dbl,Arom,Arom]  = fromOrgArom C 0
 toAtomExplicitHArom (SubsetAtom C _) [Sngl,Arom,Arom] = fromOrgArom C 0
@@ -165,6 +183,7 @@ toAtomExplicitHArom a _                               = Nothing
 
 
 --- differentiation aromaticity
+public export
 toAtomWithH : Atom -> List Bond -> Maybe (Atom Chirality)
 toAtomWithH a@(SubsetAtom elem arom) xs = if arom == True
                 then toAtomExplicitHArom a xs
@@ -173,9 +192,11 @@ toAtomWithH (Bracket _ elem isArom _ hydrogens charge) _ =
   Just $ MkAtom elem isArom Nothing charge None hydrogens
 
 --- atom to AtomWithH
+public export
 adjToAtomH : Adj Bond Atom -> Maybe (Adj Bond (Atom Chirality))
 adjToAtomH (MkAdj label ns) = map (`MkAdj` ns) (toAtomWithH label (values ns))
 
 --- graph to AtomWithH
+public export
 graphWithH : Graph Bond Atom -> Maybe (Graph Bond (Atom Chirality))
 graphWithH (MkGraph graph) = map MkGraph (traverse adjToAtomH graph)
