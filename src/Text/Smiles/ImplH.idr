@@ -109,94 +109,69 @@ fromOrgArom : (e : Elem)
 fromOrgArom e h = Just $ MkAtom e True Nothing 0 None h
 
 
--- implementation missing!!!
-public export
 toImplH : (val : Nat) -> (bonds : Nat) -> Maybe HCount
+toImplH val bonds = refine (cast val - cast bonds)
 
 
--- determination of implicit hydrogens
---- non-aromatic atoms
 public export
-toAtomExplicitH :  Atom
-            -> (numberOfbonds : Nat)
-            -> Maybe (Atom Chirality)
-toAtomExplicitH (SubsetAtom B _) n =
-  case toImplH 3 n of
-    Just x => fromOrg B x
-    Nothing => Nothing
-toAtomExplicitH (SubsetAtom C _) n =
-  case toImplH 4 n of
-    Just x => fromOrg C x
-    Nothing => Nothing
-toAtomExplicitH (SubsetAtom N _) n =
-  case (toImplH 3 n <|> toImplH 5 n) of
-       Nothing => Nothing
-       Just x  => fromOrg N x
-toAtomExplicitH (SubsetAtom O _) n =
-  case toImplH 2 n of
-       Nothing => Nothing
-       Just x  => fromOrg O x
-toAtomExplicitH (SubsetAtom F _) n =
-  case toImplH 1 n of
-       Nothing => Nothing
-       Just x  => fromOrg F x
-toAtomExplicitH (SubsetAtom P _) n =
-  case (toImplH 3 n <|> toImplH 5 n) of
-       Nothing => Nothing
-       Just x  => fromOrg P x
-toAtomExplicitH (SubsetAtom S _) n =
-  case (toImplH 2 n <|> toImplH 4 n <|> toImplH 6 n) of
-       Nothing => Nothing
-       Just x  => fromOrg S x
-toAtomExplicitH (SubsetAtom Cl _) n =
-  case toImplH 1 n of
-       Nothing => Nothing
-       Just x  => fromOrg Cl x
-toAtomExplicitH (SubsetAtom Br _) n =
-  case toImplH 1 n of
-       Nothing => Nothing
-       Just x  => fromOrg Br x
-toAtomExplicitH (SubsetAtom I _) n =
-  case toImplH 1 n of
-       Nothing => Nothing
-       Just x  => fromOrg I x
-toAtomExplicitH (Bracket m e a chi h cha) n =
-  Just $ MkAtom e a m cha chi h
+explicitH : (e : Elem)
+         -> {auto 0 prf : ValidSubset e False}
+         -> Nat
+         -> Maybe HCount
+explicitH B n = toImplH 3 n
+explicitH C n = toImplH 4 n
+explicitH N n = toImplH 3 n <|> toImplH 5 n
+explicitH O n = toImplH 2 n
+explicitH F n = toImplH 1 n
+explicitH P n = toImplH 3 n <|> toImplH 5 n
+explicitH S n = toImplH 2 n <|> toImplH 4 n <|> toImplH 6 n
+explicitH Cl n = toImplH 1 n
+explicitH Br n = toImplH 1 n
+explicitH I n = toImplH 1 n
 
 
---- aromatic atoms
 public export
-toAtomExplicitHArom : Atom -> List Bond -> Maybe (Atom Chirality)
-toAtomExplicitHArom (SubsetAtom C _) [Dbl,Arom,Arom]  = fromOrgArom C 0
-toAtomExplicitHArom (SubsetAtom C _) [Sngl,Arom,Arom] = fromOrgArom C 0
-toAtomExplicitHArom (SubsetAtom C _) [Arom,Arom]      = fromOrgArom C 1
-toAtomExplicitHArom (SubsetAtom C _) [Arom,Arom,Arom] = fromOrgArom C 0
-toAtomExplicitHArom (SubsetAtom B _) [Arom,Arom]      = fromOrgArom B 0
-toAtomExplicitHArom (SubsetAtom B _) [Sngl,Arom,Arom] = fromOrgArom B 0
-toAtomExplicitHArom (SubsetAtom N _) [Arom,Arom]      = fromOrgArom N 0
-toAtomExplicitHArom (SubsetAtom N _) [Sngl,Arom,Arom] = fromOrgArom N 0
-toAtomExplicitHArom (SubsetAtom N _) [Arom,Arom,Arom] = fromOrgArom N 0
-toAtomExplicitHArom (SubsetAtom O _) [Arom,Arom]      = fromOrgArom O 0
-toAtomExplicitHArom (SubsetAtom S _) [Arom,Arom]      = fromOrgArom S 0
-toAtomExplicitHArom (SubsetAtom P _) [Arom,Arom]      = fromOrgArom P 0
-toAtomExplicitHArom a _                               = Nothing
+explicitAromH : (e : Elem)
+             -> {auto 0 prf : ValidSubset e True}
+             -> (List Bond, Nat)
+             -> Maybe HCount
+explicitAromH C ([], 2)      = Just $ 1
+explicitAromH C ([], 3)      = Just $ 0
+explicitAromH C ([Sngl], 2)  = Just $ 0
+explicitAromH C ([Dbl], 2)   = Just $ 0
+explicitAromH C (_, _)       = Nothing
+explicitAromH B ([], 3)      = Just $ 0
+explicitAromH B ([], 2)      = Just $ 0
+explicitAromH B ([Sngl], 2)  = Just $ 0
+explicitAromH B (_, _)       = Nothing
+explicitAromH N ([], 3)      = Just $ 0
+explicitAromH N ([], 2)      = Just $ 0
+explicitAromH N ([Sngl], 2)  = Just 0
+explicitAromH N (_, _)       = Nothing
+explicitAromH O ([], 2)      = Just $ 0
+explicitAromH O (_, _)       = Nothing
+explicitAromH S ([], 2)      = Just $ 0
+explicitAromH S (_, _)       = Nothing
+explicitAromH P ([], 3)      = Just $ 0
+explicitAromH P ([], 2)      = Just $ 0
+explicitAromH P (_, _)       = Nothing
 
 
---- differentiation aromaticity
 public export
 toAtomWithH : Atom -> List Bond -> Maybe (Atom Chirality)
-toAtomWithH a@(SubsetAtom elem arom) xs = if arom == True
-                then toAtomExplicitHArom a xs
-                else toAtomExplicitH a $ bondTotal xs
+toAtomWithH (SubsetAtom elem False) xs = case explicitH elem (bondTotal xs) of
+  Nothing => Nothing
+  Just h => fromOrg elem h
+toAtomWithH (SubsetAtom elem True) xs = case (explicitAromH elem (toPairBondsNat xs)) of
+  Nothing => Nothing
+  Just h => fromOrgArom elem h
 toAtomWithH (Bracket _ elem isArom _ hydrogens charge) _ =
   Just $ MkAtom elem isArom Nothing charge None hydrogens
 
---- atom to AtomWithH
 public export
 adjToAtomH : Adj Bond Atom -> Maybe (Adj Bond (Atom Chirality))
 adjToAtomH (MkAdj label ns) = map (`MkAdj` ns) (toAtomWithH label (values ns))
 
---- graph to AtomWithH
 public export
 graphWithH : Graph Bond Atom -> Maybe (Graph Bond (Atom Chirality))
 graphWithH (MkGraph graph) = map MkGraph (traverse adjToAtomH graph)
