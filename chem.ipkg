@@ -14,6 +14,7 @@ modules = Chem
         , Chem.Formula
         , Chem.Isotope
         , Chem.Types
+        , Chem.Atom
 
         , Data.List.Suffix
         , Data.Refined
@@ -30,3 +31,4 @@ modules = Chem
         , Text.Smiles.Parser
         , Text.Smiles.Types
         , Text.Smiles.Writer
+        , Text.Smiles.ImplH

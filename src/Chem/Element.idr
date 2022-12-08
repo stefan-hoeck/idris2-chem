@@ -685,3 +685,26 @@ Ord Elem where
 export %inline
 Show Elem where
   show = symbol
+
+--------------------------------------------------------------------------------
+--          Aromaticity
+--------------------------------------------------------------------------------
+
+public export
+data ValidAromatic : Elem -> Bool -> Type where
+  VAB    : ValidAromatic B b
+  VAC    : ValidAromatic C b
+  VAN    : ValidAromatic N b
+  VAO    : ValidAromatic O b
+  VAP    : ValidAromatic P b
+  VAS    : ValidAromatic S b
+  VASe   : ValidAromatic Se b
+  VAAs   : ValidAromatic As b
+  VARest : ValidAromatic _ False
+
+public export
+record ValidElem where
+  constructor VE
+  elem : Elem
+  arom : Bool
+  {auto 0 prf : ValidAromatic elem arom}
