@@ -5,7 +5,9 @@ import Chem.Element
 import Chem.Types
 import Data.Maybe.NothingMax
 import Data.Nat
+import Derive.Prelude
 
+%language ElabReflection
 %default total
 
 public export
@@ -18,6 +20,8 @@ record Atom a where
   label    : a
   hydrogen : HCount
   {auto 0 prf    : ValidAromatic elem arom}
+
+%runElab derive "Atom" [Show,Eq]
 
 public export
 Functor Atom where
@@ -35,18 +39,6 @@ Foldable Atom where
 public export
 Traversable Atom where
   traverse f (MkAtom e a ma ch l h) = (\v => MkAtom e a ma ch v h) <$> f l
-
-export
-Show a => Show (Atom a) where
-  showPrec p (MkAtom e a ma ch l hy) =
-    showCon p "MkAtom" $ showArg e ++ showArg a ++ showArg ma ++ showArg ch ++
-      showArg l ++ showArg hy
-
-public export
-Eq a => Eq (Atom a) where
-  (MkAtom e1 a1 ma1 ch1 l1 hy1) == (MkAtom e2 a2 ma2 ch2 l2 hy2) =
-    e1 == e2 && a1 == a2 && ma1 == ma2 && ch1 == ch2 && l1 == l2 && hy1 == hy2
-
 
 public export
 toFormula : Atom a -> Formula

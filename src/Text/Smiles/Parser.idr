@@ -5,7 +5,7 @@ import Chem.Types
 import Data.BitMap
 import Data.Maybe
 import Data.String
-import Generics.Derive
+import Derive.Prelude
 import Text.Parser.Util
 import Text.Smiles.Types
 
@@ -18,6 +18,8 @@ import Text.Smiles.Types
 
 public export
 data DotOrBond = B Bond | Dot | NoDOB
+
+%runElab derive "DotOrBond" [Eq,Show,Ord]
 
 public export
 data Err : Type where
@@ -34,7 +36,7 @@ data Err : Type where
   UnexpectedCP           : Err
   UnexpectedOP           : Err
 
-%runElab derive "Err" [Generic,Meta,Eq,Show]
+%runElab derive "Err" [Eq,Show]
 
 ||| An atom paired with its node index
 public export
@@ -64,7 +66,7 @@ data Result : Type where
   End   : (result : Graph Bond Atom) -> Result
   Stuck : Err -> List Char -> Result
 
-%runElab derive "Result" [Generic,Meta,Eq,Show]
+%runElab derive "Result" [Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Updating State

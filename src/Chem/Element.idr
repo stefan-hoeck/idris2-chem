@@ -1,8 +1,10 @@
 module Chem.Element
 
 import Chem.Types
+import Derive.Prelude
 import Text.RW
 
+%language ElabReflection
 %default total
 
 public export
@@ -21,139 +23,16 @@ data Elem =
             | Bk | Cf | Es | Fm | Md | No | Lr
                  | Rf | Db | Sg | Bh | Hs | Mt | Ds | Rg | Cn | Nh | Fl | Mc | Lv | Ts | Og
 
+%runElab derive "Elem" [Show, Eq, Ord]
+
 --------------------------------------------------------------------------------
 --          Conversion from and to AtomicNr
 --------------------------------------------------------------------------------
 
-||| Converts an `Elem` to the corresponding index of the enum type.
-|||
-||| Note: This is the identity function, so it will be completely removed
-||| during compilation.
-public export
-toIndex : Elem -> Bits8
-toIndex H  = 0
-toIndex He = 1
-toIndex Li = 2
-toIndex Be = 3
-toIndex B  = 4
-toIndex C  = 5
-toIndex N  = 6
-toIndex O  = 7
-toIndex F  = 8
-toIndex Ne = 9
-toIndex Na = 10
-toIndex Mg = 11
-toIndex Al = 12
-toIndex Si = 13
-toIndex P  = 14
-toIndex S  = 15
-toIndex Cl = 16
-toIndex Ar = 17
-toIndex K  = 18
-toIndex Ca = 19
-toIndex Sc = 20
-toIndex Ti = 21
-toIndex V  = 22
-toIndex Cr = 23
-toIndex Mn = 24
-toIndex Fe = 25
-toIndex Co = 26
-toIndex Ni = 27
-toIndex Cu = 28
-toIndex Zn = 29
-toIndex Ga = 30
-toIndex Ge = 31
-toIndex As = 32
-toIndex Se = 33
-toIndex Br = 34
-toIndex Kr = 35
-toIndex Rb = 36
-toIndex Sr = 37
-toIndex Y  = 38
-toIndex Zr = 39
-toIndex Nb = 40
-toIndex Mo = 41
-toIndex Tc = 42
-toIndex Ru = 43
-toIndex Rh = 44
-toIndex Pd = 45
-toIndex Ag = 46
-toIndex Cd = 47
-toIndex In = 48
-toIndex Sn = 49
-toIndex Sb = 50
-toIndex Te = 51
-toIndex I  = 52
-toIndex Xe = 53
-toIndex Cs = 54
-toIndex Ba = 55
-toIndex La = 56
-toIndex Ce = 57
-toIndex Pr = 58
-toIndex Nd = 59
-toIndex Pm = 60
-toIndex Sm = 61
-toIndex Eu = 62
-toIndex Gd = 63
-toIndex Tb = 64
-toIndex Dy = 65
-toIndex Ho = 66
-toIndex Er = 67
-toIndex Tm = 68
-toIndex Yb = 69
-toIndex Lu = 70
-toIndex Hf = 71
-toIndex Ta = 72
-toIndex W  = 73
-toIndex Re = 74
-toIndex Os = 75
-toIndex Ir = 76
-toIndex Pt = 77
-toIndex Au = 78
-toIndex Hg = 79
-toIndex Tl = 80
-toIndex Pb = 81
-toIndex Bi = 82
-toIndex Po = 83
-toIndex At = 84
-toIndex Rn = 85
-toIndex Fr = 86
-toIndex Ra = 87
-toIndex Ac = 88
-toIndex Th = 89
-toIndex Pa = 90
-toIndex U  = 91
-toIndex Np = 92
-toIndex Pu = 93
-toIndex Am = 94
-toIndex Cm = 95
-toIndex Bk = 96
-toIndex Cf = 97
-toIndex Es = 98
-toIndex Fm = 99
-toIndex Md = 100
-toIndex No = 101
-toIndex Lr = 102
-toIndex Rf = 103
-toIndex Db = 104
-toIndex Sg = 105
-toIndex Bh = 106
-toIndex Hs = 107
-toIndex Mt = 108
-toIndex Ds = 109
-toIndex Rg = 110
-toIndex Cn = 111
-toIndex Nh = 112
-toIndex Fl = 113
-toIndex Mc = 114
-toIndex Lv = 115
-toIndex Ts = 116
-toIndex Og = 117
-
 ||| This is a proof that we can safely compute an atomic number
 ||| from each element's index
 export
-0 indexLemma : (e : Elem) -> So (isAtomicNr (toIndex e + 1))
+0 indexLemma : (e : Elem) -> So (isAtomicNr (conIndexElem e + 1))
 indexLemma H  = Oh
 indexLemma He = Oh
 indexLemma Li = Oh
@@ -273,9 +152,9 @@ indexLemma Lv = Oh
 indexLemma Ts = Oh
 indexLemma Og = Oh
 
-public export
+public export %inline
 atomicNr : Elem -> AtomicNr
-atomicNr e = MkAtomicNr (toIndex e + 1) (indexLemma e)
+atomicNr e = MkAtomicNr (conIndexElem e + 1) (indexLemma e)
 
 public export
 fromAtomicNr : AtomicNr -> Elem
@@ -409,7 +288,7 @@ fromAtomicNr (MkAtomicNr 119 prf) impossible
 -- of possible inputs.
 fromAtomicNr x   =
   assert_total $
-  idris_crash #"fromAtomicNr called with invalid AtomicNr: \#{show x}"#
+  idris_crash "fromAtomicNr called with invalid AtomicNr: \{show x}"
 
 --------------------------------------------------------------------------------
 --          Converting from and to String
@@ -537,126 +416,9 @@ fromSymbol "Ts"  = Just Ts
 fromSymbol "Og"  = Just Og
 fromSymbol _     = Nothing
 
-public export
+public export %inline
 symbol : Elem -> String
-symbol H   = "H"
-symbol He  = "He"
-symbol Li  = "Li"
-symbol Be  = "Be"
-symbol B   = "B"
-symbol C   = "C"
-symbol N   = "N"
-symbol O   = "O"
-symbol F   = "F"
-symbol Ne  = "Ne"
-symbol Na  = "Na"
-symbol Mg  = "Mg"
-symbol Al  = "Al"
-symbol Si  = "Si"
-symbol P   = "P"
-symbol S   = "S"
-symbol Cl  = "Cl"
-symbol Ar  = "Ar"
-symbol K   = "K"
-symbol Ca  = "Ca"
-symbol Sc  = "Sc"
-symbol Ti  = "Ti"
-symbol V   = "V"
-symbol Cr  = "Cr"
-symbol Mn  = "Mn"
-symbol Fe  = "Fe"
-symbol Co  = "Co"
-symbol Ni  = "Ni"
-symbol Cu  = "Cu"
-symbol Zn  = "Zn"
-symbol Ga  = "Ga"
-symbol Ge  = "Ge"
-symbol As  = "As"
-symbol Se  = "Se"
-symbol Br  = "Br"
-symbol Kr  = "Kr"
-symbol Rb  = "Rb"
-symbol Sr  = "Sr"
-symbol Y   = "Y"
-symbol Zr  = "Zr"
-symbol Nb  = "Nb"
-symbol Mo  = "Mo"
-symbol Tc  = "Tc"
-symbol Ru  = "Ru"
-symbol Rh  = "Rh"
-symbol Pd  = "Pd"
-symbol Ag  = "Ag"
-symbol Cd  = "Cd"
-symbol In  = "In"
-symbol Sn  = "Sn"
-symbol Sb  = "Sb"
-symbol Te  = "Te"
-symbol I   = "I"
-symbol Xe  = "Xe"
-symbol Cs  = "Cs"
-symbol Ba  = "Ba"
-symbol La  = "La"
-symbol Ce  = "Ce"
-symbol Pr  = "Pr"
-symbol Nd  = "Nd"
-symbol Pm  = "Pm"
-symbol Sm  = "Sm"
-symbol Eu  = "Eu"
-symbol Gd  = "Gd"
-symbol Tb  = "Tb"
-symbol Dy  = "Dy"
-symbol Ho  = "Ho"
-symbol Er  = "Er"
-symbol Tm  = "Tm"
-symbol Yb  = "Yb"
-symbol Lu  = "Lu"
-symbol Hf  = "Hf"
-symbol Ta  = "Ta"
-symbol W   = "W"
-symbol Re  = "Re"
-symbol Os  = "Os"
-symbol Ir  = "Ir"
-symbol Pt  = "Pt"
-symbol Au  = "Au"
-symbol Hg  = "Hg"
-symbol Tl  = "Tl"
-symbol Pb  = "Pb"
-symbol Bi  = "Bi"
-symbol Po  = "Po"
-symbol At  = "At"
-symbol Rn  = "Rn"
-symbol Fr  = "Fr"
-symbol Ra  = "Ra"
-symbol Ac  = "Ac"
-symbol Th  = "Th"
-symbol Pa  = "Pa"
-symbol U   = "U"
-symbol Np  = "Np"
-symbol Pu  = "Pu"
-symbol Am  = "Am"
-symbol Cm  = "Cm"
-symbol Bk  = "Bk"
-symbol Cf  = "Cf"
-symbol Es  = "Es"
-symbol Fm  = "Fm"
-symbol Md  = "Md"
-symbol No  = "No"
-symbol Lr  = "Lr"
-symbol Rf  = "Rf"
-symbol Db  = "Db"
-symbol Sg  = "Sg"
-symbol Bh  = "Bh"
-symbol Hs  = "Hs"
-symbol Mt  = "Mt"
-symbol Ds  = "Ds"
-symbol Rg  = "Rg"
-symbol Cn  = "Cn"
-symbol Nh  = "Nh"
-symbol Fl  = "Fl"
-symbol Mc  = "Mc"
-symbol Lv  = "Lv"
-symbol Ts  = "Ts"
-symbol Og  = "Og"
+symbol = show
 
 public export
 readMsg : String -> Either String Elem
@@ -669,22 +431,6 @@ readE s f = maybe (Left $ f s) Right $ fromSymbol s
 public export %inline
 write : Elem -> String
 write = symbol
-
---------------------------------------------------------------------------------
---          Implementations
---------------------------------------------------------------------------------
-
-public export %inline
-Eq Elem where
-  x == y = toIndex x == toIndex y
-
-public export %inline
-Ord Elem where
-  compare x y = compare (toIndex x) (toIndex y)
-
-export %inline
-Show Elem where
-  show = symbol
 
 --------------------------------------------------------------------------------
 --          Aromaticity
