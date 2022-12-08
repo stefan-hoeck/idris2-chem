@@ -4,10 +4,11 @@ import Chem.Element
 import Data.Maybe.NothingMax
 import Data.Nat
 import Data.Prim.String
+import Derive.Prelude
 
 %default total
 
-public export
+public export %inline
 hill : Elem -> String
 hill C = ""
 hill H = " "

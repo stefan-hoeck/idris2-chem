@@ -2,11 +2,11 @@ module Text.Smiles.Types
 
 import Chem.Element
 import Chem.Types
-import public Data.Graph
 import Data.Refined
-import Generics.Derive
+import Derive.Prelude
 import Language.Reflection.Refined
 import Text.RW
+import public Data.Graph
 
 --------------------------------------------------------------------------------
 --          Pragmas
@@ -40,7 +40,7 @@ public export
 data Chirality =
   None | CW | CCW | TH1 | TH2 | AL1 | AL2 | SP1 | SP2 | SP3 | TB TBIx | OH OHIx
 
-%runElab derive "Chirality" [Generic,Meta,Eq,Show]
+%runElab derive "Chirality" [Ord,Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Atoms
@@ -73,21 +73,7 @@ data Atom : Type where
              -> (0 prf     : ValidAromatic elem isArom)
              => Atom
 
-public export
-Eq Atom where
-  (SubsetAtom e ar) == (SubsetAtom e2 ar2) = e == e2 && ar == ar2
-  (Bracket ma e ar ch hy char) == (Bracket ma2 e2 ar2 ch2 hy2 char2) =
-      ma == ma2 && e == e2 && ar == ar2 && ch == ch2 && hy == hy2 && char == char2
-  _ == _ = False
-
-export
-Show Atom where
-  showPrec p (SubsetAtom elem arom) =
-    showCon p "SubsetAtom" $ showArg elem ++ showArg arom ++ " prf"
-  showPrec p (Bracket ma e a ch hy char) =
-    showCon p "Bracket" $ showArg ma ++ showArg e ++ showArg a ++
-                         showArg ch ++ showArg hy ++ showArg char ++ " prf"
-
+%runElab derive "Atom" [Show,Eq]
 
 --------------------------------------------------------------------------------
 --          Bonds
@@ -104,17 +90,7 @@ record RingNr where
 public export
 data Bond = Sngl | Arom | Dbl | Trpl | Quad
 
-public export
-Eq Bond where
-  Sngl == Sngl = True
-  Arom == Arom = True
-  Dbl  == Dbl  = True
-  Trpl == Trpl = True
-  Quad == Quad = True
-  _    == _    = False
-
-
-%runElab derive "Bond" [Generic,Meta,Show]
+%runElab derive "Bond" [Show,Eq,Ord]
 
 public export
 SmilesMol : Type

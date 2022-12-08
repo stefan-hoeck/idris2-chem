@@ -4,14 +4,14 @@ module Text.Molfile.Types
 
 import Chem.Element
 import Chem.Types
-import public Data.Refined
 import Data.Nat
 import Data.String
 import Data.Vect
-import Generics.Derive
+import Derive.Prelude
 import Language.Reflection.Refined
 import Text.Molfile.Float
 import Text.RW
+import public Data.Refined
 
 --------------------------------------------------------------------------------
 --          Pragmas
@@ -59,7 +59,7 @@ namespace MolLine
 public export
 data MolVersion = V2000 | V3000
 
-%runElab derive "MolVersion" [Generic,Meta,Eq,Ord,Show]
+%runElab derive "MolVersion" [Eq,Ord,Show]
 
 namespace MolVersion
   public export
@@ -85,7 +85,7 @@ namespace MolVersion
 public export
 data ChiralFlag = NonChiral | Chiral
 
-%runElab derive "ChiralFlag" [Generic,Meta,Eq,Ord,Show]
+%runElab derive "ChiralFlag" [Eq,Ord,Show]
 
 namespace ChiralFlag
   public export
@@ -124,7 +124,7 @@ record Counts where
   chiral    : ChiralFlag
   version   : MolVersion
 
-%runElab derive "Counts" [Generic,Meta,Eq,Show]
+%runElab derive "Counts" [Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Atoms
@@ -138,7 +138,7 @@ record Counts where
 public export
 data AtomSymbol = L | A | Q | Ast | LP | RSharp | El Elem
 
-%runElab derive "AtomSymbol" [Generic,Eq]
+%runElab derive "AtomSymbol" [Show, Eq]
 
 namespace AtomSymbol
   public export
@@ -170,10 +170,6 @@ namespace AtomSymbol
   readMsg : String -> Either String AtomSymbol
   readMsg = mkReadE read "AtomSymbol"
 
-export %inline
-Show AtomSymbol where
-  show = write
-
 ------------------------------
 -- StereoParity
 
@@ -184,7 +180,7 @@ data StereoParity = NoStereo
                   | EvenStereo
                   | AnyStereo
 
-%runElab derive "StereoParity" [Generic,Meta,Eq,Ord,Show]
+%runElab derive "StereoParity" [Eq,Ord,Show]
 
 namespace StereoParity
   public export
@@ -213,7 +209,7 @@ namespace StereoParity
 public export
 data  StereoCareBox = IgnoreStereo | MatchStereo
 
-%runElab derive "StereoCareBox" [Generic,Meta,Eq,Ord,Show]
+%runElab derive "StereoCareBox" [Eq,Ord,Show]
 
 namespace StereoCareBox
   public export
@@ -284,7 +280,7 @@ namespace Valence
 public export
 data H0Designator = H0NotSpecified | NoHAllowed
 
-%runElab derive "H0Designator" [Generic,Meta,Eq,Ord,Show]
+%runElab derive "H0Designator" [Eq,Ord,Show]
 
 namespace H0Designator
   public export
@@ -357,7 +353,7 @@ data InvRetentionFlag = InvNotApplied
                       | ConfigInverted
                       | ConfigRetained
 
-%runElab derive "InvRetentionFlag" [Generic,Meta,Eq,Ord,Show]
+%runElab derive "InvRetentionFlag" [Eq,Ord,Show]
 
 namespace InvRetentionFlag
   public export
@@ -383,7 +379,7 @@ namespace InvRetentionFlag
 public export
 data ExactChangeFlag = ChangeNotApplied | ExactChange
 
-%runElab derive "ExactChangeFlag" [Generic,Meta,Eq,Ord,Show]
+%runElab derive "ExactChangeFlag" [Eq,Ord,Show]
 
 namespace ExactChangeFlag
   public export
@@ -487,7 +483,7 @@ record Atom where
   invRetentionFlag : InvRetentionFlag
   exactChangeFlag  : ExactChangeFlag
 
-%runElab derive "Atom" [Generic,Meta,Eq,Show]
+%runElab derive "Atom" [Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Bonds
@@ -508,7 +504,7 @@ data BondType =
   | DblOrAromatic
   | AnyBond
 
-%runElab derive "BondType" [Generic,Meta,Eq,Show]
+%runElab derive "BondType" [Eq,Show]
 
 namespace BondType
   public export
@@ -545,7 +541,7 @@ namespace BondType
 public export
 data BondStereo = NoBondStereo | Up | CisOrTrans | UpOrDown | Down
 
-%runElab derive "BondStereo" [Generic,Meta,Eq,Show]
+%runElab derive "BondStereo" [Ord, Eq, Show]
 
 namespace BondStereo
   public export
@@ -576,7 +572,7 @@ namespace BondStereo
 public export
 data BondTopo = AnyTopology | Ring | Chain
 
-%runElab derive "BondTopo" [Generic,Meta,Eq,Show]
+%runElab derive "BondTopo" [Eq,Show,Ord]
 
 namespace BondTopo
   public export
@@ -644,7 +640,7 @@ namespace ReactingCenterStatus
   readMsg : String -> Either String ReactingCenterStatus
   readMsg = mkReadE read "ReactingCenterStatus"
 
-%runElab derive "ReactingCenterStatus" [Generic,Meta,Eq,Show]
+%runElab derive "ReactingCenterStatus" [Eq,Show]
 
 public export
 record Bond where
@@ -656,7 +652,7 @@ record Bond where
   topology             : BondTopo
   reactingCenterStatus : ReactingCenterStatus
 
-%runElab derive "Bond" [Generic,Meta,Eq,Show]
+%runElab derive "Bond" [Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Properties
@@ -679,7 +675,7 @@ record N8 where
 public export
 data Radical = NoRadical | Singlet | Doublet | Triplet
 
-%runElab derive "Radical" [Generic,Meta,Show,Eq,Ord]
+%runElab derive "Radical" [Show,Eq,Ord]
 
 namespace Radical
   public export
@@ -781,14 +777,10 @@ record MolFile where
   bonds   : Vect (cast counts.bonds.value) Bond
   props   : List Property
 
+%runElab derive "MolFile" [Show]
+
 public export
 Eq MolFile where
   MkMolFile n1 i1 c1 cs1 as1 bs1 ps1 == MkMolFile n2 i2 c2 cs2 as2 bs2 ps2 =
     n1 == n2 && i1 == i2 && c1 == c2 && cs1 == cs2 &&
     toList as1 == toList as2 && toList bs1 == toList bs2 && ps1 == ps2
-
-export
-Show MolFile where
-  showPrec p (MkMolFile n i c cs as bs ps) =
-    showCon p "MkMolFile" $  showArg n ++ showArg i ++ showArg c ++ showArg cs
-                          ++ showArg as ++ showArg bs ++ showArg ps
