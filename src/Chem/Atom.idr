@@ -1,11 +1,9 @@
 module Chem.Atom
 
-import Chem
-import Text.Smiles
 import Chem.Formula
 import Chem.Element
+import Chem.Types
 import Data.Maybe.NothingMax
-import Data.Prim.String
 import Data.Nat
 
 %default total
@@ -41,7 +39,7 @@ Traversable Atom where
 export
 Show a => Show (Atom a) where
   showPrec p (MkAtom e a ma ch l hy) =
-    showCon p "MkAtom" $ showArg e ++ showArg a ++ showArg ma ++ showArg ch ++ 
+    showCon p "MkAtom" $ showArg e ++ showArg a ++ showArg ma ++ showArg ch ++
       showArg l ++ showArg hy
 
 public export

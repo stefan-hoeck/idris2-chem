@@ -150,3 +150,15 @@ record Charge where
   0 prf : So (-15 <= value && value <= 15)
 
 %runElab rwIntPlus "Charge" `(Int8)
+
+--------------------------------------------------------------------------------
+--          HCount
+--------------------------------------------------------------------------------
+
+public export
+record HCount where
+  constructor MkHCount
+  value : Bits8
+  0 prf : So (value < 10)
+
+%runElab rwInt "HCount" `(Bits8)

@@ -17,18 +17,6 @@ import Text.RW
 %language ElabReflection
 
 --------------------------------------------------------------------------------
---          HCount and Charge
---------------------------------------------------------------------------------
-
-public export
-record HCount where
-  constructor MkHCount
-  value : Bits8
-  0 prf : So (value < 10)
-
-%runElab rwInt "HCount" `(Bits8)
-
---------------------------------------------------------------------------------
 --          Chirality
 --------------------------------------------------------------------------------
 
@@ -69,25 +57,6 @@ data ValidSubset : Elem -> Bool -> Type where
   VCl : ValidSubset Cl False
   VBr : ValidSubset Br False
   VI  : ValidSubset I False
-
-public export
-data ValidAromatic : Elem -> Bool -> Type where
-  VAB    : ValidAromatic B b
-  VAC    : ValidAromatic C b
-  VAN    : ValidAromatic N b
-  VAO    : ValidAromatic O b
-  VAP    : ValidAromatic P b
-  VAS    : ValidAromatic S b
-  VASe   : ValidAromatic Se b
-  VAAs   : ValidAromatic As b
-  VARest : ValidAromatic _ False
-
-public export
-record ValidElem where
-  constructor VE
-  elem : Elem
-  arom : Bool
-  {auto 0 prf : ValidAromatic elem arom}
 
 public export
 data Atom : Type where
