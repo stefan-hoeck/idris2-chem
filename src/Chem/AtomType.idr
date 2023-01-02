@@ -66,3 +66,29 @@ module Chem.AtomType
   This is neither DRY (repeats the same code several times), nor does it make
   use of existing functionality (look at `Prelude.count`).
 -}
+
+
+import Chem
+import Derive.Prelude
+
+%language ElabReflection
+%default total
+
+
+-------------------------------------------------------------------------------
+-- data types
+-------------------------------------------------------------------------------
+
+data AtomType = CSp3 | CSp2
+
+%runElab derive "AtomType" [Show,Eq,Ord]
+
+data BType = Sngl | Dbl | Trb | 
+
+record ATArguments where
+  constructor MkATArg
+  element : Elem
+  arom : Bool
+  charge : Charge
+  bondCount : Nat
+  bondType : Nat
