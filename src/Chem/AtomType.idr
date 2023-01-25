@@ -121,6 +121,9 @@ toBonds (Trpl :: xs) = BS 0 0 1 <+> toBonds xs
 toBonds (Arom :: xs) = BS 1 0 0 <+> toBonds xs
 toBonds (x :: xs)    = BS 0 0 0 <+> toBonds xs
 
+hCountToBonds : HCount -> Bonds
+hCountToBonds h = BS (cast (h.value)) 0 0
+
 -------------------------------------------------------------------------------
 -- AtomType
 -------------------------------------------------------------------------------
@@ -133,7 +136,6 @@ data AtomType =
 
 %runElab derive "AtomType" [Show,Eq,Ord]
 
-data BType = Sngl | Dbl | Trb
 
 record ATArgs where
   constructor MkATArgs
@@ -144,9 +146,6 @@ record ATArgs where
   bondType : Bonds
 
 %runElab derive "ATArgs" [Show,Eq,Ord]
-
-hCountToBonds : HCount -> Bonds
-hCountToBonds h = BS (cast (h.value)) 0 0
 
 -------------------------------------------------------------------------------
 -- AtomType / Argument List
