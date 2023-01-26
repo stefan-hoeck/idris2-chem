@@ -86,6 +86,8 @@ record Bonds where
   single : Nat
   double : Nat
   triple : Nat
+  
+%runElab derive "Bonds" [Show,Eq,Ord]
 
 ||| Calculates total number of bonds
 ||| (triple bond => 1 bond)
@@ -99,20 +101,7 @@ Semigroup Bonds where
 Monoid Bonds where
   neutral = BS 0 0 0
 
-Eq Bonds where
-  (==) b1 b2 =
-       b1.single == b2.single
-    && b1.double == b2.double
-    && b1.triple == b2.triple
-
-Ord Bonds where
-  compare b1 b2 = compare (bondsTotal b1) (bondsTotal b2)
-
-
-Show Bonds where
-  showPrec p (BS s d t) =
-    showCon p "BS" $ showArg s ++ showArg d ++ showArg t
-
+-----
 toBonds : List Bond -> Bonds
 toBonds []           = BS 0 0 0
 toBonds (Sngl :: xs) = BS 1 0 0 <+> toBonds xs
@@ -129,11 +118,10 @@ hCountToBonds h = BS (cast (h.value)) 0 0
 -------------------------------------------------------------------------------
 
 data AtomType =
-    C_Sp3         | C_Sp2           | C_Sp            | C_Sp2_radical | C_planar_radical |
-    C_Sp2_arom    | C_Sp2_diradical | C_Sp3_diradical | O_Sp3         | O_Sp2            |
-    O_Sp3_radical | O_Sp2_arom
+  C_Sp3            | C_Sp2         | C_Sp2_allene    | C_Sp            | C_Sp2_radical |
+  C_planar_radical | C_Sp2_arom    | C_Sp2_diradical | C_Sp3_diradical | O_Sp3         |
+  O_Sp2            | O_Sp3_radical | O_Sp2_arom
               
-
 %runElab derive "AtomType" [Show,Eq,Ord]
 
 
@@ -142,10 +130,10 @@ record ATArgs where
   element : Elem
   arom : Bool
   charge : Charge
-  bondCount : Nat  -- Maybe not needed, because 'Bonds' has all the information (arom = BS 1 0 0)
   bondType : Bonds
 
 %runElab derive "ATArgs" [Show,Eq,Ord]
+
 
 -------------------------------------------------------------------------------
 -- AtomType / Argument List
@@ -153,23 +141,23 @@ record ATArgs where
 
 atomTypes : List (ATArgs, AtomType)
 atomTypes = [
-  (MkATArgs C False 0 4 (BS 4 0 0), C_Sp3),
-  (MkATArgs C False 0 3 (BS 2 1 0), C_Sp2),
-  (MkATArgs C False 0 2 (BS 1 0 1), C_Sp ),
-  (MkATArgs C False 0 2 (BS 0 2 0), C_Sp ), -- + special case C-allene
-  (MkATArgs C False 0 2 (BS 1 1 0), C_Sp2_radical),
-  (MkATArgs C False 0 3 (BS 3 0 0), C_planar_radical),
-  (MkATArgs C False 0 1 (BS 0 1 0), C_Sp2_diradical),
-  (MkATArgs C False 0 2 (BS 2 0 0), C_Sp3_diradical),
-  (MkATArgs C True  0 2 (BS 2 0 0), C_Sp2_arom),
-  (MkATArgs C True  0 3 (BS 3 0 0), C_Sp2_arom),
+  (MkATArgs C False 0 (BS 4 0 0), C_Sp3),
+  (MkATArgs C False 0 (BS 2 1 0), C_Sp2),
+  (MkATArgs C False 0 (BS 1 0 1), C_Sp ),
+  (MkATArgs C False 0 (BS 0 2 0), C_Sp ), -- + special case C-allene
+  (MkATArgs C False 0 (BS 1 1 0), C_Sp2_radical),
+  (MkATArgs C False 0 (BS 3 0 0), C_planar_radical),
+  (MkATArgs C False 0 (BS 0 1 0), C_Sp2_diradical),
+  (MkATArgs C False 0 (BS 2 0 0), C_Sp3_diradical),
+  (MkATArgs C True  0 (BS 2 0 0), C_Sp2_arom),
+  (MkATArgs C True  0 (BS 3 0 0), C_Sp2_arom),
 
   -- Charged Carbons
 
-  (MkATArgs O False 0 2 (BS 2 0 0), O_Sp3),
-  (MkATArgs O False 0 1 (BS 0 1 0), O_Sp2),
-  (MkATArgs O False 0 1 (BS 1 0 0), O_Sp3_radical),
-  (MkATArgs O True  0 2 (BS 2 0 0), O_Sp2_arom)
+  (MkATArgs O False 0 (BS 2 0 0), O_Sp3),
+  (MkATArgs O False 0 (BS 0 1 0), O_Sp2),
+  (MkATArgs O False 0 (BS 1 0 0), O_Sp3_radical),
+  (MkATArgs O True  0 (BS 2 0 0), O_Sp2_arom)
 
   -- Charged Oxygens
 
@@ -180,23 +168,18 @@ atomTypes = [
 -- Determination AtomType
 -------------------------------------------------------------------------------
 
-neighboursToListNode : Graph Bond (Atom (Maybe a))
-                    -> Node
-                    -> List (Node,Bond)
-neighboursToListNode x y = lneighbours x y
-
-
-toPairElemBond : Graph Bond (Atom (Maybe a))
+--
+toPairElemBond : Graph Bond (Atom l)
               -> Node
               -> List(Elem,Bond)
-toPairElemBond x y = List.mapMaybe (go x) (neighboursToListNode x y)
-  where go : Graph Bond (Atom (Maybe a)) -> (Node,Bond) -> Maybe (Elem,Bond)
+toPairElemBond x y = List.mapMaybe (go x) (lneighbours x y)
+  where go : Graph Bond (Atom l) -> (Node,Bond) -> Maybe (Elem,Bond)
         go x (n,b) = case lab x n of
                           Nothing => Nothing
                           Just w => Just (w.elem,b)
 
-
-getBondsFromNode : Graph Bond (Atom (Maybe a)) -> Node -> HCount -> Bonds
+--
+getBondsFromNode : Graph Bond (Atom l) -> Node -> HCount -> Bonds
 getBondsFromNode x y h =
     let bnds = (toBonds (go' (lneighbours x y)))
         hbnds = hCountToBonds h
@@ -206,22 +189,39 @@ getBondsFromNode x y h =
         go' ((z, b) :: zs) = b :: go' zs
 
 
-toAtomType : ATArgs -> List (ATArgs, AtomType) -> Maybe AtomType
-toAtomType = Data.List.lookup
+--
+getBondElemNeighbour : Graph Bond (Atom l) -> Node -> List (Elem,Bond)
+getBondElemNeighbour x m = List.mapMaybe (go x) (lneighbours x m)
+  where go : Graph Bond (Atom l) -> (Node,Bond) -> Maybe (Elem,Bond)
+        go x (n,b) = case lab x n of
+          Nothing => Nothing
+          Just y  => Just (y.elem,b)
+
+checkNeighbours : AtomType -> List (Elem,Bond) -> Maybe AtomType
+checkNeighbours C_Sp2 [(C,Dbl),(C,Dbl)] = Just C_Sp2_allene
+checkNeighbours at _ = Just at
 
 
-adjToAtomTypes : Graph Bond (Atom (Maybe a))
-              -> (BitMap.Key, Adj Bond (Atom (Maybe a)))
-              -> Maybe AtomType
-adjToAtomTypes x (y, (MkAdj a n)) =
+adjToAtomTypes : Graph Bond (Atom l)
+              -> (BitMap.Key, Adj Bond (Atom l))
+              -> Maybe (Adj Bond (Atom (l,AtomType)))
+adjToAtomTypes x (y, g@(MkAdj a n)) =
   let bnd       = getBondsFromNode x y a.hydrogen
-      bndCount  = bondsTotal bnd
-      args      = MkATArgs a.elem a.arom a.charge bndCount bnd
-  in toAtomType args atomTypes
+      args      = MkATArgs a.elem a.arom a.charge bnd
+      neigh     = getBondElemNeighbour x y
+      at        = case Data.List.lookup args atomTypes of
+                       Nothing => Nothing
+                       Just z  => case z of
+                          C_Sp2 => checkNeighbours z neigh
+                          _ => Just z
+  in traverse (\x => case at of
+              Nothing => Nothing
+              (Just z) => Just $ map (\l => (l,z)) x) g
 
+traverseWithKey : Applicative f => ((Key,a) -> f b) -> BitMap a -> f (BitMap b)
 
-toAtomTypes : Graph Bond (Atom (Maybe a)) -> Maybe String -- Maybe (List AtomType)
-toAtomTypes (MkGraph g) = map show (traverse (adjToAtomTypes (MkGraph g)) (pairs g))
+toAtomTypes : Graph Bond (Atom l) -> Maybe (Graph Bond (Atom (l,AtomType)))
+toAtomTypes g@(MkGraph bm) = MkGraph <$> traverseWithKey (adjToAtomTypes g) bm
 
 
 -------------------------------------------------------------------------------
@@ -229,4 +229,4 @@ toAtomTypes (MkGraph g) = map show (traverse (adjToAtomTypes (MkGraph g)) (pairs
 -------------------------------------------------------------------------------
 
 testArgs : ATArgs
-testArgs = MkATArgs C False 0 3 (BS 2 1 0)
+testArgs = MkATArgs C False 0 (BS 2 1 0)
