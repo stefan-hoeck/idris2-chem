@@ -189,13 +189,6 @@ getBondsFromNode x y h =
         go' ((z, b) :: zs) = b :: go' zs
 
 
---
-getBondElemNeighbour : Graph Bond (Atom l) -> Node -> List (Elem,Bond)
-getBondElemNeighbour x m = List.mapMaybe (go x) (lneighbours x m)
-  where go : Graph Bond (Atom l) -> (Node,Bond) -> Maybe (Elem,Bond)
-        go x (n,b) = case lab x n of
-          Nothing => Nothing
-          Just y  => Just (y.elem,b)
 
 checkNeighbours : AtomType -> List (Elem,Bond) -> Maybe AtomType
 checkNeighbours C_Sp2 [(C,Dbl),(C,Dbl)] = Just C_Sp2_allene
@@ -208,7 +201,7 @@ adjToAtomTypes : Graph Bond (Atom l)
 adjToAtomTypes x (y, g@(MkAdj a n)) =
   let bnd       = getBondsFromNode x y a.hydrogen
       args      = MkATArgs a.elem a.arom a.charge bnd
-      neigh     = getBondElemNeighbour x y
+      neigh     = toPairElemBond x y
       at        = case Data.List.lookup args atomTypes of
                        Nothing => Nothing
                        Just z  => case z of
