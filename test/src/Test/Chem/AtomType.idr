@@ -1,5 +1,11 @@
 module Test.Chem.AtomType
 
+import Chem.AtomType
+import Chem.Atom
+import Text.Smiles
+import Data.List
+import Data.Graph
+
 import Hedgehog
 
 %default total
@@ -15,7 +21,14 @@ import Hedgehog
   extracting the labels, because they might be listed in arbitrary
   order.
 -}
--- calcAtomTypes : String -> List AtomType
+calcAtomTypes : String -> List AtomType
+calcAtomTypes str = case parse str of
+  Stuck _ _ => []
+  End result => case Prelude.maybe Nothing toAtomTypes (graphWithH result) of
+    Nothing => []
+    Just g  => case labNodes g of
+      v => case sortBy (\x,y => compare x.node y.node) v of
+        c => map (\a => snd (Atom.label a.label)) c
 
 {-
   Uncomment the following without further modifications.
