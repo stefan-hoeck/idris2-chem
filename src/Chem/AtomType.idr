@@ -119,7 +119,7 @@ hCountToBonds h = BS (cast (h.value)) 0 0
 
 -- Syntax: element_(std. valence)_hybridisation_aromaticity_charge_radical_specials
 data AtomType =
-  C_sp3            | C_sp2              | C_sp2_allene       | C_sp                 |
+  C_sp3            | C_sp2              | C_sp_allene        | C_sp                 |
   C_sp2_radical    | C_sp_radical       | C_planar_radical   | C_sp2_arom           |
   C_sp2_diradical  | C_sp3_diradical    | C_planar_plus      | C_sp2_plus           |
   C_sp_plus        | C_sp2_arom_plus    | C_planar_minus     | C_sp2_minus          |
@@ -240,8 +240,8 @@ hasDblX xs e = count (\x => fst x == e) xs
 
 ||| Deals with the special cases
 checkSpecialTypes : AtomType -> List (Elem,Bond) -> AtomType
-checkSpecialTypes C_sp2 bs   =
-  if hasDblX bs C == 2 then C_sp2_allene else C_sp2
+checkSpecialTypes C_sp bs   =
+  if hasDblX bs C == 2 then C_sp_allene else C_sp
 checkSpecialTypes S_4_sp2 bs =
   if hasDblX bs O == 2 then S_4_planar3_oxide else S_4_sp2
 checkSpecialTypes S_6_sp3 bs =
@@ -260,7 +260,7 @@ adjToAtomTypes x y g@(MkAdj a n) =
   let bnd   = getBondsFromNode x y a.hydrogen
       args  = MkATArgs a.elem a.arom a.charge bnd
       neigh = toPairElemBond x y
-      at    = map (\z => if z == C_sp2 || z == S_4_sp2 || z == S_6_sp3
+      at    = map (\z => if z == C_sp || z == S_4_sp2 || z == S_6_sp3
                    then checkSpecialTypes z neigh else z)
                       (Data.List.lookup args atomTypes)
   in traverse (\x => case at of
@@ -278,12 +278,31 @@ toAtomTypes g@(MkGraph bm) = MkGraph <$> traverseWithKey (adjToAtomTypes g) bm
 -------------------------------------------------------------------------------
 
 ||| Read in a SMILES-string and convert the resulting graph into a graph with
-||| AtomTypes
-fromSmilesToAtomType : IO ()
-fromSmilesToAtomType = do
+||| AtomTypes and print it
+smilesAtomTypeIO : IO ()
+smilesAtomTypeIO = do
   str <- map trim getLine
   case parse str of
        Stuck x cs => putStrLn (show x ++ pack cs)
        End g => case (maybe Nothing toAtomTypes (graphWithH g)) of
                      Nothing => putStrLn ("Conversion into Atom or Atom with AtomType failed")
                      Just x  => putStrLn (pretty show show x)
+
+
+||| Read in a SMILES-string and convert the resulting graph into a graph with
+||| AtomTypes
+smilesAtomType : String -> Maybe (Graph Bond (Atom (Chirality, AtomType)))
+smilesAtomType str =
+  case parse str of
+       Stuck x cs => Nothing
+       End g => maybe Nothing toAtomTypes (graphWithH g)
+
+
+0 equalA : ATArgs -> ATArgs -> Bool
+equalA x y = (==) (Data.List.lookup x atomTypes) (Data.List.lookup y atomTypes)
+
+0 eqArgsTest1 : equalA (MkATArgs C False 0 (BS 1 0 1)) (MkATArgs C False 0 (BS 0 2 0)) === True
+eqArgsTest1 = Refl
+
+0 eqArgsTest2 : equalA (MkATArgs C False 0 (BS 2 1 0)) (MkATArgs C False 0 (BS 4 0 0)) === False
+eqArgsTest2 = Refl
