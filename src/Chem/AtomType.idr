@@ -89,6 +89,7 @@ record Bonds where
   
 %runElab derive "Bonds" [Show,Eq,Ord]
 
+
 ||| Calculates total number of bonds
 ||| (triple bond => 1 bond)
 bondsTotal : Bonds -> Nat
@@ -101,23 +102,27 @@ Semigroup Bonds where
 Monoid Bonds where
   neutral = BS 0 0 0
 
------
+
+||| Folds a list of Bond's to Bonds
+||| Caution: Quad-Bond's counts as 0!
 toBonds : List Bond -> Bonds
-toBonds []           = BS 0 0 0
-toBonds (Sngl :: xs) = BS 1 0 0 <+> toBonds xs
-toBonds (Dbl :: xs)  = BS 0 1 0 <+> toBonds xs
-toBonds (Trpl :: xs) = BS 0 0 1 <+> toBonds xs
-toBonds (Arom :: xs) = BS 1 0 0 <+> toBonds xs
-toBonds (x :: xs)    = BS 0 0 0 <+> toBonds xs
+toBonds = foldMap (\case 
+                  Sngl => BS 1 0 0
+                  Arom => BS 1 0 0
+                  Dbl  => BS 0 1 0
+                  Trpl => BS 0 0 1
+                  Quad => BS 0 0 0)
+
 
 hCountToBonds : HCount -> Bonds
 hCountToBonds h = BS (cast (h.value)) 0 0
+
 
 -------------------------------------------------------------------------------
 -- AtomType
 -------------------------------------------------------------------------------
 
--- Syntax: element_(std. valence)_hybridisation_aromaticity_charge_radical_specials
+||| Syntax: element_(std.valence)_hybridisation_aromaticity_charge_radical_specials
 data AtomType =
   C_sp3            | C_sp2              | C_sp_allene        | C_sp                 |
   C_sp2_radical    | C_sp_radical       | C_planar_radical   | C_sp2_arom           |
@@ -136,6 +141,7 @@ data AtomType =
 %runElab derive "AtomType" [Show,Eq,Ord]
 
 
+||| ATArgs represents the arguments needed to evaluate the associated AtomType
 record ATArgs where
   constructor MkATArgs
   element : Elem
@@ -150,6 +156,7 @@ record ATArgs where
 -- AtomType / Argument List
 -------------------------------------------------------------------------------
 
+||| Includes a list with matching ATArgs and AtomType Pairs
 atomTypes : List (ATArgs, AtomType)
 atomTypes = [
   -- Carbon
@@ -234,6 +241,7 @@ getBondsFromNode x y h =
   (<+>) (toBonds (map snd (lneighbours x y))) (hCountToBonds h)
 
 
+||| Returns the number of double bonds to a specific element
 hasDblX : List (Elem, Bond) -> Elem -> Nat
 hasDblX xs e = count (\x => fst x == e) xs
 
