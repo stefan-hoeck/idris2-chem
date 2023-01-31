@@ -168,37 +168,31 @@ atomTypes = [
 -- Determination AtomType
 -------------------------------------------------------------------------------
 
---
+||| Extracts a list of linked elements with their connecting bonds
 toPairElemBond : Graph Bond (Atom l)
               -> Node
               -> List(Elem,Bond)
-toPairElemBond x y = List.mapMaybe (go x) (lneighbours x y)
-  where go : Graph Bond (Atom l) -> (Node,Bond) -> Maybe (Elem,Bond)
-        go x (n,b) = case lab x n of
-                          Nothing => Nothing
-                          Just w => Just (w.elem,b)
+toPairElemBond g n = List.mapMaybe (\(node,bond) => map (,bond) (map Atom.elem (lab g node))) (lneighbours g n)
 
---
+
+||| Extracts all bonds from an atom
 getBondsFromNode : Graph Bond (Atom l) -> Node -> HCount -> Bonds
 getBondsFromNode x y h =
-    let bnds = (toBonds (go' (lneighbours x y)))
-        hbnds = hCountToBonds h
-    in bnds <+> hbnds
-  where go' : List (Node,Bond) -> List Bond
-        go' [] = []
-        go' ((z, b) :: zs) = b :: go' zs
+  (<+>) (toBonds (map snd (lneighbours x y))) (hCountToBonds h)
 
 
-
+||| Help function to determine special AtomTypes
 checkNeighbours : AtomType -> List (Elem,Bond) -> Maybe AtomType
 checkNeighbours C_Sp2 [(C,Dbl),(C,Dbl)] = Just C_Sp2_allene
 checkNeighbours at _ = Just at
 
 
+||| Help funtion to determine all needed arguments to lookup the AtomType
 adjToAtomTypes : Graph Bond (Atom l)
-              -> (BitMap.Key, Adj Bond (Atom l))
+              -> BitMap.Key
+              -> Adj Bond (Atom l)
               -> Maybe (Adj Bond (Atom (l,AtomType)))
-adjToAtomTypes x (y, g@(MkAdj a n)) =
+adjToAtomTypes x y g@(MkAdj a n) =
   let bnd       = getBondsFromNode x y a.hydrogen
       args      = MkATArgs a.elem a.arom a.charge bnd
       neigh     = toPairElemBond x y
@@ -209,10 +203,10 @@ adjToAtomTypes x (y, g@(MkAdj a n)) =
                           _ => Just z
   in traverse (\x => case at of
               Nothing => Nothing
-              (Just z) => Just $ map (\l => (l,z)) x) g
+              Just z  => Just $ map (\l => (l,z)) x) g
 
-traverseWithKey : Applicative f => ((Key,a) -> f b) -> BitMap a -> f (BitMap b)
 
+||| Determines the AtomType if possible
 toAtomTypes : Graph Bond (Atom l) -> Maybe (Graph Bond (Atom (l,AtomType)))
 toAtomTypes g@(MkGraph bm) = MkGraph <$> traverseWithKey (adjToAtomTypes g) bm
 
@@ -221,5 +215,13 @@ toAtomTypes g@(MkGraph bm) = MkGraph <$> traverseWithKey (adjToAtomTypes g) bm
 -- Test section
 -------------------------------------------------------------------------------
 
-testArgs : ATArgs
-testArgs = MkATArgs C False 0 (BS 2 1 0)
+-- Read in a SMILES-string and convert the resulting graph into a graph with
+-- AtomTypes
+fromSmilesToAtomType : IO ()
+fromSmilesToAtomType = do
+  str <- map trim getLine
+  case parse str of
+       Stuck x cs => putStrLn (show x ++ pack cs)
+       End g => case (maybe Nothing toAtomTypes (graphWithH g)) of
+                     Nothing => putStrLn ("Conversion into Atom or Atom with AtomType failed")
+                     Just x  => putStrLn (pretty show show x)
