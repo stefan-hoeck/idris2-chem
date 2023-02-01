@@ -184,10 +184,18 @@ getBondsFromNode x y h =
   (<+>) (toBonds (map snd (lneighbours x y))) (hCountToBonds h)
 
 
-||| Returns the number of double bonds to a specific element
+||| Returns the number of double bonds from the determining element
+||| to a specific element
 public export
 hasDblX : List (Elem, Bond) -> Elem -> Nat
 hasDblX xs e = count (\x => fst x == e && snd x == Dbl) xs
+
+
+||| Returns True, if an aromatic bond is present
+hasArom : List Bond -> Bool
+hasArom xs = case Data.List.find (\x =>x == Arom) xs of
+  Nothing => False
+  _       => True
 
 
 ||| Deals with the special cases
@@ -199,9 +207,18 @@ checkSpecialTypes S_4_sp2 bs =
   if hasDblX bs O == 2 then S_4_planar3_oxide else S_4_sp2
 checkSpecialTypes S_6_sp3 bs =
   if hasDblX bs O == 1 && hasDblX bs S == 1 then S_6_sp3_thionyl
-  else if (hasDblX bs O + hasDblX bs N) == 2 then S_6_sp3_thionyl
+  else if (hasDblX bs O + hasDblX bs N) == 2 then S_6_sp3_onyl
   else S_6_sp3
 checkSpecialTypes at _ = at
+
+
+||| Deals with the special case of oxygen
+||| Uses the bonds of all the neighbours to check for special
+||| Types
+checkSpecialTypes2 : AtomType -> List Bond -> AtomType
+checkSpecialTypes2 h xs = case hasArom xs of
+  False => h
+  True  => O_sp2
 
 
 ||| Help funtion to determine all needed arguments to lookup the AtomType
@@ -214,8 +231,12 @@ adjToAtomTypes x y g@(MkAdj a n) =
   let bnd   = getBondsFromNode x y a.hydrogen
       args  = MkATArgs a.elem a.arom a.charge bnd
       neigh = toPairElemBond x y
+      neighB = foldMap (\w => map snd (lneighbours x w)) (map fst (lneighbours x y))
       at    = map (\z => if z == C_sp || z == S_4_sp2 || z == S_6_sp3
-                   then checkSpecialTypes z neigh else z)
+                   then checkSpecialTypes z neigh 
+                   else if z == O_sp3
+                   then checkSpecialTypes2 z neighB
+                   else z)
                       (Data.List.lookup args atomTypes)
   in traverse (\x => case at of
               Nothing => Nothing
