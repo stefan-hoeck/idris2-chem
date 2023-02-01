@@ -63,20 +63,20 @@ hCountToBonds h = BS (cast (h.value)) 0 0
 ||| Syntax: element_(std.valence)_hybridisation_aromaticity_charge_radical_specials
 public export
 data AtomType =
-  C_sp3            | C_sp2              | C_sp_allene        | C_sp                 |
-  C_sp2_radical    | C_sp_radical       | C_planar_radical   | C_sp2_arom           |
-  C_sp2_diradical  | C_sp3_diradical    | C_planar_plus      | C_sp2_plus           |
-  C_sp_plus        | C_sp2_arom_plus    | C_planar_minus     | C_sp2_minus          |
-  C_sp_minus       | C_sp2_arom_minus   | H_sgl              | H_rad                |
-  H_plus           | H_minus            | O_sp3              | O_sp2                |
-  O_sp3_radical    | O_sp2_arom         | O_sp3_plus         | O_sp2_plus           |
-  O_sp_plus        | O_sp3_plus_radical | O_sp2_plus_radical | O_sp3_minus          |
-  O_sp3_minus2     | S_2_sp3            | S_2_sp2            | S_6_sp3d2_anyl       |
-  S_4_sp2_inyl     | S_4_sp2            | S_4_planar3_oxide  | S_6_sp3d2_octahedral |
-  S_6_sp3d1        | S_6_sp3            | S_6_sp3_thionyl    | S_6_sp3_onyl         |
-  S_6_sp2_trioxide | S_2_planar3        | S_4_sp2_arom_inyl2 | S_6_sp2_plus         |
-  S_4_sp2_plus     | S_4_sp3_plus2      | S_2_sp3_minus      | S_2_minus2
-              
+  C_sp3              | C_sp2              | C_sp_allene          | C_sp             |
+  C_sp2_radical      | C_sp_radical       | C_planar_radical     | C_sp2_arom       |
+  C_sp2_diradical    | C_sp3_diradical    | C_planar_plus        | C_sp2_plus       |
+  C_sp_plus          | C_sp2_arom_plus    | C_planar_minus       | C_sp2_minus      |
+  C_sp_minus         | C_sp2_arom_minus   | H_sgl                | H_plus           |
+  H_minus            | O_sp3              | O_sp2                | O_sp3_radical    |
+  O_sp2_arom         | O_sp3_plus         | O_sp2_plus           | O_sp_plus        |
+  O_sp3_plus_radical | O_sp2_plus_radical | O_sp3_minus          | O_sp3_minus2     |
+  S_2_sp3            | S_2_sp2            | S_6_sp3d2_anyl       | S_4_sp2_inyl     |
+  S_4_sp2            | S_4_planar3_oxide  | S_6_sp3d2_octahedral | S_6_sp3d1        |
+  S_6_sp3            | S_6_sp3_thionyl    | S_6_sp3_onyl         | S_6_sp2_trioxide |
+  S_2_planar3        | S_4_sp2_arom_inyl2 | S_6_sp2_plus         | S_4_sp2_plus     |
+  S_4_sp3_plus2      | S_2_sp3_minus      | S_2_minus2
+
 %runElab derive "AtomType" [Show,Eq,Ord]
 
 
@@ -84,9 +84,9 @@ data AtomType =
 public export
 record ATArgs where
   constructor MkATArgs
-  element : Elem
-  arom : Bool
-  charge : Charge
+  element  : Elem
+  arom     : Bool
+  charge   : Charge
   bondType : Bonds
 
 %runElab derive "ATArgs" [Show,Eq,Ord]
@@ -125,7 +125,6 @@ atomTypes = [
 
   -- Hydrogen
   (MkATArgs H False 0    (BS 1 0 0), H_sgl),
-  (MkATArgs H False 0    (BS 0 0 0), H_rad),
   (MkATArgs H False 1    (BS 0 0 0), H_plus),
   (MkATArgs H False (-1) (BS 0 0 0), H_minus),
 
@@ -255,6 +254,7 @@ toAtomTypes g@(MkGraph bm) = MkGraph <$> traverseWithKey (adjToAtomTypes g) bm
 
 ||| Read in a SMILES-string and convert the resulting graph into a graph with
 ||| AtomTypes and print it
+public export
 smilesAtomTypeIO : IO ()
 smilesAtomTypeIO = do
   str <- map trim getLine
