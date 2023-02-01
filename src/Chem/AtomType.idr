@@ -1,78 +1,12 @@
 module Chem.AtomType
 
-{-
-  Stefan Höck: This project is should be based on the source code
-  from your bachelor's thesis.
-
-  The goal of this coding project is to clean up that code and get rid of
-  all repeating patterns. In order to do so, there are several things you
-  should keep in mind:
-
-    * Don't use `String` for atom types: Define an enum type deriving
-      `Show`, `Eq` and `Ord` for it, and keep adding new atom types when
-      they show up.
-
-    * Most atom types are percieved by comparing the following things:
-      element, aromaticity, charge, number and types of bonds (including
-      bonds to implicit hydrogen atoms). Group these in a record type and
-      derive `Show`, `Eq, and `Ord` for it.
-
-      Now, have a look at function `Data.List.lookup`. Can you see, how
-      you can make use of this function plus a list of pairs to come
-      up with a general purpose perception function? The list of pairs
-      must not be generated anew every time we percieve atom types, so
-      use a top-level constant for it.
-
-    * A few atom types require special treatment. Implement those checks
-      separately and decide for each of them, whether it should be checked
-      before or after running the general perception algorithm.
-
-    * In the end, write a function for converting a graph of type `Graph Bond (Atom ())`
-      to a `Maybe (Graph Bond (Atom AtomType))`.
-
-    * Only implement atom types already present in your Bachelor's thesis.
-
-  Marking criteria:
-
-    * Correctness of implementation (write a couple of tests/proofs)
-    * DRY-ness of code ("DRY" = "Don't Repeat Yourself")
-    * Making use of existing functions from the Idris standard libs.
-      (example: `Data.List`, and stuff from the Prelude)
-    * Separation of concerns: Split error handling from the rest of
-      the functionality. Same goes for grouping / sorting of bonds.
-    * Use docstrings / comments to document your code (especially special cases)
-
-  Deadline: 31.01.2023
-
-  A good example for things to watch out for is the following code excerpt:
-
-    ```
-    hasODbl : List (Elem,Bond) -> Nat
-    hasODbl [] = 0
-    hasODbl ((O,Dbl) :: xs) = 1 + hasODbl xs
-    hasODbl ((x, y) :: xs) = 0 + hasODbl xs
-
-    hasSDbl : List (Elem,Bond) -> Nat
-    hasSDbl [] = 0
-    hasSDbl ((S,Dbl) :: xs) = 1 + hasSDbl xs
-    hasSDbl ((x, y) :: xs) = 0 + hasSDbl xs
-
-    hasNDbl : List (Elem,Bond) -> Nat
-    hasNDbl [] = 0
-    hasNDbl ((N,Dbl) :: xs) = 1 + hasNDbl xs
-    hasNDbl ((x, y) :: xs) = 0 + hasNDbl xs
-    ```
-
-  This is neither DRY (repeats the same code several times), nor does it make
-  use of existing functionality (look at `Prelude.count`).
--}
-
-
-import Chem
-import Derive.Prelude
-import Data.Graph
+import Chem.Types
+import Chem.Atom
+import Chem.Element
 import Text.Smiles
+import Data.Graph
 import Data.BitMap
+import Derive.Prelude
 
 %language ElabReflection
 %default total
@@ -81,6 +15,7 @@ import Data.BitMap
 -- Bond Types
 -------------------------------------------------------------------------------
 
+public export
 record Bonds where
   constructor BS
   single : Nat
@@ -92,6 +27,7 @@ record Bonds where
 
 ||| Calculates total number of bonds
 ||| (triple bond => 1 bond)
+public export
 bondsTotal : Bonds -> Nat
 bondsTotal b = b.single + b.double + b.triple
 
@@ -105,6 +41,7 @@ Monoid Bonds where
 
 ||| Folds a list of Bond's to Bonds
 ||| Caution: Quad-Bond's counts as 0!
+public export
 toBonds : List Bond -> Bonds
 toBonds = foldMap (\case 
                   Sngl => BS 1 0 0
@@ -114,6 +51,7 @@ toBonds = foldMap (\case
                   Quad => BS 0 0 0)
 
 
+public export
 hCountToBonds : HCount -> Bonds
 hCountToBonds h = BS (cast (h.value)) 0 0
 
@@ -123,6 +61,7 @@ hCountToBonds h = BS (cast (h.value)) 0 0
 -------------------------------------------------------------------------------
 
 ||| Syntax: element_(std.valence)_hybridisation_aromaticity_charge_radical_specials
+public export
 data AtomType =
   C_sp3            | C_sp2              | C_sp_allene        | C_sp                 |
   C_sp2_radical    | C_sp_radical       | C_planar_radical   | C_sp2_arom           |
@@ -142,6 +81,7 @@ data AtomType =
 
 
 ||| ATArgs represents the arguments needed to evaluate the associated AtomType
+public export
 record ATArgs where
   constructor MkATArgs
   element : Elem
@@ -157,6 +97,7 @@ record ATArgs where
 -------------------------------------------------------------------------------
 
 ||| Includes a list with matching ATArgs and AtomType Pairs
+public export
 atomTypes : List (ATArgs, AtomType)
 atomTypes = [
   -- Carbon
@@ -228,6 +169,7 @@ atomTypes = [
 -------------------------------------------------------------------------------
 
 ||| Extracts a list of linked elements with their connecting bonds
+public export
 toPairElemBond : Graph Bond (Atom l)
               -> Node
               -> List(Elem,Bond)
@@ -236,17 +178,20 @@ toPairElemBond g n =
 
 
 ||| Extracts all bonds from an atom
+public export
 getBondsFromNode : Graph Bond (Atom l) -> Node -> HCount -> Bonds
 getBondsFromNode x y h =
   (<+>) (toBonds (map snd (lneighbours x y))) (hCountToBonds h)
 
 
 ||| Returns the number of double bonds to a specific element
+public export
 hasDblX : List (Elem, Bond) -> Elem -> Nat
-hasDblX xs e = count (\x => fst x == e) xs
+hasDblX xs e = count (\x => fst x == e && snd x == Dbl) xs
 
 
 ||| Deals with the special cases
+public export
 checkSpecialTypes : AtomType -> List (Elem,Bond) -> AtomType
 checkSpecialTypes C_sp bs   =
   if hasDblX bs C == 2 then C_sp_allene else C_sp
@@ -254,12 +199,13 @@ checkSpecialTypes S_4_sp2 bs =
   if hasDblX bs O == 2 then S_4_planar3_oxide else S_4_sp2
 checkSpecialTypes S_6_sp3 bs =
   if hasDblX bs O == 1 && hasDblX bs S == 1 then S_6_sp3_thionyl
-  else if hasDblX bs O + hasDblX bs N == 2 then S_6_sp3_thionyl
+  else if (hasDblX bs O + hasDblX bs N) == 2 then S_6_sp3_thionyl
   else S_6_sp3
 checkSpecialTypes at _ = at
 
 
 ||| Help funtion to determine all needed arguments to lookup the AtomType
+public export
 adjToAtomTypes : Graph Bond (Atom l)
               -> BitMap.Key
               -> Adj Bond (Atom l)
@@ -277,6 +223,7 @@ adjToAtomTypes x y g@(MkAdj a n) =
 
 
 ||| Determines the AtomType if possible
+public export
 toAtomTypes : Graph Bond (Atom l) -> Maybe (Graph Bond (Atom (l,AtomType)))
 toAtomTypes g@(MkGraph bm) = MkGraph <$> traverseWithKey (adjToAtomTypes g) bm
 
