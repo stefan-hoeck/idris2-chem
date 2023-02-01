@@ -26,31 +26,26 @@ calcAtomTypes str = case parse str of
   Stuck _ _ => []
   End result => case Prelude.maybe Nothing toAtomTypes (graphWithH result) of
     Nothing => []
-    Just g  => case labNodes g of
-      v => case sortBy (\x,y => compare x.node y.node) v of
-        c => map (\a => snd (Atom.label a.label)) c
-
-{-
-  Uncomment the following without further modifications.
--}
-
--- prop : (String,List AtomType) -> (PropertyName,Property)
--- prop (s,ats) = MkPair (fromString "SMILES \{s}") $ withTests 1 $ property $
---   calcAtomTypes s === ats
+    Just g  =>
+      map (\a => snd (Atom.label a.label))
+          (sortBy (\x,y => compare x.node y.node) (labNodes g))
 
 
-{-
-  Define list of pairs of SMILES strings and exptected list
-  of atom types.
--}
--- -- Pairs of SMILES strings and expected list of atom types
--- pairs : List (String,List AtomType)
+prop : (String,List AtomType) -> (PropertyName,Property)
+prop (s,ats) = MkPair (fromString "SMILES \{s}") $ withTests 1 $ property $
+  calcAtomTypes s === ats
 
-{-
-  Uncomment the following without further modifications.
-  Make sure to include these `props` in the main test runner
-  in module `Main`.
--}
--- export
--- props : Group
--- props = MkGroup "AtomType Properties" $ map prop pairs
+
+-- Pairs of SMILES strings and expected list of atom types
+pairs : List (String,List AtomType)
+pairs = [("CCO"                      ,[C_sp3,C_sp3,O_sp3]),
+         ("[O-]S(=O)(=S)[O-]"        ,[O_sp3_minus,S_6_sp3_thionyl,O_sp2,S_2_sp2,O_sp3_minus]),
+         ("OS(=O)(=O)O"              ,[O_sp3,S_6_sp3_onyl,O_sp2,O_sp2,O_sp3]),
+         ("COc1ccccc1OC(=O)Cc2ccccc2",[C_sp3,O_sp2,C_sp2_arom,C_sp2_arom,C_sp2_arom,
+                                       C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2,C_sp2,
+                                       O_sp2,C_sp3,C_sp2_arom,C_sp2_arom,C_sp2_arom,
+                                       C_sp2_arom,C_sp2_arom,C_sp2_arom])]
+
+export
+props : Group
+props = MkGroup "AtomType Properties" $ map prop pairs
