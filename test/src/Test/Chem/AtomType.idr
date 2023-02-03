@@ -44,7 +44,12 @@ pairs = [("CCO"                      ,[C_sp3,C_sp3,O_sp3]),
          ("COc1ccccc1OC(=O)Cc2ccccc2",[C_sp3,O_sp2,C_sp2_arom,C_sp2_arom,C_sp2_arom,
                                        C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2,C_sp2,
                                        O_sp2,C_sp3,C_sp2_arom,C_sp2_arom,C_sp2_arom,
-                                       C_sp2_arom,C_sp2_arom,C_sp2_arom])]
+                                       C_sp2_arom,C_sp2_arom,C_sp2_arom]),
+         ("COc1ccccc1OC[C@@H](CO)O"  ,[C_sp3,O_sp2,C_sp2_arom,C_sp2_arom,C_sp2_arom,
+                                      C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2,C_sp3,
+                                      C_sp3,C_sp3,O_sp3,O_sp3]),
+         ("[H-]"                     ,[H_minus])
+         ]
 
 export
 props : Group
