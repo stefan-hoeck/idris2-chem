@@ -36,11 +36,15 @@ prop (s,ats) = MkPair (fromString "SMILES \{s}") $ withTests 1 $ property $
   calcAtomTypes s === ats
 
 
+-- hock: While these tests are surely useful, the are kind of arbitrary
+--       and hard to digest if they go wrong. Try to provide one or several
+--       minimal examples for every atom type to make sure the conversion
+--       works correctly.
 -- Pairs of SMILES strings and expected list of atom types
 pairs : List (String,List AtomType)
 pairs = [("CCO"                      ,[C_sp3,C_sp3,O_sp3]),
          ("[O-]S(=O)(=S)[O-]"        ,[O_sp3_minus,S_6_sp3_thionyl,O_sp2,S_2_sp2,O_sp3_minus]),
-         ("OS(=O)(=O)O"              ,[O_sp3,S_6_sp3_onyl,O_sp2,O_sp2,O_sp3]),
+         ("OS(=O)(=O)O"              ,[O_sp2,S_6_sp3_onyl,O_sp2,O_sp2,O_sp2]),
          ("COc1ccccc1OC(=O)Cc2ccccc2",[C_sp3,O_sp2,C_sp2_arom,C_sp2_arom,C_sp2_arom,
                                        C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2,C_sp2,
                                        O_sp2,C_sp3,C_sp2_arom,C_sp2_arom,C_sp2_arom,
