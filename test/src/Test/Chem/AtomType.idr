@@ -40,6 +40,10 @@ prop (s,ats) = MkPair (fromString "SMILES \{s}") $ withTests 1 $ property $
 --       and hard to digest if they go wrong. Try to provide one or several
 --       minimal examples for every atom type to make sure the conversion
 --       works correctly.
+--
+--       The third example is currently not correct (I changed it), because
+--       we consider the bonds going to neighbours instead of the neighbours
+--       themselves.
 -- Pairs of SMILES strings and expected list of atom types
 pairs : List (String,List AtomType)
 pairs = [("CCO"                      ,[C_sp3,C_sp3,O_sp3]),
