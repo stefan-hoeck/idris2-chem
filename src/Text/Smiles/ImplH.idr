@@ -3,7 +3,7 @@ module Text.Smiles.ImplH
 import Data.List
 import Chem
 import Chem.Atom
-import Text.Smiles
+import Text.Smiles.Types
 import Data.Graph
 import Data.BitMap
 import Data.AssocList

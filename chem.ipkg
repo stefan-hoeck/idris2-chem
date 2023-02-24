@@ -15,6 +15,7 @@ modules = Chem
         , Chem.Isotope
         , Chem.Types
         , Chem.Atom
+        , Chem.AtomType
 
         , Data.List.Suffix
         , Data.Refined
