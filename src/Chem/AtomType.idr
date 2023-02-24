@@ -21,7 +21,7 @@ record Bonds where
   single : Nat
   double : Nat
   triple : Nat
-  
+
 %runElab derive "Bonds" [Show,Eq,Ord]
 
 
@@ -39,11 +39,18 @@ Monoid Bonds where
   neutral = BS 0 0 0
 
 
+-- hock: Coding style:
+--   * Minimize amount of indentation
+--   * Don't use parens around lambda case: Use the dollar operator
+--
+-- Code reuse: This function is much more useful if we convert
+-- just a `Bond` to `Bonds`. The `foldMap` part is then trivial and
+-- can be used on all `Foldable`s, not just lists.
 ||| Folds a list of Bond's to Bonds
 ||| Caution: Quad-Bond's counts as 0!
 public export
 toBonds : List Bond -> Bonds
-toBonds = foldMap (\case 
+toBonds = foldMap (\case
                   Sngl => BS 1 0 0
                   Arom => BS 1 0 0
                   Dbl  => BS 0 1 0
@@ -51,6 +58,10 @@ toBonds = foldMap (\case
                   Quad => BS 0 0 0)
 
 
+-- hock: Coding style
+--  * Use the dollar operator to reduce the amount of nesting
+--  * Record projections don't need to be put in parentheses
+--  * Consider implementing `Cast` for such convertions
 public export
 hCountToBonds : HCount -> Bonds
 hCountToBonds h = BS (cast (h.value)) 0 0
@@ -80,6 +91,13 @@ data AtomType =
 %runElab derive "AtomType" [Show,Eq,Ord]
 
 
+-- hock
+-- I think, this should be an internal utility type. We should not
+-- export this.
+-- Coding style
+--   * For data types used a lot in pattern matches, choose short
+--     constructor names. Especially if they are only used internally.
+--     This reduces code clutter. Example: `AA` or even `A`
 ||| ATArgs represents the arguments needed to evaluate the associated AtomType
 public export
 record ATArgs where
@@ -167,6 +185,16 @@ atomTypes = [
 -- Determination AtomType
 -------------------------------------------------------------------------------
 
+-- hock:
+--
+-- Performance:
+--   * We already have access to the `Adj` when this is called. no need to
+--     look it up again via `lneighbours`.
+--   * Instead of sequencing calls to `map`, sequence the functions:
+--     `mapMaybe (\(k,b) => (,b) . elem <$> lab g k) (lneighbours g n)`
+--
+-- Design
+--   * Don't export internal utility functions.
 ||| Extracts a list of linked elements with their connecting bonds
 public export
 toPairElemBond : Graph Bond (Atom l)
@@ -176,6 +204,13 @@ toPairElemBond g n =
   List.mapMaybe (\(node,bond) => map (,bond) (map Atom.elem (lab g node))) (lneighbours g n)
 
 
+-- hock:
+-- Code reuse
+--   * By rewriting `toBonds` as suggested, we could use `foldMap` here.
+--     (On the `Adj`, which we already have access to).
+--
+-- Coding stel
+--   * Use operators in infix notation to reduce amount of paretheses.
 ||| Extracts all bonds from an atom
 public export
 getBondsFromNode : Graph Bond (Atom l) -> Node -> HCount -> Bonds
@@ -183,13 +218,31 @@ getBondsFromNode x y h =
   (<+>) (toBonds (map snd (lneighbours x y))) (hCountToBonds h)
 
 
+-- hock:
+-- Code reuse
+--   * Use `Eq` implementation for `Pair`:
+--     `hasDblX xs e = count ((e,Dbl) ==) xs`
+--
+-- Design:
+--   Does this need to be exported or is it an internal function?
 ||| Returns the number of double bonds from the determining element
 ||| to a specific element
 public export
 hasDblX : List (Elem, Bond) -> Elem -> Nat
 hasDblX xs e = count (\x => fst x == e && snd x == Dbl) xs
 
-
+-- hock:
+-- Code reuse
+--   * Use `isJust` or `not . null` to test if a `Maybe` is inhabited
+--     (`null` comes from `Foldable`)
+--   * Better still: Use `elem` and drop this altogether:
+--     `elem Arom xs`, which is then so trivial that this function
+--     can be dropped altogether
+--
+-- Coding style:
+--   * Prefer currying and operator sections in anonymous functions
+--   * Do not fully qualify identifiers unless they need to be
+--     disambiguated.
 ||| Returns True, if an aromatic bond is present
 hasArom : List Bond -> Bool
 hasArom xs = case Data.List.find (\x =>x == Arom) xs of
@@ -211,6 +264,8 @@ checkSpecialTypes S_6_sp3 bs =
 checkSpecialTypes at _ = at
 
 
+-- Coding style:
+--   * Don't use doc-strings for commenting non-exported functions.
 ||| Deals with the special case of oxygen
 ||| Uses the bonds of all the neighbours to check for special
 ||| Types
@@ -220,6 +275,29 @@ checkSpecialTypes2 h xs = case hasArom xs of
   True  => O_sp2
 
 
+-- hock:
+-- Coding style:
+--   * Large anonymous functions are hard to digest when reading code.
+--     Use lambdas and/or currying only for short anonymous functions the
+--     fit on a single line. Exception: Lambda case (pattern matching) after
+--     a dollar operator if the lambda is the last argument of a (maybe
+--     curried) higher-order function.
+--
+--   * If the traversal is complex, extract the conversion to a utility
+--     function
+--
+--   * Consider using `parameters` blocks for parameters (unchanging arguments)
+--     appearing in several related functions.
+--
+--   * If something is a helper function, don't export it.
+--
+-- Code reuse:
+--   Use `any` to check if a condition holds for a value in a `Foldable`
+--
+-- Code correctness:
+--   Conjugation for oxygen or nitrogen happens with all neighbours with
+--   an electron deficit (C+ or B, for instance) plus atoms bound
+--   to a pi-bonds (double, triple, aromatic)
 ||| Help funtion to determine all needed arguments to lookup the AtomType
 public export
 adjToAtomTypes : Graph Bond (Atom l)
@@ -232,7 +310,7 @@ adjToAtomTypes x y g@(MkAdj a n) =
       neigh = toPairElemBond x y
       neighB = foldMap (\w => map snd (lneighbours x w)) (map fst (lneighbours x y))
       at    = map (\z => if z == C_sp || z == S_4_sp2 || z == S_6_sp3
-                   then checkSpecialTypes z neigh 
+                   then checkSpecialTypes z neigh
                    else if z == O_sp3
                    then checkSpecialTypes2 z neighB
                    else z)
