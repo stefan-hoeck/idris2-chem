@@ -214,3 +214,26 @@ parameters (g   : Graph Bond (Atom l))
 public export
 toAtomTypes : Graph Bond (Atom l) -> Maybe (Graph Bond (Atom (l,AtomType)))
 toAtomTypes g = MkGraph <$> traverseWithKey (adj g) (graph g)
+
+-- TODO : Algorithm needed to check all atomtypes on possibility to generate a more
+-- specific atomtype based on neighbouring atomtypes
+--
+-- 1.  Determine all atomtypes with function 'toAtomTypes'.
+-- 2.  Start with the loop. Apply 'update' a first time.
+-- 3a. If nothing is modified, stop the loop and return the Graph.
+-- 3b. If something is modified, reapply 'update' a second time.
+-- 4.  Repeat step 3. until a) 3a. is reached or b) break if step 3b. runs more
+--     than ?maybe four times.
+--
+-- Function to update the atomtypes:
+-- update : Graph Bond (Atom (l,AtomType))
+--   -> Maybe (Graph Bond (Atom (l,AtomType)))
+--
+export
+determineAtomTypes : Graph Bond (Atom (l,AtomType))
+  -> (flag : Nat)
+  -> Maybe ((Graph Bond (Atom (l,AtomType))), Nat)
+-- Flag needed to stop the loop -> set maximum number of iterations to prevent
+-- long calculation times => mark this as an error (Nothing)
+-- set flag to 0 if nothing has changed, else iterate and decrease flag by one
+-- until value of flag reached zero
