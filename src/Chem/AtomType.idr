@@ -226,11 +226,10 @@ toAtomTypes g = MkGraph <$> traverseWithKey (adj g) (graph g)
 --     than ?maybe four times.
 --
 -- Function to update the atomtypes:
--- update : Graph Bond (Atom (l,AtomType))
+-- update' : Graph Bond (Atom (l,AtomType))
 --   -> Maybe (Graph Bond (Atom (l,AtomType)))
 --
-export
-determineAtomTypes : Graph Bond (Atom (l,AtomType))
+update : Graph Bond (Atom (l,AtomType))
   -> (flag : Nat)
   -> Maybe ((Graph Bond (Atom (l,AtomType))), Nat)
 -- Flag needed to stop the loop -> set maximum number of iterations to prevent
