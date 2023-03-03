@@ -21,6 +21,10 @@ record MassNr where
   value : Bits16
   {auto 0 prf : FromTo 1 511 value}
 
+export %inline
+Interpolation MassNr where
+  interpolate = show . value
+
 namespace MassNr
   %runElab derive "MassNr" [Show,Eq,Ord,RefinedInteger]
 
@@ -41,6 +45,10 @@ record Abundance where
   constructor MkAbundance
   value : Double
   {auto 0 prf : Holds IsAbundance value}
+
+export %inline
+Interpolation Abundance where
+  interpolate = show . value
 
 namespace Abundance
   %runElab derive "Abundance" [Show,Eq,Ord,RefinedDouble]
@@ -85,6 +93,10 @@ record MolecularMass where
   value : Double
   {auto 0 prf : Holds IsMolecularMass value}
 
+export %inline
+Interpolation MolecularMass where
+  interpolate = show . value
+
 namespace MolecularMass
   %runElab derive "MolecularMass" [Show,Eq,Ord,RefinedDouble]
 
@@ -112,6 +124,10 @@ record MolarMass where
   -- we use the same range as for `MolecularMass` so that
   -- the two types are easily interconvertible
   {auto 0 prf : Holds IsMolecularMass value}
+
+export %inline
+Interpolation MolarMass where
+  interpolate = show . value
 
 namespace MolarMass
   %runElab derive "MolarMass" [Show,Eq,Ord,RefinedDouble]
@@ -146,6 +162,10 @@ record Charge where
   value : Int8
   {auto 0 prf : FromTo (-15) 15 value}
 
+export %inline
+Interpolation Charge where
+  interpolate = show . value
+
 namespace Charge
   %runElab derive "Charge" [Show,Eq,Ord,RefinedInteger]
 
@@ -158,6 +178,10 @@ record HCount where
   constructor MkHCount
   value : Bits8
   {auto 0 prf : value < 10}
+
+export %inline
+Interpolation HCount where
+  interpolate = show . value
 
 namespace HCount
   %runElab derive "HCount" [Show,Eq,Ord,RefinedInteger]
