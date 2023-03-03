@@ -1,11 +1,39 @@
 module Chem.Element
 
-import Chem.Types
+import Data.Prim.Bits8
+import Data.Refined
+import Decidable.HDec.Bits8
 import Derive.Prelude
+import Derive.Refined
 import Text.RW
 
 %language ElabReflection
 %default total
+
+--------------------------------------------------------------------------------
+--          Atomic Number
+--------------------------------------------------------------------------------
+
+public export
+0 IsAtomicNr : Bits8 -> Type
+IsAtomicNr = FromTo 1 118
+
+0 test : IsAtomicNr 2
+test = %search
+
+
+public export
+record AtomicNr where
+  constructor MkAtomicNr
+  value : Bits8
+  {auto 0 prf : IsAtomicNr value}
+
+namespace AtomicNr
+  %runElab derive "AtomicNr" [Show,Eq,Ord,RefinedInteger]
+
+--------------------------------------------------------------------------------
+--          The Elements
+--------------------------------------------------------------------------------
 
 public export
 data Elem =
@@ -32,129 +60,129 @@ data Elem =
 ||| This is a proof that we can safely compute an atomic number
 ||| from each element's index
 export
-0 indexLemma : (e : Elem) -> So (isAtomicNr (conIndexElem e + 1))
-indexLemma H  = Oh
-indexLemma He = Oh
-indexLemma Li = Oh
-indexLemma Be = Oh
-indexLemma B  = Oh
-indexLemma C  = Oh
-indexLemma N  = Oh
-indexLemma O  = Oh
-indexLemma F  = Oh
-indexLemma Ne = Oh
-indexLemma Na = Oh
-indexLemma Mg = Oh
-indexLemma Al = Oh
-indexLemma Si = Oh
-indexLemma P  = Oh
-indexLemma S  = Oh
-indexLemma Cl = Oh
-indexLemma Ar = Oh
-indexLemma K  = Oh
-indexLemma Ca = Oh
-indexLemma Sc = Oh
-indexLemma Ti = Oh
-indexLemma V  = Oh
-indexLemma Cr = Oh
-indexLemma Mn = Oh
-indexLemma Fe = Oh
-indexLemma Co = Oh
-indexLemma Ni = Oh
-indexLemma Cu = Oh
-indexLemma Zn = Oh
-indexLemma Ga = Oh
-indexLemma Ge = Oh
-indexLemma As = Oh
-indexLemma Se = Oh
-indexLemma Br = Oh
-indexLemma Kr = Oh
-indexLemma Rb = Oh
-indexLemma Sr = Oh
-indexLemma Y  = Oh
-indexLemma Zr = Oh
-indexLemma Nb = Oh
-indexLemma Mo = Oh
-indexLemma Tc = Oh
-indexLemma Ru = Oh
-indexLemma Rh = Oh
-indexLemma Pd = Oh
-indexLemma Ag = Oh
-indexLemma Cd = Oh
-indexLemma In = Oh
-indexLemma Sn = Oh
-indexLemma Sb = Oh
-indexLemma Te = Oh
-indexLemma I  = Oh
-indexLemma Xe = Oh
-indexLemma Cs = Oh
-indexLemma Ba = Oh
-indexLemma La = Oh
-indexLemma Ce = Oh
-indexLemma Pr = Oh
-indexLemma Nd = Oh
-indexLemma Pm = Oh
-indexLemma Sm = Oh
-indexLemma Eu = Oh
-indexLemma Gd = Oh
-indexLemma Tb = Oh
-indexLemma Dy = Oh
-indexLemma Ho = Oh
-indexLemma Er = Oh
-indexLemma Tm = Oh
-indexLemma Yb = Oh
-indexLemma Lu = Oh
-indexLemma Hf = Oh
-indexLemma Ta = Oh
-indexLemma W  = Oh
-indexLemma Re = Oh
-indexLemma Os = Oh
-indexLemma Ir = Oh
-indexLemma Pt = Oh
-indexLemma Au = Oh
-indexLemma Hg = Oh
-indexLemma Tl = Oh
-indexLemma Pb = Oh
-indexLemma Bi = Oh
-indexLemma Po = Oh
-indexLemma At = Oh
-indexLemma Rn = Oh
-indexLemma Fr = Oh
-indexLemma Ra = Oh
-indexLemma Ac = Oh
-indexLemma Th = Oh
-indexLemma Pa = Oh
-indexLemma U  = Oh
-indexLemma Np = Oh
-indexLemma Pu = Oh
-indexLemma Am = Oh
-indexLemma Cm = Oh
-indexLemma Bk = Oh
-indexLemma Cf = Oh
-indexLemma Es = Oh
-indexLemma Fm = Oh
-indexLemma Md = Oh
-indexLemma No = Oh
-indexLemma Lr = Oh
-indexLemma Rf = Oh
-indexLemma Db = Oh
-indexLemma Sg = Oh
-indexLemma Bh = Oh
-indexLemma Hs = Oh
-indexLemma Mt = Oh
-indexLemma Ds = Oh
-indexLemma Rg = Oh
-indexLemma Cn = Oh
-indexLemma Nh = Oh
-indexLemma Fl = Oh
-indexLemma Mc = Oh
-indexLemma Lv = Oh
-indexLemma Ts = Oh
-indexLemma Og = Oh
+0 indexLemma : (e : Elem) -> IsAtomicNr (conIndexElem e + 1)
+indexLemma H  = %search
+indexLemma He = %search
+indexLemma Li = %search
+indexLemma Be = %search
+indexLemma B  = %search
+indexLemma C  = %search
+indexLemma N  = %search
+indexLemma O  = %search
+indexLemma F  = %search
+indexLemma Ne = %search
+indexLemma Na = %search
+indexLemma Mg = %search
+indexLemma Al = %search
+indexLemma Si = %search
+indexLemma P  = %search
+indexLemma S  = %search
+indexLemma Cl = %search
+indexLemma Ar = %search
+indexLemma K  = %search
+indexLemma Ca = %search
+indexLemma Sc = %search
+indexLemma Ti = %search
+indexLemma V  = %search
+indexLemma Cr = %search
+indexLemma Mn = %search
+indexLemma Fe = %search
+indexLemma Co = %search
+indexLemma Ni = %search
+indexLemma Cu = %search
+indexLemma Zn = %search
+indexLemma Ga = %search
+indexLemma Ge = %search
+indexLemma As = %search
+indexLemma Se = %search
+indexLemma Br = %search
+indexLemma Kr = %search
+indexLemma Rb = %search
+indexLemma Sr = %search
+indexLemma Y  = %search
+indexLemma Zr = %search
+indexLemma Nb = %search
+indexLemma Mo = %search
+indexLemma Tc = %search
+indexLemma Ru = %search
+indexLemma Rh = %search
+indexLemma Pd = %search
+indexLemma Ag = %search
+indexLemma Cd = %search
+indexLemma In = %search
+indexLemma Sn = %search
+indexLemma Sb = %search
+indexLemma Te = %search
+indexLemma I  = %search
+indexLemma Xe = %search
+indexLemma Cs = %search
+indexLemma Ba = %search
+indexLemma La = %search
+indexLemma Ce = %search
+indexLemma Pr = %search
+indexLemma Nd = %search
+indexLemma Pm = %search
+indexLemma Sm = %search
+indexLemma Eu = %search
+indexLemma Gd = %search
+indexLemma Tb = %search
+indexLemma Dy = %search
+indexLemma Ho = %search
+indexLemma Er = %search
+indexLemma Tm = %search
+indexLemma Yb = %search
+indexLemma Lu = %search
+indexLemma Hf = %search
+indexLemma Ta = %search
+indexLemma W  = %search
+indexLemma Re = %search
+indexLemma Os = %search
+indexLemma Ir = %search
+indexLemma Pt = %search
+indexLemma Au = %search
+indexLemma Hg = %search
+indexLemma Tl = %search
+indexLemma Pb = %search
+indexLemma Bi = %search
+indexLemma Po = %search
+indexLemma At = %search
+indexLemma Rn = %search
+indexLemma Fr = %search
+indexLemma Ra = %search
+indexLemma Ac = %search
+indexLemma Th = %search
+indexLemma Pa = %search
+indexLemma U  = %search
+indexLemma Np = %search
+indexLemma Pu = %search
+indexLemma Am = %search
+indexLemma Cm = %search
+indexLemma Bk = %search
+indexLemma Cf = %search
+indexLemma Es = %search
+indexLemma Fm = %search
+indexLemma Md = %search
+indexLemma No = %search
+indexLemma Lr = %search
+indexLemma Rf = %search
+indexLemma Db = %search
+indexLemma Sg = %search
+indexLemma Bh = %search
+indexLemma Hs = %search
+indexLemma Mt = %search
+indexLemma Ds = %search
+indexLemma Rg = %search
+indexLemma Cn = %search
+indexLemma Nh = %search
+indexLemma Fl = %search
+indexLemma Mc = %search
+indexLemma Lv = %search
+indexLemma Ts = %search
+indexLemma Og = %search
 
 public export %inline
 atomicNr : Elem -> AtomicNr
-atomicNr e = MkAtomicNr (conIndexElem e + 1) (indexLemma e)
+atomicNr e = MkAtomicNr (conIndexElem e + 1) @{indexLemma e}
 
 public export
 fromAtomicNr : AtomicNr -> Elem

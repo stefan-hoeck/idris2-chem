@@ -5,20 +5,17 @@ version    = 0.1.0
 sourcedir  = "src"
 depends    = base         >= 0.5.1
            , elab-util
-           , sop
-           , prim
+           , refined
            , graph
 
 modules = Chem
         , Chem.Element
         , Chem.Formula
-        , Chem.Isotope
         , Chem.Types
         , Chem.Atom
         , Chem.AtomType
 
         , Data.List.Suffix
-        , Data.Refined
 
         , Text.Molfile
         , Text.Molfile.Float

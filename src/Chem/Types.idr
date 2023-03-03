@@ -1,75 +1,62 @@
 module Chem.Types
 
-import public Data.Refined
-import Language.Reflection.Refined
-import Language.Reflection.Util
+import Decidable.HDec.Bits8
+import Decidable.HDec.Bits16
+import Decidable.HDec.Int8
+import Derive.Prelude
+import Derive.Refined
 import Text.RW
 
 %default total
 %language ElabReflection
 
 --------------------------------------------------------------------------------
---          Atomic Number
---------------------------------------------------------------------------------
-
-public export
-isAtomicNr : Bits8 -> Bool
-isAtomicNr v = v >= 1 && v <= 118
-
-public export
-record AtomicNr where
-  constructor MkAtomicNr
-  value : Bits8
-  0 prf : So (isAtomicNr value)
-
-%runElab rwInt "AtomicNr" `(Bits8)
-
---------------------------------------------------------------------------------
 --          Mass Number
 --------------------------------------------------------------------------------
-
-public export
-isMassNr : Bits16 -> Bool
-isMassNr v = v >= 1 && v <= 511
 
 public export
 record MassNr where
   constructor MkMassNr
   value : Bits16
-  0 prf : So (isMassNr value)
+  {auto 0 prf : FromTo 1 511 value}
 
-%runElab rwInt "MassNr" `(Bits16)
+namespace MassNr
+  %runElab derive "MassNr" [Show,Eq,Ord,RefinedInteger]
 
 --------------------------------------------------------------------------------
 --          Abundance
 --------------------------------------------------------------------------------
 
-public export
-minAbundanceValue : Double
-minAbundanceValue = 1.0e-100
+public export %inline
+MinAbundanceValue : Double
+MinAbundanceValue = 1.0e-100
 
 public export
-isAbundance : Double -> Bool
-isAbundance v = v >= minAbundanceValue && v <= 1.0
+IsAbundance : Double -> Bool
+IsAbundance v = v >= MinAbundanceValue && v <= 1.0
 
 public export
 record Abundance where
   constructor MkAbundance
   value : Double
-  0 prf : So (isAbundance value)
+  {auto 0 prf : Holds IsAbundance value}
 
-%runElab refinedDouble "Abundance"
+namespace Abundance
+  %runElab derive "Abundance" [Show,Eq,Ord,RefinedDouble]
 
+public export %inline
 multAbundance : Abundance -> Abundance -> Abundance
 multAbundance a1 a2 =
   let res = a1.value * a2.value
-   in fromMaybe 1.0e-100 $ refine res
+   in case hdec0 {p = Holds IsAbundance} res of
+        Just0 _ => MkAbundance res
+        Nothing0 => 1.0e-100
 
 public export %inline
 Semigroup Abundance where
   (<+>) = multAbundance
 
-public export
+public export %inline
 Monoid Abundance where
   neutral = 1.0
 
@@ -82,27 +69,31 @@ Monoid Abundance where
 ||| The total mass of ordinary matter of the universe is assumed to be
 ||| approximately 1.5 * 10^50 kg, so we probably shouldn't exceed that by too
 ||| much.
-public export
-maxMolecularMass : Double
-maxMolecularMass = 1.0e60
+public export %inline
+MaxMolecularMass : Double
+MaxMolecularMass = 1.0e60
 
-public export
-isMolecularMass : Double -> Bool
-isMolecularMass v = v > 0.0 && v <= maxMolecularMass
+public export %inline
+IsMolecularMass : Double -> Bool
+IsMolecularMass v = v > 0.0 && v <= MaxMolecularMass
 
 ||| Molecular mass (or molecular weight) in g/mol
 public export
 record MolecularMass where
   constructor MkMolecularMass
   value : Double
-  0 prf : So (isMolecularMass value)
+  {auto 0 prf : Holds IsMolecularMass value}
 
-%runElab refinedDouble "MolecularMass"
+namespace MolecularMass
+  %runElab derive "MolecularMass" [Show,Eq,Ord,RefinedDouble]
 
+public export %inline
 addMolecularMass : MolecularMass -> MolecularMass -> MolecularMass
-addMolecularMass m1 m2 =
-  let res = m1.value * m2.value
-   in fromMaybe 1.0e60 $ refine res
+addMolecularMass a1 a2 =
+  let res = a1.value * a2.value
+   in case hdec0 {p = Holds IsMolecularMass} res of
+        Just0 _ => MkMolecularMass res
+        Nothing0 => 1.0e60
 
 public export %inline
 Semigroup MolecularMass where
@@ -119,26 +110,30 @@ record MolarMass where
   value : Double
   -- we use the same range as for `MolecularMass` so that
   -- the two types are easily interconvertible
-  0 prf : So (isMolecularMass value)
+  {auto 0 prf : Holds IsMolecularMass value}
 
-%runElab refinedDouble "MolarMass"
+namespace MolarMass
+  %runElab derive "MolarMass" [Show,Eq,Ord,RefinedDouble]
 
+public export %inline
 addMolarMass : MolarMass -> MolarMass -> MolarMass
-addMolarMass m1 m2 =
-  let res = m1.value + m2.value
-   in fromMaybe 1.0e60 $ refine res
+addMolarMass a1 a2 =
+  let res = a1.value * a2.value
+   in case hdec0 {p = Holds IsMolecularMass} res of
+        Just0 _ => MkMolarMass res
+        Nothing0 => 1.0e60
 
 public export %inline
 Semigroup MolarMass where
   (<+>) = addMolarMass
 
-public export
+public export %inline
 molecularToMolarMass : MolecularMass -> MolarMass
-molecularToMolarMass (MkMolecularMass v p) = MkMolarMass v p
+molecularToMolarMass (MkMolecularMass v) = MkMolarMass v
 
-public export
+public export %inline
 molarToMolecularMass : MolarMass -> MolecularMass
-molarToMolecularMass (MkMolarMass v p) = MkMolecularMass v p
+molarToMolecularMass (MkMolarMass v) = MkMolecularMass v
 
 --------------------------------------------------------------------------------
 --          Charge
@@ -148,9 +143,10 @@ public export
 record Charge where
   constructor MkCharge
   value : Int8
-  0 prf : So (-15 <= value && value <= 15)
+  {auto 0 prf : FromTo (-15) 15 value}
 
-%runElab rwIntPlus "Charge" `(Int8)
+namespace Charge
+  %runElab derive "Charge" [Show,Eq,Ord,RefinedInteger]
 
 --------------------------------------------------------------------------------
 --          HCount
@@ -160,6 +156,7 @@ public export
 record HCount where
   constructor MkHCount
   value : Bits8
-  0 prf : So (value < 10)
+  {auto 0 prf : value < 10}
 
-%runElab rwInt "HCount" `(Bits8)
+namespace HCount
+  %runElab derive "HCount" [Show,Eq,Ord,RefinedInteger]
