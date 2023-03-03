@@ -3,7 +3,7 @@ module Chem.Atom
 import Chem.Formula
 import Chem.Element
 import Chem.Types
-import Data.Maybe.NothingMax
+import Data.Maybe.Upper
 import Data.Nat
 import Derive.Prelude
 
