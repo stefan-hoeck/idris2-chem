@@ -20,7 +20,7 @@ toNodes = go 0 Nil
 edge : (upperBound : Node) -> (lbl : Gen e) -> Gen (Maybe $ LEdge e)
 edge 0  _   = pure Nothing
 edge ub lbl =
-  let gnode = bits64 (linear 0 (ub-1))
+  let gnode = bits32 (linear 0 (ub-1))
    in [| toEdge gnode gnode lbl |]
   where toEdge : Node -> Node -> e -> Maybe (LEdge e)
         toEdge k j l = (`MkLEdge` l) <$> mkEdge k j
@@ -78,7 +78,7 @@ add_matchAny = property $ do
 add_match : Property
 add_match = property $ do
   g <- forAll nonEmptySmallGraph
-  n <- forAll (bits64 $ linear 0 (cast (order g) - 1))
+  n <- forAll (bits32 $ linear 0 (cast (order g) - 1))
   case match n g of
     Split ctxt gr => g === add ctxt gr
     Empty         => failWith Nothing "Unexpected empty context"

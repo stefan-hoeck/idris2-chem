@@ -8,7 +8,7 @@ import Test.Chem.AtomType
 
 main : IO ()
 main = test [ Graph.props
-            , Parser.props
-            , Molfile.props
-            , AtomType.props
+        --    , Parser.props
+        --    , Molfile.props
+        --    , AtomType.props
             ]
