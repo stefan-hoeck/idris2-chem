@@ -1,8 +1,9 @@
 module Chem.Types
 
-import Decidable.HDec.Bits8
-import Decidable.HDec.Bits16
-import Decidable.HDec.Int8
+import public Data.Refined
+import public Decidable.HDec.Bits16
+import public Decidable.HDec.Bits8
+import public Decidable.HDec.Int8
 import Derive.Prelude
 import Derive.Refined
 import Text.RW

@@ -1,8 +1,7 @@
 module Chem.Element
 
-import Data.Prim.Bits8
-import Data.Refined
-import Decidable.HDec.Bits8
+import public Data.Refined
+import public Decidable.HDec.Bits8
 import Derive.Prelude
 import Derive.Refined
 import Text.RW

@@ -16,15 +16,14 @@ modules = Chem
         , Chem.Atom
         , Chem.AtomType
 
-        , Data.List.Suffix
-
         , Text.Molfile
         , Text.Molfile.Float
         , Text.Molfile.Reader
         , Text.Molfile.Types
 
-        , Text.Parser.Util
         , Text.RW
+
+        , Text.Lex.Element
 
         , Text.Smiles
         , Text.Smiles.Parser
