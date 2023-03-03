@@ -6,9 +6,6 @@ import Hedgehog
 
 %default total
 
-elements : List Elem
-elements = maybe H fromAtomicNr . refineAtomicNr <$> [1..118]
-
 prop_lexElement : Property
 prop_lexElement =
   withTests 1 $ property $ for_ elements \e =>

@@ -9,3 +9,13 @@ import Hedgehog
 export
 element : Gen Elem
 element = fromAtomicNr <$> atomicNr
+
+prop_elements : Property
+prop_elements = withTests 1 $ property $
+  map (value . atomicNr) elements === [1..118]
+
+export
+props : Group
+props = MkGroup "Chem.Element"
+  [ ("prop_elements", prop_elements)
+  ]
