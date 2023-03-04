@@ -1,13 +1,13 @@
 module Text.Smiles.Lexer
 
-import Chem.Element
-import Chem.Types
-import Data.Refined
+import public Chem.Element
+import public Chem.Types
+import public Data.Refined
 import Derive.Prelude
-import Text.Bounds
-import Text.Lex.Manual
-import Text.Lex.Element
-import Text.Smiles.Types
+import public Text.Bounds
+import public Text.Lex.Manual
+import public Text.Lex.Element
+import public Text.Smiles.Types
 
 %default total
 
@@ -15,14 +15,12 @@ import Text.Smiles.Types
 
 public export
 data SmilesToken : Type where
-  PO    : SmilesToken -- '('
-  PC    : SmilesToken -- ')'
-  UB    : SmilesToken -- '/'
-  DB    : SmilesToken -- '\'
-  Dot   : SmilesToken
-  TBond : Bond -> SmilesToken
-  TRing : RingNr -> SmilesToken
-  TAtom : Atom -> SmilesToken
+  PO  : SmilesToken -- '('
+  PC  : SmilesToken -- ')'
+  Dot : SmilesToken
+  TB  : Bond -> SmilesToken
+  TR  : RingNr -> SmilesToken
+  TA  : Atom -> SmilesToken
 
 %runElab derive "SmilesToken" [Show,Eq]
 
@@ -30,20 +28,26 @@ export
 Interpolation SmilesToken where
   interpolate PO  = "("
   interpolate PC  = ")"
-  interpolate UB  = "/"
-  interpolate DB  = "\\"
   interpolate Dot = "."
-  interpolate (TBond x) = "\{x}"
-  interpolate (TRing x) = "\{x}"
-  interpolate (TAtom x) = "\{x}"
+  interpolate (TB x) = "\{x}"
+  interpolate (TR x) = "\{x}"
+  interpolate (TA x) = "\{x}"
+
+-- TODO: This is not perfect since there are different encodings
+--       for the same bracket atom. A better option would perhaps
+--       be to include the string length in the `Bracket` data
+--       constructor.
+public export
+bounds : SmilesToken -> Nat -> Bounds
+bounds t k = BS (P 0 k) (P 0 $ k + length "\{t}")
 
 %inline
 subset : (e : Elem) -> {auto 0 _ : ValidSubset e False} -> SmilesToken
-subset e = TAtom $ SubsetAtom e False
+subset e = TA $ SubsetAtom e False
 
 %inline
 subsetA : (e : Elem) -> {auto 0 _ : ValidSubset e True} -> SmilesToken
-subsetA e = TAtom $ SubsetAtom e True
+subsetA e = TA $ SubsetAtom e True
 
 --------------------------------------------------------------------------------
 --          Atoms
@@ -142,61 +146,58 @@ bracket xs = case maybeFromDigs Nothing (map Just . refineMassNr) xs of
 public export
 tok :
      SnocList (SmilesToken,Nat)
-  -> (line,column : Nat)
+  -> (column : Nat)
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
   -> Either (Bounded StopReason) (List (SmilesToken,Nat))
-tok st l c ('C'::'l'::t) (SA r) = tok (st :< (subset Cl,c)) l (c+2) t r
-tok st l c ('C'     ::t) (SA r) = tok (st :< (subset C,c))  l (c+1) t r
-tok st l c ('c'     ::t) (SA r) = tok (st :< (subsetA C,c)) l (c+1) t r
-tok st l c ('N'     ::t) (SA r) = tok (st :< (subset N,c))  l (c+1) t r
-tok st l c ('n'     ::t) (SA r) = tok (st :< (subsetA N,c)) l (c+1) t r
-tok st l c ('O'     ::t) (SA r) = tok (st :< (subset O,c))  l (c+1) t r
-tok st l c ('o'     ::t) (SA r) = tok (st :< (subsetA O,c)) l (c+1) t r
-tok st l c ('F'     ::t) (SA r) = tok (st :< (subset F,c))  l (c+1) t r
-tok st l c ('S'     ::t) (SA r) = tok (st :< (subset S,c))  l (c+1) t r
-tok st l c ('s'     ::t) (SA r) = tok (st :< (subsetA S,c)) l (c+1) t r
-tok st l c ('P'     ::t) (SA r) = tok (st :< (subset P,c))  l (c+1) t r
-tok st l c ('p'     ::t) (SA r) = tok (st :< (subsetA P,c)) l (c+1) t r
-tok st l c ('I'     ::t) (SA r) = tok (st :< (subset I,c))  l (c+1) t r
-tok st l c ('B'::'r'::t) (SA r) = tok (st :< (subset Br,c)) l (c+2) t r
-tok st l c ('B'     ::t) (SA r) = tok (st :< (subset B,c))  l (c+1) t r
-tok st l c ('b'     ::t) (SA r) = tok (st :< (subsetA B,c)) l (c+1) t r
-tok st l c ('['     ::t) (SA r) = case bracket {orig = '[' :: t} t of
-  Succ a ys @{p}  => tok (st :< (TAtom a, c)) l (c + toNat p + 1) ys r
-  Fail s _ @{e} r => Left (B r $ BS (P l $ toNat s) (P l $ toNat e))
-tok st l c ('('     ::t) (SA r) = tok (st :< (PO,c)) l (c+1) t r
-tok st l c (')'     ::t) (SA r) = tok (st :< (PC,c)) l (c+1) t r
-tok st l c ('='     ::t) (SA r) = tok (st :< (TBond Dbl,c)) l (c+1) t r
-tok st l c ('#'     ::t) (SA r) = tok (st :< (TBond Trpl,c)) l (c+1) t r
-tok st l c ('$'     ::t) (SA r) = tok (st :< (TBond Quad,c)) l (c+1) t r
-tok st l c ('-'     ::t) (SA r) = tok (st :< (TBond Sngl,c)) l (c+1) t r
-tok st l c (':'     ::t) (SA r) = tok (st :< (TBond Arom,c)) l (c+1) t r
-tok st l c ('.'     ::t) (SA r) = tok (st :< (Dot,c)) l (c+1) t r
-tok st l c ('/'     ::t) (SA r) = tok (st :< (UB,c)) l (c+1) t r
-tok st l c ('\\'    ::t) (SA r) = tok (st :< (DB,c)) l (c+1) t r
-tok st l c ('0'     ::t) (SA r) = tok (st :< (TRing 0,c)) l (c+1) t r
-tok st l c ('1'     ::t) (SA r) = tok (st :< (TRing 1,c)) l (c+1) t r
-tok st l c ('2'     ::t) (SA r) = tok (st :< (TRing 2,c)) l (c+1) t r
-tok st l c ('3'     ::t) (SA r) = tok (st :< (TRing 3,c)) l (c+1) t r
-tok st l c ('4'     ::t) (SA r) = tok (st :< (TRing 4,c)) l (c+1) t r
-tok st l c ('5'     ::t) (SA r) = tok (st :< (TRing 5,c)) l (c+1) t r
-tok st l c ('6'     ::t) (SA r) = tok (st :< (TRing 6,c)) l (c+1) t r
-tok st l c ('7'     ::t) (SA r) = tok (st :< (TRing 7,c)) l (c+1) t r
-tok st l c ('8'     ::t) (SA r) = tok (st :< (TRing 8,c)) l (c+1) t r
-tok st l c ('9'     ::t) (SA r) = tok (st :< (TRing 9,c)) l (c+1) t r
-tok st l c ('%'::x::y::t) (SA r) =
+tok st c ('C'::'l'::t) (SA r) = tok (st :< (subset Cl,c)) (c+2) t r
+tok st c ('C'     ::t) (SA r) = tok (st :< (subset C,c))  (c+1) t r
+tok st c ('c'     ::t) (SA r) = tok (st :< (subsetA C,c)) (c+1) t r
+tok st c ('N'     ::t) (SA r) = tok (st :< (subset N,c))  (c+1) t r
+tok st c ('n'     ::t) (SA r) = tok (st :< (subsetA N,c)) (c+1) t r
+tok st c ('O'     ::t) (SA r) = tok (st :< (subset O,c))  (c+1) t r
+tok st c ('o'     ::t) (SA r) = tok (st :< (subsetA O,c)) (c+1) t r
+tok st c ('F'     ::t) (SA r) = tok (st :< (subset F,c))  (c+1) t r
+tok st c ('S'     ::t) (SA r) = tok (st :< (subset S,c))  (c+1) t r
+tok st c ('s'     ::t) (SA r) = tok (st :< (subsetA S,c)) (c+1) t r
+tok st c ('P'     ::t) (SA r) = tok (st :< (subset P,c))  (c+1) t r
+tok st c ('p'     ::t) (SA r) = tok (st :< (subsetA P,c)) (c+1) t r
+tok st c ('I'     ::t) (SA r) = tok (st :< (subset I,c))  (c+1) t r
+tok st c ('B'::'r'::t) (SA r) = tok (st :< (subset Br,c)) (c+2) t r
+tok st c ('B'     ::t) (SA r) = tok (st :< (subset B,c))  (c+1) t r
+tok st c ('b'     ::t) (SA r) = tok (st :< (subsetA B,c)) (c+1) t r
+tok st c ('['     ::t) (SA r) = case bracket {orig = '[' :: t} t of
+  Succ a ys @{p}  => tok (st :< (TA a, c)) (c + toNat p + 1) ys r
+  Fail s _ @{e} r => Left (B r $ BS (P 0 $ toNat s) (P 0 $ toNat e))
+tok st c ('('     ::t) (SA r) = tok (st :< (PO,c)) (c+1) t r
+tok st c (')'     ::t) (SA r) = tok (st :< (PC,c)) (c+1) t r
+tok st c ('='     ::t) (SA r) = tok (st :< (TB Dbl,c)) (c+1) t r
+tok st c ('#'     ::t) (SA r) = tok (st :< (TB Trpl,c)) (c+1) t r
+tok st c ('$'     ::t) (SA r) = tok (st :< (TB Quad,c)) (c+1) t r
+tok st c ('-'     ::t) (SA r) = tok (st :< (TB Sngl,c)) (c+1) t r
+tok st c (':'     ::t) (SA r) = tok (st :< (TB Arom,c)) (c+1) t r
+tok st c ('.'     ::t) (SA r) = tok (st :< (Dot,c)) (c+1) t r
+tok st c ('/'     ::t) (SA r) = tok (st :< (TB FW,c)) (c+1) t r
+tok st c ('\\'    ::t) (SA r) = tok (st :< (TB BW,c)) (c+1) t r
+tok st c ('0'     ::t) (SA r) = tok (st :< (TR 0,c)) (c+1) t r
+tok st c ('1'     ::t) (SA r) = tok (st :< (TR 1,c)) (c+1) t r
+tok st c ('2'     ::t) (SA r) = tok (st :< (TR 2,c)) (c+1) t r
+tok st c ('3'     ::t) (SA r) = tok (st :< (TR 3,c)) (c+1) t r
+tok st c ('4'     ::t) (SA r) = tok (st :< (TR 4,c)) (c+1) t r
+tok st c ('5'     ::t) (SA r) = tok (st :< (TR 5,c)) (c+1) t r
+tok st c ('6'     ::t) (SA r) = tok (st :< (TR 6,c)) (c+1) t r
+tok st c ('7'     ::t) (SA r) = tok (st :< (TR 7,c)) (c+1) t r
+tok st c ('8'     ::t) (SA r) = tok (st :< (TR 8,c)) (c+1) t r
+tok st c ('9'     ::t) (SA r) = tok (st :< (TR 9,c)) (c+1) t r
+tok st c ('%'::x::y::t) (SA r) =
   if isDigit x && isDigit y then
     case refineRingNr (cast $ digit x * 10 + digit y) of
-      Just rn => tok (st :< (TRing rn, c)) l (c+3) t r
-      Nothing => Left (B UnknownToken $ BS (P l c) (P l $ c + 3))
-  else Left (B UnknownToken $ BS (P l c) (P l $ c + 3))
-tok st l c (x       ::t) (SA r) = Left (B UnknownToken $ oneChar (P l c))
-tok st l c []               _   = Right (st <>> [])
+      Just rn => tok (st :< (TR rn, c)) (c+3) t r
+      Nothing => Left (B UnknownToken $ BS (P 0 c) (P 0 $ c + 3))
+  else Left (B UnknownToken $ BS (P 0 c) (P 0 $ c + 3))
+tok st c (x       ::t) (SA r) = Left (B UnknownToken $ oneChar (P 0 c))
+tok st c []               _   = Right (st <>> [])
 
 public export
-lexSmiles :
-     (line : Nat)
-  -> String
-  -> Either (Bounded StopReason) (List (SmilesToken,Nat))
-lexSmiles l s = tok [<] l 0 (unpack s) suffixAcc
+lexSmiles : String -> Either (Bounded StopReason) (List (SmilesToken,Nat))
+lexSmiles s = tok [<] 0 (unpack s) suffixAcc

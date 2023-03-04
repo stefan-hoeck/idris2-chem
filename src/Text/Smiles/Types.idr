@@ -100,6 +100,11 @@ data Atom : Type where
     => Atom
 
 public export %inline
+isArom : Atom -> Bool
+isArom (SubsetAtom _ a)      = a
+isArom (Bracket _ _ a _ _ _) = a
+
+public export %inline
 bracket : Maybe MassNr -> ValidElem -> Chirality -> HCount -> Charge -> Atom
 bracket x (VE e a) z w v = Bracket x e a z w v
 
@@ -149,7 +154,7 @@ namespace RingNr
   %runElab derive "RingNr" [Show,Eq,Ord,RefinedInteger]
 
 public export
-data Bond = Sngl | Arom | Dbl | Trpl | Quad
+data Bond = Sngl | Arom | Dbl | Trpl | Quad | FW | BW
 
 export %inline
 Interpolation Bond where
@@ -158,6 +163,8 @@ Interpolation Bond where
   interpolate Dbl  = "="
   interpolate Trpl = "#"
   interpolate Quad = "$"
+  interpolate FW   = "/"
+  interpolate BW   = "\\"
 
 %runElab derive "Bond" [Show,Eq,Ord]
 
