@@ -8,7 +8,7 @@ import Hedgehog
 
 prop_lexElement : Property
 prop_lexElement =
-  withTests 1 $ property $ for_ elements \e =>
+  withTests 1 . property . for_ elements $ \e =>
     readElement (symbol e) === Just e
 
 export
