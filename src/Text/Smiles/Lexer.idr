@@ -37,6 +37,14 @@ Interpolation SmilesToken where
   interpolate (TRing x) = "\{x}"
   interpolate (TAtom x) = "\{x}"
 
+%inline
+subset : (e : Elem) -> {auto 0 _ : ValidSubset e False} -> SmilesToken
+subset e = TAtom $ SubsetAtom e False
+
+%inline
+subsetA : (e : Elem) -> {auto 0 _ : ValidSubset e True} -> SmilesToken
+subsetA e = TAtom $ SubsetAtom e True
+
 --------------------------------------------------------------------------------
 --          Atoms
 --------------------------------------------------------------------------------
@@ -68,23 +76,21 @@ atom _ []          = failEOI p
 
 public export
 charge : Maybe MassNr -> ValidElem -> Chirality -> HCount -> AutoTok Char Atom
-charge mn (VE e a) c h ('+' :: t) = case t of
-  '+'::t  => atom (Bracket mn e a c h 2) t
+charge mn e c h ('+' :: t) = case t of
+  '+'::t  => atom (bracket mn e c h 2) t
   t       => case maybeFromDigs 1 refineCharge t of
-    Succ ch ys => atom (Bracket mn e a c h ch) ys
+    Succ ch ys => atom (bracket mn e c h ch) ys
     Fail x y z => Fail x y z
-charge mn (VE e a) c h ('-' :: t) = case t of
-  '-'::t  => atom (Bracket mn e a c h (-2)) t
+charge mn e c h ('-' :: t) = case t of
+  '-'::t  => atom (bracket mn e c h (-2)) t
   t       => case maybeFromDigs (-1) (refineCharge . negate) t of
-    Succ ch ys => atom (Bracket mn e a c h ch) ys
+    Succ ch ys => atom (bracket mn e c h ch) ys
     Fail x y z => Fail x y z
-charge mn (VE e a) c h t = case maybeFromDigs 0 refineCharge t of
-    Succ ch ys => atom (Bracket mn e a c h ch) ys
-    Fail x y z => Fail x y z
+charge mn e c h t = atom (bracket mn e c h 0) t
 
 public export
 hcount : Maybe MassNr -> ValidElem -> Chirality -> AutoTok Char Atom
-hcount mn e c ('H' :: xs) = case maybeFromDigs 0 refineHCount xs of
+hcount mn e c ('H' :: xs) = case maybeFromDigs 1 refineHCount xs of
   Succ h ys => charge mn e c h ys
   Fail x y z => Fail x y z
 hcount mn e c xs = charge mn e c 0 xs
@@ -133,50 +139,64 @@ bracket xs = case maybeFromDigs Nothing (map Just . refineMassNr) xs of
 --          Tokenizer
 --------------------------------------------------------------------------------
 
--- public export
--- tok :
---      SnocList (Bounded SmilesToken)
---   -> Position
---   -> (cs : List Char)
---   -> (0 acc : SuffixAcc cs)
---   -> Either StopReason (List (Bounded SmilesToken))
--- tok st p ('C'::'l'::t) (SA r) = tok (TAtom $ SubsetAtom Cl False) t
--- tok st p ('B'::'r'::t) (SA r) = tok (TAtom $ SubsetAtom Br False) t
--- tok st p ('C'     ::t) (SA r) = tok (TAtom $ SubsetAtom C False) t
--- tok st p ('c'     ::t) (SA r) = tok (TAtom $ SubsetAtom C True) t
--- tok st p ('N'     ::t) (SA r) = tok (TAtom $ SubsetAtom N False) t
--- tok st p ('n'     ::t) (SA r) = tok (TAtom $ SubsetAtom N True) t
--- tok st p ('O'     ::t) (SA r) = tok (TAtom $ SubsetAtom O False) t
--- tok st p ('o'     ::t) (SA r) = tok (TAtom $ SubsetAtom O True) t
--- tok st p ('F'     ::t) (SA r) = tok (TAtom $ SubsetAtom F False) t
--- tok st p ('S'     ::t) (SA r) = tok (TAtom $ SubsetAtom S False) t
--- tok st p ('s'     ::t) (SA r) = tok (TAtom $ SubsetAtom S True) t
--- tok st p ('P'     ::t) (SA r) = tok (TAtom $ SubsetAtom P False) t
--- tok st p ('p'     ::t) (SA r) = tok (TAtom $ SubsetAtom P True) t
--- tok st p ('I'     ::t) (SA r) = tok (TAtom $ SubsetAtom I False) t
--- tok st p ('B'     ::t) (SA r) = tok (TAtom $ SubsetAtom B False) t
--- tok st p ('b'     ::t) (SA r) = tok (TAtom $ SubsetAtom B True) t
--- tok st p ('['     ::t) (SA r) = TAtom <$> bracket t
--- tok st p ('('     ::t) (SA r) = Succ PO t
--- tok st p (')'     ::t) (SA r) = Succ PC t
--- tok st p ('='     ::t) (SA r) = Succ (TBond $ Dbl) t
--- tok st p ('#'     ::t) (SA r) = Succ (TBond $ Trpl) t
--- tok st p ('$'     ::t) (SA r) = Succ (TBond $ Quad) t
--- tok st p ('-'     ::t) (SA r) = Succ (TBond $ Sngl) t
--- tok st p (':'     ::t) (SA r) = Succ (TBond $ Arom) t
--- tok st p ('.'     ::t) (SA r) = Succ Dot t
--- tok st p ('/'     ::t) (SA r) = Succ UB t
--- tok st p ('\\'    ::t) (SA r) = Succ DB t
--- tok st p ('0'     ::t) (SA r) = Succ (TRing 0) t
--- tok st p ('1'     ::t) (SA r) = Succ (TRing 1) t
--- tok st p ('2'     ::t) (SA r) = Succ (TRing 2) t
--- tok st p ('3'     ::t) (SA r) = Succ (TRing 3) t
--- tok st p ('4'     ::t) (SA r) = Succ (TRing 4) t
--- tok st p ('5'     ::t) (SA r) = Succ (TRing 5) t
--- tok st p ('6'     ::t) (SA r) = Succ (TRing 6) t
--- tok st p ('7'     ::t) (SA r) = Succ (TRing 7) t
--- tok st p ('8'     ::t) (SA r) = Succ (TRing 8) t
--- tok st p ('9'     ::t) (SA r) = Succ (TRing 9) t
--- tok st p ('%'     ::t) (SA r) = TRing <$> strictFromDigs refineRingNr t
--- tok st p (x       ::t) (SA r) = ?unknownCase
--- tok st p []                   = Succ (st <>> [])
+public export
+tok :
+     SnocList (SmilesToken,Nat)
+  -> (line,column : Nat)
+  -> (cs : List Char)
+  -> (0 acc : SuffixAcc cs)
+  -> Either (Bounded StopReason) (List (SmilesToken,Nat))
+tok st l c ('C'::'l'::t) (SA r) = tok (st :< (subset Cl,c)) l (c+2) t r
+tok st l c ('C'     ::t) (SA r) = tok (st :< (subset C,c))  l (c+1) t r
+tok st l c ('c'     ::t) (SA r) = tok (st :< (subsetA C,c)) l (c+1) t r
+tok st l c ('N'     ::t) (SA r) = tok (st :< (subset N,c))  l (c+1) t r
+tok st l c ('n'     ::t) (SA r) = tok (st :< (subsetA N,c)) l (c+1) t r
+tok st l c ('O'     ::t) (SA r) = tok (st :< (subset O,c))  l (c+1) t r
+tok st l c ('o'     ::t) (SA r) = tok (st :< (subsetA O,c)) l (c+1) t r
+tok st l c ('F'     ::t) (SA r) = tok (st :< (subset F,c))  l (c+1) t r
+tok st l c ('S'     ::t) (SA r) = tok (st :< (subset S,c))  l (c+1) t r
+tok st l c ('s'     ::t) (SA r) = tok (st :< (subsetA S,c)) l (c+1) t r
+tok st l c ('P'     ::t) (SA r) = tok (st :< (subset P,c))  l (c+1) t r
+tok st l c ('p'     ::t) (SA r) = tok (st :< (subsetA P,c)) l (c+1) t r
+tok st l c ('I'     ::t) (SA r) = tok (st :< (subset I,c))  l (c+1) t r
+tok st l c ('B'::'r'::t) (SA r) = tok (st :< (subset Br,c)) l (c+2) t r
+tok st l c ('B'     ::t) (SA r) = tok (st :< (subset B,c))  l (c+1) t r
+tok st l c ('b'     ::t) (SA r) = tok (st :< (subsetA B,c)) l (c+1) t r
+tok st l c ('['     ::t) (SA r) = case bracket {orig = '[' :: t} t of
+  Succ a ys @{p}  => tok (st :< (TAtom a, c)) l (c + toNat p + 1) ys r
+  Fail s _ @{e} r => Left (B r $ BS (P l $ toNat s) (P l $ toNat e))
+tok st l c ('('     ::t) (SA r) = tok (st :< (PO,c)) l (c+1) t r
+tok st l c (')'     ::t) (SA r) = tok (st :< (PC,c)) l (c+1) t r
+tok st l c ('='     ::t) (SA r) = tok (st :< (TBond Dbl,c)) l (c+1) t r
+tok st l c ('#'     ::t) (SA r) = tok (st :< (TBond Trpl,c)) l (c+1) t r
+tok st l c ('$'     ::t) (SA r) = tok (st :< (TBond Quad,c)) l (c+1) t r
+tok st l c ('-'     ::t) (SA r) = tok (st :< (TBond Sngl,c)) l (c+1) t r
+tok st l c (':'     ::t) (SA r) = tok (st :< (TBond Arom,c)) l (c+1) t r
+tok st l c ('.'     ::t) (SA r) = tok (st :< (Dot,c)) l (c+1) t r
+tok st l c ('/'     ::t) (SA r) = tok (st :< (UB,c)) l (c+1) t r
+tok st l c ('\\'    ::t) (SA r) = tok (st :< (DB,c)) l (c+1) t r
+tok st l c ('0'     ::t) (SA r) = tok (st :< (TRing 0,c)) l (c+1) t r
+tok st l c ('1'     ::t) (SA r) = tok (st :< (TRing 1,c)) l (c+1) t r
+tok st l c ('2'     ::t) (SA r) = tok (st :< (TRing 2,c)) l (c+1) t r
+tok st l c ('3'     ::t) (SA r) = tok (st :< (TRing 3,c)) l (c+1) t r
+tok st l c ('4'     ::t) (SA r) = tok (st :< (TRing 4,c)) l (c+1) t r
+tok st l c ('5'     ::t) (SA r) = tok (st :< (TRing 5,c)) l (c+1) t r
+tok st l c ('6'     ::t) (SA r) = tok (st :< (TRing 6,c)) l (c+1) t r
+tok st l c ('7'     ::t) (SA r) = tok (st :< (TRing 7,c)) l (c+1) t r
+tok st l c ('8'     ::t) (SA r) = tok (st :< (TRing 8,c)) l (c+1) t r
+tok st l c ('9'     ::t) (SA r) = tok (st :< (TRing 9,c)) l (c+1) t r
+tok st l c ('%'::x::y::t) (SA r) =
+  if isDigit x && isDigit y then
+    case refineRingNr (cast $ digit x * 10 + digit y) of
+      Just rn => tok (st :< (TRing rn, c)) l (c+3) t r
+      Nothing => Left (B UnknownToken $ BS (P l c) (P l $ c + 3))
+  else Left (B UnknownToken $ BS (P l c) (P l $ c + 3))
+tok st l c (x       ::t) (SA r) = Left (B UnknownToken $ oneChar (P l c))
+tok st l c []               _   = Right (st <>> [])
+
+public export
+lexSmiles :
+     (line : Nat)
+  -> String
+  -> Either (Bounded StopReason) (List (SmilesToken,Nat))
+lexSmiles l s = tok [<] l 0 (unpack s) suffixAcc

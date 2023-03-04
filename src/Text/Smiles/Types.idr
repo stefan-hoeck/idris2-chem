@@ -99,6 +99,10 @@ data Atom : Type where
     -> (0 prf     : ValidAromatic elem isArom)
     => Atom
 
+public export %inline
+bracket : Maybe MassNr -> ValidElem -> Chirality -> HCount -> Charge -> Atom
+bracket x (VE e a) z w v = Bracket x e a z w v
+
 %runElab derive "Atom" [Show,Eq]
 
 %inline
@@ -110,7 +114,7 @@ encodeCharge : Charge -> String
 encodeCharge 0    = ""
 encodeCharge 1    = "+"
 encodeCharge (-1) = "-"
-encodeCharge v    = interpolate v
+encodeCharge v    = if v.value > 0 then "+\{v}" else "\{v}"
 
 encodeH : HCount -> String
 encodeH 0 = ""
@@ -121,7 +125,7 @@ encodeAtom : Atom -> String
 encodeAtom (SubsetAtom e b)  = aromElem e b
 encodeAtom (Bracket mn e ar ch h chrg) =
   let mns := maybe "" (show . value) mn
-   in "[\{mns}\{aromElem e ar}\{encodeH h}\{encodeCharge chrg}]"
+   in "[\{mns}\{aromElem e ar}\{ch}\{encodeH h}\{encodeCharge chrg}]"
 
 export %inline
 Interpolation Atom where
