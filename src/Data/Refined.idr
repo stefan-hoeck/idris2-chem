@@ -5,6 +5,7 @@
 module Data.Refined
 
 import public Language.Reflection.Refined.Util
+import Language.Reflection.Util
 import Language.Reflection.Refined
 
 import Data.String
