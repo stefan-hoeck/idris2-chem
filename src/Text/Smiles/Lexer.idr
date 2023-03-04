@@ -167,8 +167,11 @@ tok st c ('B'::'r'::t) (SA r) = tok (st :< (subset Br,c)) (c+2) t r
 tok st c ('B'     ::t) (SA r) = tok (st :< (subset B,c))  (c+1) t r
 tok st c ('b'     ::t) (SA r) = tok (st :< (subsetA B,c)) (c+1) t r
 tok st c ('['     ::t) (SA r) = case bracket {orig = '[' :: t} t of
-  Succ a ys @{p}  => tok (st :< (TA a, c)) (c + toNat p + 1) ys r
-  Fail s _ @{e} r => Left (B r $ BS (P 0 $ toNat s) (P 0 $ toNat e))
+  Succ a ys @{p}  => tok (st :< (TA a, c)) (c + toNat p) ys r
+  Fail s _ @{e} r =>
+    let c1 := c + toNat s
+        c2 := c1 + toNat e
+     in Left (B r $ BS (P 0 c1) (P 0 c2))
 tok st c ('('     ::t) (SA r) = tok (st :< (PO,c)) (c+1) t r
 tok st c (')'     ::t) (SA r) = tok (st :< (PC,c)) (c+1) t r
 tok st c ('='     ::t) (SA r) = tok (st :< (TB Dbl,c)) (c+1) t r

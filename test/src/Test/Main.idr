@@ -14,6 +14,7 @@ main = test [ Graph.props
             , Lex.Element.props
             , Chem.Element.props
             , Smiles.Lexer.props
+            , Smiles.Parser.props
         --    , Molfile.props
         --    , AtomType.props
             ]

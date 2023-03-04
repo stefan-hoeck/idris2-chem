@@ -134,9 +134,9 @@ chain o a s r m n ((x,c)::xs) = case x of
 
   PO => case xs of
     (TB b, _) :: (TA a2,_) :: t =>
-      chain n a2 (A n a2 c :: s) r (bondTo b o n a2 m) (n+1) t
+      chain n a2 (A o a c :: s) r (bondTo b o n a2 m) (n+1) t
     (TA a2,_) :: t =>
-      chain n a2 (A n a2 c :: s) r (bondTo (bond a a2) o n a2 m) (n+1) t
+      chain n a2 (A o a c :: s) r (bondTo (bond a a2) o n a2 m) (n+1) t
     _ => custom (bounds x c) ExpectedAtomOrBond
 
   PC => case s of

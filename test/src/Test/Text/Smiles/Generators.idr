@@ -1,10 +1,10 @@
 module Test.Text.Smiles.Generators
 
-import Chem.Element
-import Chem.Types
-import Data.Vect
-import Test.Chem.Element
-import Test.Chem.Types
+import public Chem.Element
+import public Chem.Types
+import public Data.Vect
+import public Test.Chem.Element
+import public Test.Chem.Types
 import public Hedgehog
 import public Text.Smiles.Lexer
 import public Text.Smiles.Types
@@ -23,8 +23,8 @@ chirality = frequency
 export
 subset : Gen Atom
 subset = element
-  [ SubsetAtom B False
-  , SubsetAtom C False
+  [ SubsetAtom C False
+  , SubsetAtom B False
   , SubsetAtom N False
   , SubsetAtom O False
   , SubsetAtom P False
@@ -63,13 +63,13 @@ hcount = fromMaybe 0 . refineHCount <$> bits8 (linear 0 9)
 export
 atom : Gen Atom
 atom = frequency
-  [ (5, [| bracket (maybe massNr) validElem chirality hcount charge |])
-  , (1, subset)
+  [ (1, subset)
+  , (5, [| bracket (maybe massNr) validElem chirality hcount charge |])
   ]
 
 export
 bond : Gen Bond
-bond = element [Sngl,Dbl,Trpl,Quad,Arom]
+bond = element [Sngl,Dbl,Trpl,Quad,Arom,FW,BW]
 
 export
 ringNr : Gen RingNr
@@ -78,8 +78,8 @@ ringNr = fromMaybe 0 . refineRingNr <$> bits8 (linear 0 99)
 export
 token : Gen SmilesToken
 token = frequency
-  [ (5, TAtom <$> atom)
-  , (3, TBond <$> bond)
-  , (1, TRing <$> ringNr)
-  , (1, element [PO, PC, UB, DB, Dot])
+  [ (5, TA <$> atom)
+  , (3, TB <$> bond)
+  , (1, TR <$> ringNr)
+  , (1, element [PO, PC, Dot])
   ]

@@ -20,7 +20,7 @@ lexSingle as f = property $ do
   v <- forAll as
   let enc := interpolate v
   footnote "Encoded: \{enc}"
-  (map fst <$> lexSmiles 0 enc) === Right [f v]
+  (map fst <$> lexSmiles enc) === Right [f v]
 
 lexMany :
      Show a
@@ -33,28 +33,28 @@ lexMany as f = property $ do
   vs <- forAll (list (linear 0 100) as)
   let enc := concatMap interpolate vs
   footnote "Encoded: \{enc}"
-  (map fst <$> lexSmiles 0 enc) === Right (map f vs)
+  (map fst <$> lexSmiles enc) === Right (map f vs)
 
 prop_bond : Property
-prop_bond = lexSingle bond TBond
+prop_bond = lexSingle bond TB
 
 prop_atom : Property
-prop_atom = lexSingle atom TAtom
+prop_atom = lexSingle atom TA
 
 prop_ringNr : Property
-prop_ringNr = lexSingle ringNr TRing
+prop_ringNr = lexSingle ringNr TR
 
 prop_token : Property
 prop_token = lexSingle token id
 
 prop_bonds : Property
-prop_bonds = lexMany bond TBond
+prop_bonds = lexMany bond TB
 
 prop_atoms : Property
-prop_atoms = lexMany atom TAtom
+prop_atoms = lexMany atom TA
 
 prop_ringNrs : Property
-prop_ringNrs = lexMany ringNr TRing
+prop_ringNrs = lexMany ringNr TR
 
 prop_tokens : Property
 prop_tokens = lexMany token id
