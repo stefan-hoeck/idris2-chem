@@ -1,6 +1,6 @@
 module Test.Text.Lex.Element
 
-import Chem.Element
+import Chem
 import Text.Lex.Element
 import Hedgehog
 

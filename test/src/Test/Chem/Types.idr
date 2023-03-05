@@ -1,9 +1,7 @@
 module Test.Chem.Types
 
 import Data.Maybe
-import Chem.Element
-import Chem.Types
-import Data.Refined
+import Chem
 import Hedgehog
 
 export

@@ -1,13 +1,11 @@
 module Test.Text.Smiles.Generators
 
-import public Chem.Element
-import public Chem.Types
+import public Chem
 import public Data.Vect
+import public Hedgehog
 import public Test.Chem.Element
 import public Test.Chem.Types
-import public Hedgehog
-import public Text.Smiles.Lexer
-import public Text.Smiles.Types
+import public Text.Smiles
 
 %default total
 

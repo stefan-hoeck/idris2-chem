@@ -1,13 +1,10 @@
 module Text.Smiles.Lexer
 
-import public Chem.Element
-import public Chem.Types
-import public Data.Refined
+import Chem
 import Derive.Prelude
-import public Text.Bounds
-import public Text.Lex.Manual
-import public Text.Lex.Element
-import public Text.Smiles.Types
+import Text.Lex.Element
+import Text.Parse.Manual
+import Text.Smiles.Types
 
 %default total
 

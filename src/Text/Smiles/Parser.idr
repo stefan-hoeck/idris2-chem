@@ -1,11 +1,11 @@
 module Text.Smiles.Parser
 
-import Data.Graph
-import Data.Prim.Bits32
+import Chem
 import Data.SortedMap
 import Derive.Prelude
 import Text.Parse.Manual
 import Text.Smiles.Lexer
+import Text.Smiles.Types
 
 %default total
 %language ElabReflection

@@ -1,11 +1,6 @@
 module Test.Text.Smiles.Lexer
 
-import Hedgehog
 import Test.Text.Smiles.Generators
-import Text.Bounds
-import Text.ParseError
-import Text.Smiles.Lexer
-import Text.Smiles.Types
 
 %default total
 

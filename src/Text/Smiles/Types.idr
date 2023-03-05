@@ -1,11 +1,8 @@
 module Text.Smiles.Types
 
-import Chem.Element
-import Chem.Types
-import Data.Refined
+import Chem
 import Derive.Prelude
 import Derive.Refined
-import public Data.Graph
 
 --------------------------------------------------------------------------------
 --          Pragmas

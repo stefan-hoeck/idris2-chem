@@ -1,10 +1,7 @@
 module Test.Text.Smiles.Parser
 
-import Data.Prim.Bits32
 import Data.SOP
-import Text.FC
 import Test.Text.Smiles.Generators
-import Text.Smiles.Parser
 
 %default total
 
