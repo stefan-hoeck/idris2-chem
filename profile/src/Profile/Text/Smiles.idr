@@ -1,12 +1,10 @@
 module Profile.Text.Smiles
 
-import Chem.Element
+import Chem
 import Data.String
 import Profile
 import System.File
-import Text.FC
-import Text.Smiles.Lexer
-import Text.Smiles.Parser
+import Text.Smiles
 
 mol : String
 mol = "C[C@@H]1CCCN(C1)C(=O)[C@@H](C)Oc2ccccc2"

@@ -1,12 +1,7 @@
 module Chem.AtomType
 
-import Chem.Types
-import Chem.Atom
-import Chem.Element
+import Chem
 import Text.Smiles
-import Data.AssocList
-import Data.Graph
-import Data.BitMap
 import Derive.Prelude
 import System
 
@@ -221,26 +216,26 @@ toAtomTypes : Graph Bond (Atom l) -> Maybe (Graph Bond (Atom (l,AtomType)))
 toAtomTypes g = MkGraph <$> traverseWithKey (adj g) (graph g)
 
 
--------------------------------------------------------------------------------
--- Test section
--------------------------------------------------------------------------------
-
-public export
-fromSmiles : String -> Either String (Graph Bond (Atom (Chirality, AtomType)))
-fromSmiles s =
-  let Right g := parse s  | Left (o,e) => Left (printParseError s o e)
-      Just g2 := graphWithH g
-        | Nothing => Left "Failed to determine implicit hydrogens"
-      Just g3 := toAtomTypes g2
-        | Nothing => Left "Failed to determine atom types"
-   in Right g3
-
-||| Read in a SMILES-string and convert the resulting graph into a graph with
-||| AtomTypes and print it
-public export
-smilesAtomTypeIO : IO ()
-smilesAtomTypeIO = do
-  str <- map trim getLine
-  case fromSmiles str of
-    Left s  => die s
-    Right g => putStrLn (pretty show show g)
+-- -------------------------------------------------------------------------------
+-- -- Test section
+-- -------------------------------------------------------------------------------
+--
+-- -- TODO: This should go to our new test app.
+-- public export
+-- fromSmiles : String -> Either String (Graph Bond (Atom (Chirality, AtomType)))
+-- fromSmiles s =
+--   let Right g := parse s  | Left (o,e) => Left (printParseError s o e)
+--       Just g2 := graphWithH g
+--         | Nothing => Left "Failed to determine implicit hydrogens"
+--       Just g3 := toAtomTypes g2
+--         | Nothing => Left "Failed to determine atom types"
+--    in Right g3
+--
+-- -- TODO: This should go to our new test app.
+-- public export
+-- smilesAtomTypeIO : IO ()
+-- smilesAtomTypeIO = do
+--   str <- map trim getLine
+--   case fromSmiles str of
+--     Left s  => die s
+--     Right g => putStrLn (pretty show show g)

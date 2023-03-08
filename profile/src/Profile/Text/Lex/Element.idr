@@ -1,6 +1,6 @@
 module Profile.Text.Lex.Element
 
-import Chem.Element
+import Chem
 import Profile
 import Text.Lex.Element
 import Text.Lex.Manual

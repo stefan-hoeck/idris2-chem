@@ -2,12 +2,7 @@
 ||| go to their own dedicated module
 module Text.Molfile.Types
 
-import Chem.Element
-import Chem.Types
-import Decidable.HDec.Bits8
-import Decidable.HDec.Int8
-import Decidable.HDec.Bits16
-import Decidable.HDec.Bits32
+import Chem
 import Decidable.HDec.Integer
 import Data.Nat
 import Data.String
@@ -15,8 +10,6 @@ import Data.Vect
 import Derive.Prelude
 import Derive.Refined
 import Text.Molfile.Float
-import Text.RW
-import public Data.Refined
 
 --------------------------------------------------------------------------------
 --          Pragmas
@@ -72,20 +65,6 @@ Interpolation MolVersion where
 
 %runElab derive "MolVersion" [Eq,Ord,Show]
 
--- namespace MolVersion
---   public export
---   read : String -> Maybe MolVersion
---   read "v2000" = Just V2000
---   read "v3000" = Just V3000
---   read "V2000" = Just V2000
---   read "V3000" = Just V3000
---   read _       = Nothing
---
---
---   public export
---   readMsg : String -> Either String MolVersion
---   readMsg = mkReadE read "MolVersion"
---
 ------------------------------
 -- ChiralFlag
 
@@ -99,36 +78,11 @@ Interpolation ChiralFlag where
   interpolate NonChiral = "0"
   interpolate Chiral    = "1"
 
--- namespace ChiralFlag
---   public export
---   read : String -> Maybe ChiralFlag
---   read "0" = Just NonChiral
---   read "1" = Just Chiral
---   read _   = Nothing
---
---
---   public export
---   readMsg : String -> Either String ChiralFlag
---   readMsg = mkReadE read "ChiralFlag"
---
-------------------------------
--- Count
-
-public export
-record Count where
-  constructor MkCount
-  value : Bits16
-  {auto 0 prf : value <= 999}
-
-namespace Count
-  %runElab derive "Types.Count" [Show,Eq,Ord,RefinedInteger]
-
-
 public export
 record Counts where
   constructor MkCounts
-  atoms     : Count
-  bonds     : Count
+  atoms     : Nat
+  bonds     : Nat
   chiral    : ChiralFlag
   version   : MolVersion
 
@@ -451,9 +405,7 @@ Coordinate = Float (-9999) 99999 4
 public export
 record Atom where
   constructor MkAtom
-  x                : Coordinate
-  y                : Coordinate
-  z                : Coordinate
+  position         : Vect 3 Coordinate
   symbol           : AtomSymbol
   massDiff         : MassDiff
   charge           : AtomCharge

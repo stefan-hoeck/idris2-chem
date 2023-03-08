@@ -43,31 +43,6 @@ refineFloat pre post =
       Just0 p2 := hdec0 {p = (< pow10 wpost)} post     | Nothing0 => Nothing
    in Just $ MkFloat pre post
 
--- public export
--- read :  {minPre,maxPre : _}
---      -> {wpost : _}
---      -> String
---      -> Maybe (Float minPre maxPre wpost)
--- read s = case split ('.' ==) s of
---   (h ::: [t]) =>
---     if length t == wpost
---        then do
---          pre     <- case h of
---            "-0" => Just 0
---            _    => readIntPlus h
---          post    <- readInt t
---          refine pre post
---        else Nothing
---   _           => Nothing
---
--- public export
--- readMsg :  {minPre,maxPre : _}
---         -> {wpost : _}
---         -> String
---         -> Either String (Float minPre maxPre wpost)
--- readMsg = mkReadE read "Float"
---
---
 public export
 write : {wpost : _} -> Float minPre maxPre wpost -> String
 write f = show f.pre ++ "." ++ padLeft wpost '0' (show f.post)

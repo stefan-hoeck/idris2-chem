@@ -1,48 +1,124 @@
 module Text.Molfile.Reader
 
--- import Data.List
--- import Data.String
--- import Data.Vect
--- import Text.RW
--- import public Text.Molfile.Float
--- import public Text.Molfile.Types
+import Data.List.Quantifiers
+import Data.Nat
+import Data.Vect
+import Text.Parse.Manual
+import public Text.Molfile.Float
+import public Text.Molfile.Types
+
+%default total
+
+public export
+data MolFileError : Type where
+
+
+public export
+0 Err : Type
+Err = ParseError Char MolFileError
+
+--------------------------------------------------------------------------------
+--          Reading
+--------------------------------------------------------------------------------
+
+-- TODO: Part of this stuff should to to the parser lib
+
+||| Result of running a (strict) tokenizer.
+public export
+0 WeakTok : (a : Type) -> Type
+WeakTok a =
+     {cs : List Char}
+  -> (ts : List Char)
+  -> {auto p : Suffix False ts cs}
+  -> WeakRes Char cs a
+
+dropSpaces : a -> Nat -> WeakTok a
+dropSpaces v 0 xs = Succ v xs
+dropSpaces v (S k) (' '::xs) = dropSpaces v k xs
+dropSpaces v (S k) (x::xs)   = unknown xs
+dropSpaces v (S k) []        = failEOI p
+
+trimmed : (Nat -> WeakTok a) -> Nat -> WeakTok a
+trimmed f (S k) (' '::xs) = trimmed f k xs
+trimmed f n     xs        = case f n xs @{Same} of
+  Succ va ys @{q} =>
+    let n' := n `minus` toNat q
+     in dropSpaces va n' ys @{trans q p}
+  Fail x y z      => Fail (trans x p) y z
+
+nat : (acc : Nat) -> (rem : Nat) -> (Nat -> Maybe a) -> WeakTok a
+nat acc (S k) f (x :: xs) =
+  if isDigit x then nat (digit x + acc * 10) k f xs else case f acc of
+    Just v  => Succ v xs
+    Nothing => unknownRange p xs
+nat acc 0 f xs = case f acc of
+  Just v  => Succ v xs
+  Nothing => unknownRange p xs
+nat acc (S k) f [] = failEOI p
+
+int : (rem : Nat) -> (Integer -> Maybe a) -> WeakTok a
+int (S $ S k) f ('-' :: x::xs) =
+  if isDigit x then nat (digit x) k (f . negate . cast) xs
+  else unknownRange p xs
+int (S k) f (x::xs) =
+  if isDigit x then nat (digit x) k (f . cast) xs
+  else unknownRange p xs
+int (S k) f [] = failEOI p
+int 0 f xs     = nat 0 0 (f . cast) xs
+
+drop : (n : Nat) -> WeakTok ()
+drop (S k) (x :: xs) = drop k xs
+drop 0     xs        = Succ () xs
+drop _     []        = failEOI p
+
+-- -- TODO: This should go to the parser library.
+-- toks :
+--      All (Tok Char) ts
+--   -> (cs : List Char)
+--   -> Result (not (null ts)) Char cs StopReason (All (Prelude.id) ts)
+-- toks [] cs = Succ [] cs
+-- toks (tk :: tks) cs =
+--   let Succ v  cs2 @{p1} := tk cs | Fail x y z => Fail x y z
+--       Succ vs cs3 @{p2} := toks tks cs2
+--         | Fail x y z => Fail (weaken $ trans x p1) y z
+--    in Succ (v::vs) cs3 @{orTrue $ trans p2 p1}
 --
--- %default total
+-- chiral : Tok Char ChiralFlag
+-- chiral = nat 3 $ \case
+--   0 => Just NonChiral
+--   1 => Just Chiral
+--   _ => Nothing
+--
+-- version : Tok Char MolVersion
+-- version (' '::'v'::'2'::'0'::'0'::'0'::t) = Succ V2000 t
+-- version (' '::'V'::'2'::'0'::'0'::'0'::t) = Succ V2000 t
+-- version (' '::'v'::'3'::'0'::'0'::'0'::t) = Succ V3000 t
+-- version (' '::'V'::'3'::'0'::'0'::'0'::t) = Succ V3000 t
+-- version (x::xs)                           = unknown xs
+-- version []                                = failEmpty
+--
+-- dot : Tok Char ()
+-- dot ('.'::xs) = Succ () xs
+-- dot (x::xs)   = unknown xs
+-- dot []        = failEmpty
+--
+-- coord : Tok Char Coordinate
+-- coord cs = case toks [int 5 Just, dot, nat 4 Just] cs of
+--   Succ [x,_,y] r @{p} => case refineFloat (cast x) (cast y) of
+--     Just f  => Succ f r
+--     Nothing => unknown r @{weaken p}
+--   Fail x y z => Fail x y z
+--
+-- coords : Tok Char (Vect 3 Coordinate)
+-- coords cs = (\[x,y,z] => [x,y,z]) <$> toks [coord,coord,coord] cs
 --
 -- --------------------------------------------------------------------------------
 -- --          Reading
 -- --------------------------------------------------------------------------------
 --
--- -- this is significantly faster than `Data.String.trim`. Since
--- -- we use this a lot, it had quite an impact on parsing performance.
--- trimOr0 : String -> String
--- trimOr0 "" = "0"
--- trimOr0 s  = go Nil $ unpack s
---   where go : (res : List Char) -> (rem : List Char) -> String
---         go res [] = pack $ reverse res
---         go res (x :: xs) = if isSpace x then go res xs else go (x :: res) xs
---
--- ||| Tries to split a `String` into a vector of
--- ||| chunks of exactly the given lengths.
--- ||| Fails if the length of the string does not exactly match
--- ||| the length of concatenated chunks.
--- export
--- trimmedChunks : Vect n Int -> String -> Either String (Vect n String)
--- trimmedChunks ns s = go 0 ns
---   where go : (pos : Int) -> Vect k Int -> Either String (Vect k String)
---         go pos [] = if pos >= cast (length s)
---                        then Right []
---                        else Left $ #"String is too long: \#{s} (max : \#{show pos})"#
---         go pos (x :: xs) = (trimOr0 (strSubstr pos x s) ::) <$> go (pos + x) xs
---
--- ||| Chunks of the counts line. See `counts` for a description
--- ||| of the format and types of chunks.
--- public export
--- countChunks : Vect 12 Int
--- countChunks = [3,3,3,3,3,3,3,3,3,3,3,6]
---
 -- ||| General format:
 -- |||   aaabbblllfffcccsssxxxrrrpppiiimmmvvvvvv
+-- |||     3  3  3  3  3  3  3  3  3  3  3     6
 -- |||
 -- |||   aaa    : number of atoms
 -- |||   bbb    : number of bonds
@@ -52,10 +128,10 @@ module Text.Molfile.Reader
 -- ||| The other fields are obsolete or no longer supported
 -- ||| and are being ignored by the parser.
 -- export
--- counts : String -> Either String Counts
--- counts s = do
---   [a,b,_,_,c,_,_,_,_,_,_,v] <- trimmedChunks countChunks s
---   [| MkCounts (readMsg a) (readMsg b) (readMsg c) (readMsg v) |]
+-- counts : Tok Char Counts
+-- counts cs =
+--   (\[ac,bc,_,chi,_,v] => MkCounts ac bc chi v) <$>
+--   toks [nat 3 Just, nat 3 Just, drop 6, chiral, drop 18, version] cs
 --
 -- ||| Chunks of an atom line. See `atom` for a description
 -- ||| of the format and types of chunks.
