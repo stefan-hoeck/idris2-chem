@@ -9,7 +9,7 @@ import Text.Lex.Manual
 
 ||| A lexer for chemical elements.
 public export
-lexElement : OntoTok Char Elem
+lexElement : StrictTok e Elem
 lexElement ('A' :: xs) = case xs of
    'c' :: t  => Succ Ac t
    'g' :: t  => Succ Ag t
@@ -154,11 +154,11 @@ lexElement ('Y' :: 'b' :: xs) = Succ Yb xs
 lexElement ('Y' :: xs) = Succ Y xs
 lexElement ('Z' :: 'n' :: xs) = Succ Zn xs
 lexElement ('Z' :: 'r' :: xs) = Succ Zr xs
-lexElement (x::xs) = unknown xs
-lexElement []      = failEOI p
+lexElement (x::xs) = unknown p
+lexElement []      = eoiAt p
 
 public export %inline
 readElement : String -> Maybe Elem
-readElement str = case lexElement (unpack str) @{Same} of
+readElement str = case lexElement {e = Void} (unpack str) @{Same} of
   Succ v [] => Just v
   _         => Nothing

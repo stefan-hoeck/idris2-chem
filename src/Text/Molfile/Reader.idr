@@ -1,76 +1,76 @@
 module Text.Molfile.Reader
 
-import Data.List.Quantifiers
-import Data.Nat
-import Data.Vect
-import Text.Parse.Manual
-import public Text.Molfile.Float
-import public Text.Molfile.Types
-
-%default total
-
-public export
-data MolFileError : Type where
-
-
-public export
-0 Err : Type
-Err = ParseError Char MolFileError
-
---------------------------------------------------------------------------------
---          Reading
---------------------------------------------------------------------------------
-
--- TODO: Part of this stuff should to to the parser lib
-
-||| Result of running a (strict) tokenizer.
-public export
-0 WeakTok : (a : Type) -> Type
-WeakTok a =
-     {cs : List Char}
-  -> (ts : List Char)
-  -> {auto p : Suffix False ts cs}
-  -> WeakRes Char cs a
-
-dropSpaces : a -> Nat -> WeakTok a
-dropSpaces v 0 xs = Succ v xs
-dropSpaces v (S k) (' '::xs) = dropSpaces v k xs
-dropSpaces v (S k) (x::xs)   = unknown xs
-dropSpaces v (S k) []        = failEOI p
-
-trimmed : (Nat -> WeakTok a) -> Nat -> WeakTok a
-trimmed f (S k) (' '::xs) = trimmed f k xs
-trimmed f n     xs        = case f n xs @{Same} of
-  Succ va ys @{q} =>
-    let n' := n `minus` toNat q
-     in dropSpaces va n' ys @{trans q p}
-  Fail x y z      => Fail (trans x p) y z
-
-nat : (acc : Nat) -> (rem : Nat) -> (Nat -> Maybe a) -> WeakTok a
-nat acc (S k) f (x :: xs) =
-  if isDigit x then nat (digit x + acc * 10) k f xs else case f acc of
-    Just v  => Succ v xs
-    Nothing => unknownRange p xs
-nat acc 0 f xs = case f acc of
-  Just v  => Succ v xs
-  Nothing => unknownRange p xs
-nat acc (S k) f [] = failEOI p
-
-int : (rem : Nat) -> (Integer -> Maybe a) -> WeakTok a
-int (S $ S k) f ('-' :: x::xs) =
-  if isDigit x then nat (digit x) k (f . negate . cast) xs
-  else unknownRange p xs
-int (S k) f (x::xs) =
-  if isDigit x then nat (digit x) k (f . cast) xs
-  else unknownRange p xs
-int (S k) f [] = failEOI p
-int 0 f xs     = nat 0 0 (f . cast) xs
-
-drop : (n : Nat) -> WeakTok ()
-drop (S k) (x :: xs) = drop k xs
-drop 0     xs        = Succ () xs
-drop _     []        = failEOI p
-
+-- import Data.List.Quantifiers
+-- import Data.Nat
+-- import Data.Vect
+-- import Text.Parse.Manual
+-- import public Text.Molfile.Float
+-- import public Text.Molfile.Types
+--
+-- %default total
+--
+-- public export
+-- data MolFileError : Type where
+--
+--
+-- public export
+-- 0 Err : Type
+-- Err = ParseError Char MolFileError
+--
+-- --------------------------------------------------------------------------------
+-- --          Reading
+-- --------------------------------------------------------------------------------
+--
+-- -- TODO: Part of this stuff should to to the parser lib
+--
+-- ||| Result of running a (strict) tokenizer.
+-- public export
+-- 0 WeakTok : (a : Type) -> Type
+-- WeakTok a =
+--      {cs : List Char}
+--   -> (ts : List Char)
+--   -> {auto p : Suffix False ts cs}
+--   -> WeakRes Char cs a
+--
+-- dropSpaces : a -> Nat -> WeakTok a
+-- dropSpaces v 0 xs = Succ v xs
+-- dropSpaces v (S k) (' '::xs) = dropSpaces v k xs
+-- dropSpaces v (S k) (x::xs)   = unknown xs
+-- dropSpaces v (S k) []        = failEOI p
+--
+-- trimmed : (Nat -> WeakTok a) -> Nat -> WeakTok a
+-- trimmed f (S k) (' '::xs) = trimmed f k xs
+-- trimmed f n     xs        = case f n xs @{Same} of
+--   Succ va ys @{q} =>
+--     let n' := n `minus` toNat q
+--      in dropSpaces va n' ys @{trans q p}
+--   Fail x y z      => Fail (trans x p) y z
+--
+-- nat : (acc : Nat) -> (rem : Nat) -> (Nat -> Maybe a) -> WeakTok a
+-- nat acc (S k) f (x :: xs) =
+--   if isDigit x then nat (digit x + acc * 10) k f xs else case f acc of
+--     Just v  => Succ v xs
+--     Nothing => unknownRange p xs
+-- nat acc 0 f xs = case f acc of
+--   Just v  => Succ v xs
+--   Nothing => unknownRange p xs
+-- nat acc (S k) f [] = failEOI p
+--
+-- int : (rem : Nat) -> (Integer -> Maybe a) -> WeakTok a
+-- int (S $ S k) f ('-' :: x::xs) =
+--   if isDigit x then nat (digit x) k (f . negate . cast) xs
+--   else unknownRange p xs
+-- int (S k) f (x::xs) =
+--   if isDigit x then nat (digit x) k (f . cast) xs
+--   else unknownRange p xs
+-- int (S k) f [] = failEOI p
+-- int 0 f xs     = nat 0 0 (f . cast) xs
+--
+-- drop : (n : Nat) -> WeakTok ()
+-- drop (S k) (x :: xs) = drop k xs
+-- drop 0     xs        = Succ () xs
+-- drop _     []        = failEOI p
+--
 -- -- TODO: This should go to the parser library.
 -- toks :
 --      All (Tok Char) ts

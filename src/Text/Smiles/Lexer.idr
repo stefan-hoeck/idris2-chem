@@ -50,7 +50,7 @@ subsetA e = TA $ SubsetAtom e True
 --          Atoms
 --------------------------------------------------------------------------------
 
-fromDigs : Cast Nat b => Nat -> (b -> Maybe a) -> AutoTok Char a
+fromDigs : Cast Nat b => Nat -> (b -> Maybe a) -> AutoTok e a
 fromDigs k f (x :: xs) =
   if isDigit x then fromDigs (k * 10 + digit x) f xs else case f (cast k) of
     Just v  => Succ v (x::xs)
@@ -59,24 +59,24 @@ fromDigs k f [] = case f (cast k) of
   Just v  => Succ v []
   Nothing => unknownRange p []
 
-maybeFromDigs : Cast Nat b => a -> (b -> Maybe a) -> AutoTok Char a
+maybeFromDigs : Cast Nat b => a -> (b -> Maybe a) -> AutoTok e a
 maybeFromDigs v f (x::xs) =
   if isDigit x then fromDigs (digit x) f xs else Succ v (x::xs)
 maybeFromDigs v f [] = Succ v []
 
-strictFromDigs : Cast Nat b => (b -> Maybe a) -> AutoTok Char a
+strictFromDigs : Cast Nat b => (b -> Maybe a) -> AutoTok e a
 strictFromDigs f (x::xs) =
-  if isDigit x then fromDigs (digit x) f xs else unknownRange p xs
-strictFromDigs f [] = failEOI p
+  if isDigit x then fromDigs (digit x) f xs else failDigit Dec p
+strictFromDigs f [] = eoiAt p
 
 public export
-atom : Atom -> AutoTok Char Atom
+atom : Atom -> AutoTok e Atom
 atom a (']' :: xs) = Succ a xs
-atom _ (x :: xs)   = unknownRange p xs
-atom _ []          = failEOI p
+atom _ (x :: xs)   = single (Expected $ Left "]") p
+atom _ []          = eoiAt p
 
 public export
-charge : Maybe MassNr -> ValidElem -> Chirality -> HCount -> AutoTok Char Atom
+charge : Maybe MassNr -> ValidElem -> Chirality -> HCount -> AutoTok e Atom
 charge mn e c h ('+' :: t) = case t of
   '+'::t  => atom (bracket mn e c h 2) t
   t       => case maybeFromDigs 1 refineCharge t of
@@ -90,14 +90,14 @@ charge mn e c h ('-' :: t) = case t of
 charge mn e c h t = atom (bracket mn e c h 0) t
 
 public export
-hcount : Maybe MassNr -> ValidElem -> Chirality -> AutoTok Char Atom
+hcount : Maybe MassNr -> ValidElem -> Chirality -> AutoTok e Atom
 hcount mn e c ('H' :: xs) = case maybeFromDigs 1 refineHCount xs of
   Succ h ys => charge mn e c h ys
   Fail x y z => Fail x y z
 hcount mn e c xs = charge mn e c 0 xs
 
 public export
-chiral : Maybe MassNr -> ValidElem -> AutoTok Char Atom
+chiral : Maybe MassNr -> ValidElem -> AutoTok e Atom
 chiral mn e ('@' :: xs) = case xs of
   '@'          ::t => hcount mn e CW t
   'T'::'H'::'1'::t => hcount mn e TH1 t
@@ -117,7 +117,7 @@ chiral mn e ('@' :: xs) = case xs of
 chiral mn e xs = hcount mn e None xs
 
 public export
-anyElem : Maybe MassNr -> AutoTok Char Atom
+anyElem : Maybe MassNr -> AutoTok e Atom
 anyElem mn ('c'     ::t) = chiral mn (VE C True) t
 anyElem mn ('b'     ::t) = chiral mn (VE B True) t
 anyElem mn ('n'     ::t) = chiral mn (VE N True) t
@@ -131,7 +131,7 @@ anyElem mn xs = case autoTok {orig} lexElement xs of
   Fail start errEnd reason => Fail start errEnd reason
 
 public export
-bracket : AutoTok Char Atom
+bracket : AutoTok e Atom
 bracket xs = case maybeFromDigs Nothing (map Just . refineMassNr) xs of
   Succ mn ys => anyElem mn ys
   Fail x y z => Fail x y z
@@ -140,13 +140,17 @@ bracket xs = case maybeFromDigs Nothing (map Just . refineMassNr) xs of
 --          Tokenizer
 --------------------------------------------------------------------------------
 
+unknownChars : List Char -> (start : Nat) -> Bounded (ParseError e t)
+unknownChars cs s =
+  B (Unknown . Left $ pack cs) $ BS (P 0 s) (P 0 $ s + length cs)
+
 public export
 tok :
      SnocList (SmilesToken,Nat)
   -> (column : Nat)
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
-  -> Either (Bounded StopReason) (List (SmilesToken,Nat))
+  -> Either (Bounded $ ParseError Void e) (List (SmilesToken,Nat))
 tok st c ('C'::'l'::t) (SA r) = tok (st :< (subset Cl,c)) (c+2) t r
 tok st c ('C'     ::t) (SA r) = tok (st :< (subset C,c))  (c+1) t r
 tok st c ('c'     ::t) (SA r) = tok (st :< (subsetA C,c)) (c+1) t r
@@ -165,9 +169,9 @@ tok st c ('B'     ::t) (SA r) = tok (st :< (subset B,c))  (c+1) t r
 tok st c ('b'     ::t) (SA r) = tok (st :< (subsetA B,c)) (c+1) t r
 tok st c ('['     ::t) (SA r) = case bracket {orig = '[' :: t} t of
   Succ a ys @{p}  => tok (st :< (TA a, c)) (c + toNat p) ys r
-  Fail s _ @{e} r =>
+  Fail s _ @{q} r =>
     let c1 := c + toNat s
-        c2 := c1 + toNat e
+        c2 := c1 + toNat q
      in Left (B r $ BS (P 0 c1) (P 0 c2))
 tok st c ('('     ::t) (SA r) = tok (st :< (PO,c)) (c+1) t r
 tok st c (')'     ::t) (SA r) = tok (st :< (PC,c)) (c+1) t r
@@ -193,11 +197,11 @@ tok st c ('%'::x::y::t) (SA r) =
   if isDigit x && isDigit y then
     case refineRingNr (cast $ digit x * 10 + digit y) of
       Just rn => tok (st :< (TR rn, c)) (c+3) t r
-      Nothing => Left (B UnknownToken $ BS (P 0 c) (P 0 $ c + 3))
-  else Left (B UnknownToken $ BS (P 0 c) (P 0 $ c + 3))
-tok st c (x       ::t) (SA r) = Left (B UnknownToken $ oneChar (P 0 c))
+      Nothing => Left $ unknownChars ['%',x,y] c
+  else Left $ unknownChars ['%',x] c
+tok st c (x       ::t) (SA r) = Left $ unknownChars [x] c
 tok st c []               _   = Right (st <>> [])
 
 public export
-lexSmiles : String -> Either (Bounded StopReason) (List (SmilesToken,Nat))
+lexSmiles : String -> Either (Bounded $ ParseError Void e) (List (SmilesToken,Nat))
 lexSmiles s = tok [<] 0 (unpack s) suffixAcc

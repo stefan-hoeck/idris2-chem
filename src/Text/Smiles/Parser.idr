@@ -166,7 +166,7 @@ start ((t,c) :: _)     = custom (bounds t c) ExpectedAtom
 export
 parseFrom : Origin -> String -> Either (FileContext,Err) Mol
 parseFrom o s =
-  let Right ts := lexSmiles s | Left e => Left $ fromBounded o (Reason <$> e)
+  let Right ts := lexSmiles s | Left e => Left $ fromBounded o (voidLeft <$> e)
       Right m  := start ts    | Left e => Left $ fromBounded o e
    in Right m
 
