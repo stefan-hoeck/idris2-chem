@@ -33,5 +33,5 @@ ipkg   = "graph.ipkg"
 [custom.all.parser]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-parser"
-commit = "latest:lex_all"
+commit = "latest:main"
 ipkg   = "parser.ipkg"
