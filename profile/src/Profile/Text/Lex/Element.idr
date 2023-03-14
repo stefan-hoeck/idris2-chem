@@ -135,7 +135,7 @@ charLists : List (List Char)
 charLists = map unpack strings
 
 doLex : List Char -> Maybe Elem
-doLex cs = case lexElement cs @{Same} of
+doLex cs = case lexElement {e = Void} cs @{Same} of
   Succ e [] => Just e
   _         => Nothing
 
