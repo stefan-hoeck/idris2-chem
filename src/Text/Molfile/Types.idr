@@ -466,11 +466,21 @@ data Property : Type where
 
 %runElab derive "Property" [Show]
 
---   export %inline
---   Interpolation Property
---     interpolate (Chg c pairs) = "M  CHG" ++ writeN8 c pairs write
---     interpolate (Iso c pairs) = "M  ISO" ++ writeN8 c pairs write
---     interpolate (Rad c pairs) = "M  RAD" ++ writeN8 c pairs write
+wpair : Interpolation a => (AtomRef,a) -> String
+wpair (ar,va) = padLeft 4 ' ' "\{ar}" ++ padLeft 4 ' ' "\{va}"
+
+writeN8 :
+     Interpolation a
+  => (c : N8)
+  -> Vect (cast c.value) (AtomRef,a)
+  -> String
+writeN8 c ps = padLeft 3 ' ' "\{c}" ++ concatMap wpair ps
+
+export
+Interpolation Property where
+  interpolate (Chg c pairs) = "M  CHG" ++ writeN8 c pairs
+  interpolate (Iso c pairs) = "M  ISO" ++ writeN8 c pairs
+  interpolate (Rad c pairs) = "M  RAD" ++ writeN8 c pairs
 
 public export
 Eq Property where
@@ -479,25 +489,6 @@ Eq Property where
   Rad c1 ps1 == Rad c2 ps2 = c1 == c2 && toList ps1 == toList ps2
   _          == _          = False
 
--- wpair : (a -> String) -> (AtomRef,a) -> String
--- wpair w (ar,va) = padLeft 4 ' ' (write ar) ++ padLeft 4 ' ' (w va)
---
--- writeN8 : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> (a -> String) -> String
--- writeN8 c ps wa = padLeft 3 ' ' (write c) ++ foldMap (wpair wa) ps
---
--- rpairs :  {n : _}
---        -> (re : String -> Either String a)
---        -> String
---        -> Either String (Vect n (AtomRef,a))
--- rpairs re s = go n 9
---   where go : (k : Nat) -> (pos : Int) -> Either String (Vect k (AtomRef, a))
---         go 0     pos = if cast pos == length s then Right [] else Left "Unexpected end of line"
---         go (S k) pos = do
---           ar <- readMsg . ltrim $ strSubstr pos 4 s
---           va <- re . ltrim $ strSubstr (pos + 4) 4 s
---           t  <- go k $ pos + 8
---           pure $ (ar,va) :: t
---
 -- readN8 :  (re : String -> Either String a)
 --        -> (f : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> b)
 --        -> String

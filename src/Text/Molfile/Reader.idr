@@ -120,8 +120,8 @@ coords : Tok True e (Vect 3 Coordinate)
 coords = Tok.[| (\x,y,z => [x,y,z]) coord coord coord |]
 
 %inline
-atomRef : Tok True e AtomRef
-atomRef = nat 3 (refineAtomRef . cast)
+atomRef : (n : Nat) -> { auto 0 p : IsSucc n} -> Tok True e AtomRef
+atomRef n = nat n (refineAtomRef . cast)
 
 %inline
 count : Tok True e Nat
@@ -222,6 +222,16 @@ reactingCenterStatus = trimmed 3 $ \case
   [<'1','3'] => Just CenterBMBAndOC
   _          => Nothing
 
+rpairs : {n : _} -> Tok b e a -> Tok False e (Vect n (AtomRef,a))
+rpairs {n = 0}   f cs = Succ [] cs
+rpairs {n = S k} f cs =
+  weaken $ Tok.[| (\x,y,z => (x,y)::z) (atomRef 4) f (rpairs f) |] cs
+
+n8 :
+     Tok b1 e a
+  -> (f : (c : N8) -> Vect c.value (AtomRef,a) -> b)
+  -> Tok b2 e b
+
 --------------------------------------------------------------------------------
 --          Reading
 --------------------------------------------------------------------------------
@@ -261,23 +271,21 @@ counts = Tok.[| mkCounts count count (drop 3) chiral (drop 21) version |]
 |||   r and i are not used and ignored
 export
 atom : Tok True e Atom
-atom =
-  Tok.[|
-    (\cs,a,d,c,s,h,b,v,h0,_,m,n,e => MkAtom cs a d c s h b v h0 m n e)
-    coords
-    symbol
-    (int 2 $ refineMassDiff . cast)
-    (nat 3 $ refineAtomCharge . cast)
-    stereoParity
-    (nat 3 $ refineHydrogenCount . cast)
-    stereoCareBox
-    (nat 3 $ refineValence. cast)
-    h0designator
-    (drop 6)
-    atomRef
-    invRetentionFlag
-    exactChangeFlag
-  |]
+atom = Tok.do
+  cs <- coords
+  a  <- symbol
+  d  <- int 2 $ refineMassDiff . cast
+  c  <- nat 3 $ refineAtomCharge . cast
+  s  <- stereoParity
+  h  <- nat 3 $ refineHydrogenCount . cast
+  b  <- stereoCareBox
+  v  <- nat 3 $ refineValence. cast
+  h0 <- h0designator
+  drop 6
+  m  <- atomRef 3
+  n  <- invRetentionFlag
+  e  <- exactChangeFlag
+  pure $ MkAtom cs a d c s h b v h0 m n e
 
 ||| General format:
 |||   111222tttsssxxxrrrccc
@@ -291,18 +299,16 @@ atom =
 |||   xxx is not used and ignored
 export
 bond : Tok True e Bond
-bond =
-  Tok.[|
-    (\r1,r2,t,s,_,r,c => MkBond r1 r2 t s r c)
-    atomRef
-    atomRef
-    bondType
-    bondStereo
-    (drop 3)
-    bondTopo
-    reactingCenterStatus
-  |]
---
+bond = Tok.do
+  r1 <- atomRef 3
+  r2 <- atomRef 3
+  t  <- bondType
+  s  <- bondStereo
+  drop 3
+  r  <- bondTopo
+  c  <- reactingCenterStatus
+  pure $ MkBond r1 r2 t s r c
+
 -- readN :  {n : _}
 --       -> (String -> Either String a)
 --       -> List String
