@@ -27,5 +27,13 @@ coords [x,y,z] = fastConcat [fill 10 x, fill 10 y, fill 10 z]
 export
 atom : Atom -> String
 atom (MkAtom cs a d c s h b v h0 m n e) =
-  fastConcat [ coords cs, fill 4 a, fill 2 d, fill 3 c, fill 3 s, fill 3 h
-             , fill 3 b, fill 3 v, fill 3 h0, fill 9 m, fill 3 n, fill 3 e]
+  fastConcat
+    [ coords cs, fill 4 a, fill 2 d, fill 3 c, fill 3 s, fill 3 h
+    , fill 3 b, fill 3 v, fill 3 h0, fill 9 m, fill 3 n, fill 3 e]
+
+||| General format:
+|||   111222tttsssxxxrrrccc
+export
+bond : Bond -> String
+bond (MkBond a1 a2 t s r c) =
+  fastConcat [ fill 3 a1, fill 3 a2, fill 3 t, fill 3 s, fill 6 r, fill 3 c]

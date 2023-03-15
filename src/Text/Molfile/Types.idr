@@ -112,26 +112,6 @@ Interpolation AtomSymbol where
 
 %runElab derive "AtomSymbol" [Show, Eq]
 
--- namespace AtomSymbol
---   public export
---   read : String -> Maybe AtomSymbol
---   read s = case fromSymbol s of
---     -- choosing the right order here makes this
---     -- considerably faster in the most common case
---     Just el => Just (El el)
---     Nothing => case s of
---       "L"  => Just L
---       "A"  => Just A
---       "Q"  => Just Q
---       "*"  => Just Ast
---       "LP" => Just LP
---       "R#" => Just RSharp
---       _    => Nothing
---
---   public export
---   readMsg : String -> Either String AtomSymbol
---   readMsg = mkReadE read "AtomSymbol"
---
 -- ------------------------------
 -- -- StereoParity
 
@@ -152,20 +132,6 @@ Interpolation StereoParity where
   interpolate EvenStereo = "2"
   interpolate AnyStereo  = "3"
 
--- namespace StereoParity
---   public export
---   read : String -> Maybe StereoParity
---   read "0" = Just NoStereo
---   read "1" = Just OddStereo
---   read "2" = Just EvenStereo
---   read "3" = Just AnyStereo
---   read _   = Nothing
---
---
---   public export
---   readMsg : String -> Either String StereoParity
---   readMsg = mkReadE read "StereoParity"
-
 ------------------------------
 -- StereoCareBox
 
@@ -179,19 +145,7 @@ Interpolation StereoCareBox where
   interpolate MatchStereo  = "1"
 
 %runElab derive "StereoCareBox" [Eq,Ord,Show]
---
--- namespace StereoCareBox
---   public export
---   read : String -> Maybe StereoCareBox
---   read "0" = Just IgnoreStereo
---   read "1" = Just MatchStereo
---   read _   = Nothing
---
---
---   public export
---   readMsg : String -> Either String StereoCareBox
---   readMsg = mkReadE read "StereoCareBox"
---
+
 ------------------------------
 -- Valence
 
@@ -212,17 +166,6 @@ Interpolation Valence where
 namespace Valence
   %runElab derive "Valence" [Show,Eq,Ord,RefinedInteger]
 
--- namespace Valence
---   public export
---   read : String -> Maybe Valence
---   read "0"  = Just NoValence
---   read "15" = Just $ MkValence 0 Oh
---   read s    = readInt s >>= refineSo MkValence
---
---   public export
---   readMsg : String -> Either String Valence
---   readMsg = mkReadE read "Valence"
---
 ------------------------------
 -- H0Designator
 
@@ -236,18 +179,7 @@ Interpolation H0Designator where
   interpolate NoHAllowed     = "1"
 
 %runElab derive "H0Designator" [Eq,Ord,Show]
---
--- namespace H0Designator
---   public export
---   read : String -> Maybe H0Designator
---   read "0" = Just H0NotSpecified
---   read "1" = Just NoHAllowed
---   read _   = Nothing
---
---   public export
---   readMsg : String -> Either String H0Designator
---   readMsg = mkReadE read "H0Designator"
---
+
 ------------------------------
 -- AtomCharge
 
@@ -265,24 +197,6 @@ Interpolation AtomCharge where
 
 %runElab derive "AtomCharge" [Show,Eq,Ord,RefinedInteger]
 
--- namespace AtomCharge
---   public export
---   read : String -> Maybe AtomCharge
---   read "0" = Just $ MkCharge 0 Oh
---   read "1" = Just $ MkCharge 3 Oh
---   read "2" = Just $ MkCharge 2 Oh
---   read "3" = Just $ MkCharge 1 Oh
---   read "4" = Just $ DoubletRadical
---   read "5" = Just $ MkCharge (-1) Oh
---   read "6" = Just $ MkCharge (-2) Oh
---   read "7" = Just $ MkCharge (-3) Oh
---   read _   = Nothing
---
---   public export
---   readMsg : String -> Either String AtomCharge
---   readMsg = mkReadE read "AtomCharge"
---
---
 ------------------------------
 -- InvRetentionFlag
 
@@ -298,19 +212,6 @@ Interpolation InvRetentionFlag where
 
 %runElab derive "InvRetentionFlag" [Eq,Ord,Show]
 
--- namespace InvRetentionFlag
---   public export
---   read : String -> Maybe InvRetentionFlag
---   read "0" = Just InvNotApplied
---   read "1" = Just ConfigInverted
---   read "2" = Just ConfigRetained
---   read _   = Nothing
---
---
---   public export
---   readMsg : String -> Either String InvRetentionFlag
---   readMsg = mkReadE read "InvRetentionFlag"
---
 ------------------------------
 -- ExactChangeFlag
 
@@ -324,17 +225,6 @@ Interpolation ExactChangeFlag where
 
 %runElab derive "ExactChangeFlag" [Eq,Ord,Show]
 
--- namespace ExactChangeFlag
---   public export
---   read : String -> Maybe ExactChangeFlag
---   read "0" = Just ChangeNotApplied
---   read "1" = Just ExactChange
---   read _   = Nothing
---
---   public export
---   readMsg : String -> Either String ExactChangeFlag
---   readMsg = mkReadE read "ExactChangeFlag"
---
 ------------------------------
 -- MassDiff
 
@@ -369,16 +259,6 @@ Interpolation HydrogenCount where
 
 namespace HydrogenCount
   %runElab derive "HydrogenCount" [Show,Eq,Ord,RefinedInteger]
-
--- namespace HydrogenCount
---   public export
---   read : String -> Maybe HydrogenCount
---   read "0" = Just $ NoHC
---   read s   = readInt s >>= refineSo HC . (\x => x - 1)
---
---   public export
---   readMsg : String -> Either String HydrogenCount
---   readMsg = mkReadE read "HydrogenCount"
 
 ------------------------------
 -- AtomRef
@@ -452,24 +332,6 @@ Interpolation BondType where
 
 %runElab derive "BondType" [Eq,Show,Ord]
 
--- namespace BondType
---   public export
---   read : String -> Maybe BondType
---   read "1" = Just Single
---   read "2" = Just Dbl
---   read "3" = Just Triple
---   read "4" = Just Aromatic
---   read "5" = Just SngOrDbl
---   read "6" = Just SngOrAromatic
---   read "7" = Just DblOrAromatic
---   read "8" = Just AnyBond
---   read _   = Nothing
---
---
---   public export
---   readMsg : String -> Either String BondType
---   readMsg = mkReadE read "BondType"
---
 ------------------------------
 -- BondStereo
 
@@ -487,20 +349,6 @@ Interpolation BondStereo where
 
 %runElab derive "BondStereo" [Ord, Eq, Show]
 
--- namespace BondStereo
---   public export
---   read : String -> Maybe BondStereo
---   read "0" = Just NoBondStereo
---   read "1" = Just Up
---   read "3" = Just CisOrTrans
---   read "4" = Just UpOrDown
---   read "6" = Just Down
---   read _   = Nothing
---
---   public export
---   readMsg : String -> Either String BondStereo
---   readMsg = mkReadE read "BondStereo"
---
 ------------------------------
 -- BondTopo
 
@@ -516,19 +364,6 @@ Interpolation BondTopo where
 
 %runElab derive "BondTopo" [Eq,Show,Ord]
 
--- namespace BondTopo
---   public export
---   read : String -> Maybe BondTopo
---   read "0" = Just AnyTopology
---   read "1" = Just Ring
---   read "2" = Just Chain
---   read _   = Nothing
---
---
---   public export
---   readMsg : String -> Either String BondTopo
---   readMsg = mkReadE read "BondTopo"
---
 ------------------------------
 -- ReactingCenterStatus
 
@@ -559,25 +394,6 @@ Interpolation ReactingCenterStatus where
   interpolate CenterBMB       = "5"
   interpolate CenterBOC       = "9"
   interpolate CenterBMBAndOC  = "13"
-
--- namespace ReactingCenterStatus
---   public export
---   read : String -> Maybe ReactingCenterStatus
---   read "0"  = Just Unmarked
---   read "-1" = Just NotACenter
---   read "1"  = Just Center
---   read "2"  = Just NoChange
---   read "4"  = Just BondMadeBroken
---   read "8"  = Just BondOrderChange
---   read "12" = Just BondMBAndOC
---   read "5"  = Just CenterBMB
---   read "9"  = Just CenterBOC
---   read "13" = Just CenterBMBAndOC
---   read _    = Nothing
---
---   public export
---   readMsg : String -> Either String ReactingCenterStatus
---   readMsg = mkReadE read "ReactingCenterStatus"
 
 public export
 record Bond where

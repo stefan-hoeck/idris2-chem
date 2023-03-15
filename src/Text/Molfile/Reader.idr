@@ -177,6 +177,51 @@ exactChangeFlag = trimmed 3 $ \case
   [<'1'] => Just ExactChange
   _      => Nothing
 
+bondType : Tok True e BondType
+bondType = trimmed 3 $ \case
+  [<'1']     => Just Single
+  [<'2']     => Just Dbl
+  [<'3']     => Just Triple
+  [<'4']     => Just Aromatic
+  [<'5']     => Just SngOrDbl
+  [<'6']     => Just SngOrAromatic
+  [<'7']     => Just DblOrAromatic
+  [<'8']     => Just AnyBond
+  _          => Nothing
+
+bondStereo : Tok True e BondStereo
+bondStereo = trimmed 3 $ \case
+  [<]        => Just NoBondStereo
+  [<'0']     => Just NoBondStereo
+  [<'1']     => Just Up
+  [<'3']     => Just CisOrTrans
+  [<'4']     => Just UpOrDown
+  [<'6']     => Just Down
+  _          => Nothing
+
+bondTopo : Tok True e BondTopo
+bondTopo = trimmed 3 $ \case
+  [<]        => Just AnyTopology
+  [<'0']     => Just AnyTopology
+  [<'1']     => Just Ring
+  [<'2']     => Just Chain
+  _          => Nothing
+
+reactingCenterStatus : Tok True e ReactingCenterStatus
+reactingCenterStatus = trimmed 3 $ \case
+  [<]        => Just Unmarked
+  [<'0']     => Just Unmarked
+  [<'-','1'] => Just NotACenter
+  [<'1']     => Just Center
+  [<'2']     => Just NoChange
+  [<'4']     => Just BondMadeBroken
+  [<'8']     => Just BondOrderChange
+  [<'1','2'] => Just BondMBAndOC
+  [<'5']     => Just CenterBMB
+  [<'9']     => Just CenterBOC
+  [<'1','3'] => Just CenterBMBAndOC
+  _          => Nothing
+
 --------------------------------------------------------------------------------
 --          Reading
 --------------------------------------------------------------------------------
@@ -234,27 +279,29 @@ atom =
     exactChangeFlag
   |]
 
--- ||| Chunks of a bond line. See `bond` for a description
--- ||| of the format and types of chunks.
--- export
--- bondChunks : Vect 7 Int
--- bondChunks = [3,3,3,3,3,3,3]
---
--- ||| General format:
--- |||   111222tttsssxxxrrrccc
--- |||
--- |||   111 and 222 : atom references
--- |||   ttt         : bond type
--- |||   sss         : bond stereo
--- |||   rrr         : bond topology
--- |||   ccc         : reacting center status
--- |||
--- |||   xxx is not used and ignored
--- export
--- bond : String -> Either String Bond
--- bond s = do
---   [r1,r2,t,ss,r,_,c] <- trimmedChunks bondChunks s
---   [| MkBond (readMsg r1) (readMsg r2) (readMsg t) (readMsg ss) (readMsg r) (readMsg c) |]
+||| General format:
+|||   111222tttsssxxxrrrccc
+|||
+|||   111 and 222 : atom references
+|||   ttt         : bond type
+|||   sss         : bond stereo
+|||   rrr         : bond topology
+|||   ccc         : reacting center status
+|||
+|||   xxx is not used and ignored
+export
+bond : Tok True e Bond
+bond =
+  Tok.[|
+    (\r1,r2,t,s,_,r,c => MkBond r1 r2 t s r c)
+    atomRef
+    atomRef
+    bondType
+    bondStereo
+    (drop 3)
+    bondTopo
+    reactingCenterStatus
+  |]
 --
 -- readN :  {n : _}
 --       -> (String -> Either String a)

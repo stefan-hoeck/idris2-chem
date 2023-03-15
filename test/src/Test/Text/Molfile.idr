@@ -184,7 +184,7 @@ props : Group
 props = MkGroup "Molfile Properties"
   [ ("prop_count", rw counts counts counts)
   , ("prop_atom",  rw atom atom atom)
+  , ("prop_bond",  rw bond bond bond)
   ]
---           , ("prop_bond",  rw bond bond writeBond)
 --           , ("prop_mol",   rw molFile mol writeMol)
 --           ]
