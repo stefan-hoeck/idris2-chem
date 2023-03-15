@@ -20,6 +20,7 @@ modules = Chem
         , Text.Molfile.Float
         , Text.Molfile.Reader
         , Text.Molfile.Types
+        , Text.Molfile.Writer
 
         , Text.RW
 
