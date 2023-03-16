@@ -9,6 +9,7 @@ import Decidable.HDec.Int32
 import Decidable.HDec.Integer
 import Hedgehog
 import Test.Chem.Element
+import Test.Data.Graph
 import Text.Molfile
 import Text.Parse.Manual
 
@@ -44,9 +45,10 @@ smallCounts = [| MkCounts smallCount smallCount chiralFlag molVersion |]
 
 export
 atomSymbol : Gen AtomSymbol
-atomSymbol = frequency [ (10, map El element)
-                       , (1,  element [L,A,Q,Ast,LP,RSharp])
-                       ]
+atomSymbol = frequency
+  [ (10, map El element)
+  , (1,  element [L,A,Q,Ast,LP,RSharp])
+  ]
 
 export
 stereoParity : Gen StereoParity
@@ -85,8 +87,8 @@ hydrogenCount : Gen HydrogenCount
 hydrogenCount = fromMaybe 0 . refineHydrogenCount <$> bits8 (linear 0 5)
 
 export
-atomRef : Gen AtomRef
-atomRef = fromMaybe 1 . refineAtomRef <$> bits32 (linear 1 999)
+node : Gen Node
+node = bits32 (linear 1 999)
 
 export
 coordinate : Gen Coordinate
@@ -103,7 +105,7 @@ atom : Gen Atom
 atom =
   [| MkAtom coords atomSymbol massDiff atomCharge
             stereoParity hydrogenCount stereoCareBox valence
-            h0Designator atomRef invRetentionFlag exactChangeFlag |]
+            h0Designator node invRetentionFlag exactChangeFlag |]
 
 export
 bondType : Gen BondType
@@ -126,9 +128,11 @@ reactingCenterStatus =
 
 export
 bond : Gen Bond
-bond =
-  [| MkBond atomRef atomRef bondType bondStereo bondTopo
-            reactingCenterStatus |]
+bond = [| MkBond bondType bondStereo bondTopo reactingCenterStatus |]
+
+export
+bondEdge : Gen (LEdge Bond)
+bondEdge = edge 998 bond
 
 export
 radical : Gen Radical
@@ -184,7 +188,7 @@ props : Group
 props = MkGroup "Molfile Properties"
   [ ("prop_count", rw counts counts counts)
   , ("prop_atom",  rw atom atom atom)
-  , ("prop_bond",  rw bond bond bond)
+  , ("prop_bond",  rw bondEdge bond bond)
   ]
 --           , ("prop_mol",   rw molFile mol writeMol)
 --           ]

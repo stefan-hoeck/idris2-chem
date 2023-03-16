@@ -43,11 +43,6 @@ Interpolation MolLine where
 namespace MolLine
   %runElab derive "MolLine" [Show,Eq,Ord,RefinedString]
 
--- namespace MolLine
---   public export
---   readMsg : String -> Either String MolLine
---   readMsg = mkReadE refine "MolLine"
-
 --------------------------------------------------------------------------------
 --          Counts Line
 --------------------------------------------------------------------------------
@@ -260,23 +255,6 @@ Interpolation HydrogenCount where
 namespace HydrogenCount
   %runElab derive "HydrogenCount" [Show,Eq,Ord,RefinedInteger]
 
-------------------------------
--- AtomRef
-
-||| Restricted to a max of three digit unsigned numbers
-public export
-record AtomRef where
-  constructor MkAtomRef
-  value : Bits32
-  {auto 0 prf : value <= 999}
-
-export %inline
-Interpolation AtomRef where
-  interpolate = show . value
-
-namespace AtomRef
-  %runElab derive "AtomRef" [Show,Eq,Ord,RefinedInteger]
-
 public export
 0 Coordinate : Type
 Coordinate = Float (-9999) 99999 4
@@ -294,7 +272,7 @@ record Atom where
   stereoCareBox    : StereoCareBox
   valence          : Valence
   h0designator     : H0Designator
-  atomMapping      : AtomRef
+  atomMapping      : Node
   invRetentionFlag : InvRetentionFlag
   exactChangeFlag  : ExactChangeFlag
 
@@ -398,8 +376,6 @@ Interpolation ReactingCenterStatus where
 public export
 record Bond where
   constructor MkBond
-  atom1                : AtomRef
-  atom2                : AtomRef
   type                 : BondType
   stereo               : BondStereo
   topology             : BondTopo
@@ -458,36 +434,36 @@ Interpolation Radical where
 ------------------------------
 -- Property
 
-public export
-data Property : Type where
-  Chg : (n : N8) -> Vect n.value (AtomRef,Charge)  -> Property
-  Iso : (n : N8) -> Vect n.value (AtomRef,MassNr)  -> Property
-  Rad : (n : N8) -> Vect n.value (AtomRef,Radical) -> Property
-
-%runElab derive "Property" [Show]
-
-wpair : Interpolation a => (AtomRef,a) -> String
-wpair (ar,va) = padLeft 4 ' ' "\{ar}" ++ padLeft 4 ' ' "\{va}"
-
-writeN8 :
-     Interpolation a
-  => (c : N8)
-  -> Vect (cast c.value) (AtomRef,a)
-  -> String
-writeN8 c ps = padLeft 3 ' ' "\{c}" ++ concatMap wpair ps
-
-export
-Interpolation Property where
-  interpolate (Chg c pairs) = "M  CHG" ++ writeN8 c pairs
-  interpolate (Iso c pairs) = "M  ISO" ++ writeN8 c pairs
-  interpolate (Rad c pairs) = "M  RAD" ++ writeN8 c pairs
-
-public export
-Eq Property where
-  Chg c1 ps1 == Chg c2 ps2 = c1 == c2 && toList ps1 == toList ps2
-  Iso c1 ps1 == Iso c2 ps2 = c1 == c2 && toList ps1 == toList ps2
-  Rad c1 ps1 == Rad c2 ps2 = c1 == c2 && toList ps1 == toList ps2
-  _          == _          = False
+-- public export
+-- data Property : Type where
+--   Chg : (n : N8) -> Vect n.value (AtomRef,Charge)  -> Property
+--   Iso : (n : N8) -> Vect n.value (AtomRef,MassNr)  -> Property
+--   Rad : (n : N8) -> Vect n.value (AtomRef,Radical) -> Property
+--
+-- %runElab derive "Property" [Show]
+--
+-- wpair : Interpolation a => (AtomRef,a) -> String
+-- wpair (ar,va) = padLeft 4 ' ' "\{ar}" ++ padLeft 4 ' ' "\{va}"
+--
+-- writeN8 :
+--      Interpolation a
+--   => (c : N8)
+--   -> Vect (cast c.value) (AtomRef,a)
+--   -> String
+-- writeN8 c ps = padLeft 3 ' ' "\{c}" ++ concatMap wpair ps
+--
+-- export
+-- Interpolation Property where
+--   interpolate (Chg c pairs) = "M  CHG" ++ writeN8 c pairs
+--   interpolate (Iso c pairs) = "M  ISO" ++ writeN8 c pairs
+--   interpolate (Rad c pairs) = "M  RAD" ++ writeN8 c pairs
+--
+-- public export
+-- Eq Property where
+--   Chg c1 ps1 == Chg c2 ps2 = c1 == c2 && toList ps1 == toList ps2
+--   Iso c1 ps1 == Iso c2 ps2 = c1 == c2 && toList ps1 == toList ps2
+--   Rad c1 ps1 == Rad c2 ps2 = c1 == c2 && toList ps1 == toList ps2
+--   _          == _          = False
 
 -- readN8 :  (re : String -> Either String a)
 --        -> (f : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> b)

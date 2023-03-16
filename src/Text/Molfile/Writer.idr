@@ -1,5 +1,6 @@
 module Text.Molfile.Writer
 
+import Chem
 import Data.String
 import Data.Vect
 import Text.Molfile.Float
@@ -9,6 +10,9 @@ import Text.Molfile.Types
 
 %inline
 Interpolation Nat where interpolate = show
+
+%inline
+Interpolation Node where interpolate = show . (+1)
 
 export
 fill : Interpolation a => Nat -> a -> String
@@ -34,6 +38,6 @@ atom (MkAtom cs a d c s h b v h0 m n e) =
 ||| General format:
 |||   111222tttsssxxxrrrccc
 export
-bond : Bond -> String
-bond (MkBond a1 a2 t s r c) =
-  fastConcat [ fill 3 a1, fill 3 a2, fill 3 t, fill 3 s, fill 6 r, fill 3 c]
+bond : LEdge Bond -> String
+bond (MkLEdge (MkEdge x y _) $ MkBond t s r c) =
+  fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s, fill 6 r, fill 3 c]

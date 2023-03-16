@@ -16,8 +16,13 @@ import public Text.Molfile.Types
 
 public export
 data MolFileError : Type where
+  InvalidEdge : MolFileError
 
 %runElab derive "MolFileError" [Show,Eq]
+
+export
+Interpolation MolFileError where
+  interpolate InvalidEdge = "invalid bond"
 
 
 public export
@@ -119,9 +124,15 @@ coord cs = case Tok.[| coord (int 5 Just) dot (nat 4 Just) |] cs of
 coords : Tok True e (Vect 3 Coordinate)
 coords = Tok.[| (\x,y,z => [x,y,z]) coord coord coord |]
 
+-- Atom references go from 1 to 999, which means the corresponding
+-- nodes go from 0 to 998.
+toAtomRef : Nat -> Maybe Node
+toAtomRef (S k) = if k < 999 then Just $ cast k else Nothing
+toAtomRef 0     = Nothing
+
 %inline
-atomRef : (n : Nat) -> { auto 0 p : IsSucc n} -> Tok True e AtomRef
-atomRef n = nat n (refineAtomRef . cast)
+node : (n : Nat) -> { auto 0 p : IsSucc n} -> Tok True e Node
+node n = nat n toAtomRef
 
 %inline
 count : Tok True e Nat
@@ -222,14 +233,20 @@ reactingCenterStatus = trimmed 3 $ \case
   [<'1','3'] => Just CenterBMBAndOC
   _          => Nothing
 
-rpairs : {n : _} -> Tok b e a -> Tok False e (Vect n (AtomRef,a))
+edge : Tok True MolFileError Edge
+edge cs = case Tok.[| mkEdge (node 3) (node 3) |] cs of
+  Succ (Just v) cs2             => Succ v cs2
+  Succ Nothing  cs2 @{Uncons _} => Fail Same cs2 (Custom InvalidEdge)
+  Fail x y z                    => Fail x y z
+
+rpairs : {n : _} -> Tok b e a -> Tok False e (Vect n (Node,a))
 rpairs {n = 0}   f cs = Succ [] cs
 rpairs {n = S k} f cs =
-  weaken $ Tok.[| (\x,y,z => (x,y)::z) (atomRef 4) f (rpairs f) |] cs
+  weaken $ Tok.[| (\x,y,z => (x,y)::z) (node 4) f (rpairs f) |] cs
 
 n8 :
      Tok b1 e a
-  -> (f : (c : N8) -> Vect c.value (AtomRef,a) -> b)
+  -> (f : (c : N8) -> Vect c.value (Node,a) -> b)
   -> Tok b2 e b
 
 --------------------------------------------------------------------------------
@@ -282,7 +299,7 @@ atom = Tok.do
   v  <- nat 3 $ refineValence. cast
   h0 <- h0designator
   drop 6
-  m  <- atomRef 3
+  m  <- node 3
   n  <- invRetentionFlag
   e  <- exactChangeFlag
   pure $ MkAtom cs a d c s h b v h0 m n e
@@ -298,16 +315,15 @@ atom = Tok.do
 |||
 |||   xxx is not used and ignored
 export
-bond : Tok True e Bond
+bond : Tok True MolFileError (LEdge Bond)
 bond = Tok.do
-  r1 <- atomRef 3
-  r2 <- atomRef 3
+  ed <- edge
   t  <- bondType
   s  <- bondStereo
   drop 3
   r  <- bondTopo
   c  <- reactingCenterStatus
-  pure $ MkBond r1 r2 t s r c
+  pure $ MkLEdge ed $ MkBond t s r c
 
 -- readN :  {n : _}
 --       -> (String -> Either String a)
