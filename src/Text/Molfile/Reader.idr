@@ -4,6 +4,7 @@ import Chem
 import Data.List.Quantifiers
 import Data.Nat
 import Data.Vect
+import Decidable.HDec.Integer
 import Derive.Prelude
 import Text.Lex.Element
 import Text.Lex.Manual.Syntax
@@ -16,13 +17,15 @@ import public Text.Molfile.Types
 
 public export
 data MolFileError : Type where
-  InvalidEdge : MolFileError
+  InvalidEdge   : MolFileError
+  InvalidHeader : MolFileError
 
 %runElab derive "MolFileError" [Show,Eq]
 
 export
 Interpolation MolFileError where
-  interpolate InvalidEdge = "invalid bond"
+  interpolate InvalidEdge   = "Invalid bond"
+  interpolate InvalidHeader = "Invalid mol-File header"
 
 
 public export
@@ -32,6 +35,22 @@ Err = ParseError Void MolFileError
 --------------------------------------------------------------------------------
 --          Reading
 --------------------------------------------------------------------------------
+
+molLine' : SnocList Char -> AutoTok MolFileError MolLine
+molLine' sc (x :: xs) = case isControl x of
+  False => molLine' (sc :< x) xs
+  True  => case refineMolLine (pack $ sc <>> []) of
+    Just ml => Succ ml (x::xs)
+    Nothing => range (Custom InvalidHeader) p (x::xs)
+molLine' sc []        = case refineMolLine (pack $ sc <>> []) of
+  Just ml => Succ ml []
+  Nothing => range (Custom InvalidHeader) p []
+
+molLine : Tok False MolFileError MolLine
+molLine [] = Succ "" []
+molLine (x :: xs) = case isControl x of
+  True  => Succ "" (x::xs)
+  False => weaken $ molLine' [<x] xs
 
 dropSpaces : a -> Nat -> AutoTok e a
 dropSpaces v 0     xs        = Succ v xs
@@ -244,10 +263,37 @@ rpairs {n = 0}   f cs = Succ [] cs
 rpairs {n = S k} f cs =
   weaken $ Tok.[| (\x,y,z => (x,y)::z) (node 4) f (rpairs f) |] cs
 
+repeat : Nat -> (a -> Tok b e a) -> a -> Tok False e a
+repeat 0     f x cs = Succ x cs
+repeat (S k) f x cs = case f x cs of
+  Succ x2 cs2 @{p} => weaken $ trans (repeat k f x2 cs2) p
+  Fail x y z       => Fail x y z
+
+charge : Graph Bond Atom -> Tok True MolFileError (Graph Bond Atom)
+charge (MkGraph g) = Tok.do
+  n <- node 4
+  c <- nat 4 (refineCharge . cast)
+  pure $ MkGraph $ update n (map {charge := c}) g
+
+iso : Graph Bond Atom -> Tok True MolFileError (Graph Bond Atom)
+iso (MkGraph g) = Tok.do
+  n <- node 4
+  v <- nat 4 (refineMassNr . cast)
+  pure $ MkGraph $ update n (map {massNr := Just v}) g
+
 n8 :
-     Tok b1 e a
-  -> (f : (c : N8) -> Vect c.value (Node,a) -> b)
-  -> Tok b2 e b
+     Graph Bond Atom
+  -> (Graph Bond Atom -> Tok True MolFileError (Graph Bond Atom))
+  -> Tok True MolFileError (Graph Bond Atom)
+n8 g f = Tok.do
+  n  <- nat 3 (\n => if 1 <= n && n <= 8 then Just n else Nothing)
+  g2 <- repeat n f g
+  pure g2
+
+property : Graph Bond Atom -> Tok True MolFileError (Graph Bond Atom)
+property g ('M'::' '::' '::'C'::'H'::'G'::t) = succT $ n8 g charge t
+property g ('M'::' '::' '::'I'::'S'::'O'::t) = succT $ n8 g iso t
+property g cs = fail Same
 
 --------------------------------------------------------------------------------
 --          Reading
@@ -291,8 +337,8 @@ atom : Tok True e Atom
 atom = Tok.do
   cs <- coords
   a  <- symbol
-  d  <- int 2 $ refineMassDiff . cast
-  c  <- nat 3 $ refineAtomCharge . cast
+  drop 2
+  c  <- nat 3 $ refineCharge . cast
   s  <- stereoParity
   h  <- nat 3 $ refineHydrogenCount . cast
   b  <- stereoCareBox
@@ -302,7 +348,7 @@ atom = Tok.do
   m  <- node 3
   n  <- invRetentionFlag
   e  <- exactChangeFlag
-  pure $ MkAtom cs a d c s h b v h0 m n e
+  pure $ MkAtom cs a Nothing c s h b v h0 m n e
 
 ||| General format:
 |||   111222tttsssxxxrrrccc
@@ -325,48 +371,61 @@ bond = Tok.do
   c  <- reactingCenterStatus
   pure $ MkLEdge ed $ MkBond t s r c
 
--- readN :  {n : _}
---       -> (String -> Either String a)
---       -> List String
---       -> Either String (Vect n a, List String)
--- readN read = go n
---   where go : (k : Nat) -> List String -> Either String (Vect k a, List String)
---         go Z ss           = Right ([], ss)
---         go (S k) []       = Left "Unexpected end of input"
---         go (S k) (h :: t) = do
---           va        <- read h
---           (vt,rest) <- go k t
---           pure (va :: vt, rest)
---
--- readProps : List String -> Either String (List Property)
--- readProps []         = Left "Unexpected end of mol file"
--- readProps ["M  END"] = Right []
--- readProps (x :: xs)  = do
---   p1 <- readMsg x
---   t  <- readProps xs
---   pure $ p1 :: t
---
---
--- molLines : List String -> Either String MolFile
--- molLines (n :: i :: c :: cnt :: t) = do
---   name    <- readMsg n
---   info    <- readMsg i
---   comm    <- readMsg c
---   cnts    <- counts cnt
---   (as,t1) <- readN atom t
---   (bs,t2) <- readN bond t1
---   ps      <- readProps t2
---   pure (MkMolFile name info comm cnts as bs ps)
--- molLines _ = Left "Unexpected end of input"
---
--- export
--- mol : String -> Either String MolFile
--- mol = molLines . lines
-
 export
-runTok : Tok b MolFileError a -> String -> Either (Bounded Err) a
-runTok f s = case f (unpack s) of
-  Succ val []           => Right val
+lineTok :
+     (line : Nat)
+  -> Tok b MolFileError a
+  -> String
+  -> Either (Bounded Err) a
+lineTok l f s = case f (unpack s) of
+  Succ val []          => Right val
+  Succ val ['\n']      => Right val
+  Succ val ['\r','\n'] => Right val
   Succ val (x::xs) @{p} =>
-    Left $ boundedErr begin (weaken p) xs (Unexpected $ Left $ show x)
-  Fail x y z  => Left $ boundedErr begin x y z
+    Left $ oneChar (Unexpected $ Left $ show x) (P l $ toNat p)
+  Fail x y z  => Left $ boundedErr (P l 0) x y z
+
+properties :
+     Graph Bond Atom
+  -> (line  : Nat)
+  -> (lines : List String)
+  -> Either (Bounded Err) (Graph Bond Atom)
+properties g l []        = Right g
+properties g l (s :: ss) =
+  if isPrefixOf "M  END" s then Right g
+  else case lineTok l (property g) s of
+         Right g2 => properties g2 (S l) ss
+         Left err => Left err
+
+bonds :
+     Graph Bond Atom
+  -> (nbonds, line : Nat)
+  -> (lines        : List String)
+  -> Either (Bounded Err) (Graph Bond Atom)
+bonds g 0     l ss      = properties g l ss
+bonds g (S k) l (s::ss) = case lineTok l bond s of
+  Right e  => bonds (insEdge e g) k (S l) ss
+  Left err => Left err
+bonds g (S k) l [] = Left (oneChar EOI $ P l 0)
+
+atoms :
+     Graph Bond Atom
+  -> (natoms, nbonds, line : Nat)
+  -> (node         : Node)
+  -> (lines        : List String)
+  -> Either (Bounded Err) (Graph Bond Atom)
+atoms g 0     bs l n ss      = bonds g bs l ss
+atoms g (S k) bs l n (s::ss) = case lineTok l atom s of
+  Right a  => atoms (insNode n a g) k bs (S l) (n+1) ss
+  Left err => Left err
+atoms g (S k) bs l n [] = Left (oneChar EOI $ P l 0)
+
+readMol : (ls : List String) -> Either (Bounded Err) MolFile
+readMol (h1::h2::h3::cs::t) = do
+  name    <- lineTok 0 molLine h1
+  info    <- lineTok 1 molLine h2
+  comment <- lineTok 2 molLine h3
+  counts  <- lineTok 3 counts cs
+  g       <- atoms empty counts.atoms counts.bonds 4 0 t
+  pure $ MkMolFile name info comment g
+readMol ls = Left (B (Custom InvalidHeader) $ BS begin (P (length ls) 0))

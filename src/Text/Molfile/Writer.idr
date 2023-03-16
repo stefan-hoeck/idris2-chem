@@ -30,9 +30,9 @@ coords [x,y,z] = fastConcat [fill 10 x, fill 10 y, fill 10 z]
 |||   xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
 export
 atom : Atom -> String
-atom (MkAtom cs a d c s h b v h0 m n e) =
+atom (MkAtom cs a _ c s h b v h0 m n e) =
   fastConcat
-    [ coords cs, fill 4 a, fill 2 d, fill 3 c, fill 3 s, fill 3 h
+    [ coords cs, fill 4 a, fill 5 c, fill 3 s, fill 3 h
     , fill 3 b, fill 3 v, fill 3 h0, fill 9 m, fill 3 n, fill 3 e]
 
 ||| General format:

@@ -176,23 +176,6 @@ Interpolation H0Designator where
 %runElab derive "H0Designator" [Eq,Ord,Show]
 
 ------------------------------
--- AtomCharge
-
-||| 0 if uncharged, 1-3 if positive, 4 if doublet radical
-||| 5-7 if negative
-public export
-record AtomCharge where
-  constructor MkAtomCharge
-  value : Bits8
-  {auto 0 prf : value < 8}
-
-export %inline
-Interpolation AtomCharge where
-  interpolate = show . value
-
-%runElab derive "AtomCharge" [Show,Eq,Ord,RefinedInteger]
-
-------------------------------
 -- InvRetentionFlag
 
 public export
@@ -219,23 +202,6 @@ Interpolation ExactChangeFlag where
   interpolate ExactChange       = "1"
 
 %runElab derive "ExactChangeFlag" [Eq,Ord,Show]
-
-------------------------------
--- MassDiff
-
-||| Mass difference encoded in V2000 CTAB
-public export
-record MassDiff where
-  constructor MkMassDiff
-  value : Int8
-  {auto 0 prf : FromTo (-3) 4 value}
-
-export %inline
-Interpolation MassDiff where
-  interpolate = show . value
-
-namespace MassDiff
-  %runElab derive "MassDiff" [Show,Eq,Ord,RefinedInteger]
 
 ------------------------------
 -- Hydrogen Count
@@ -265,8 +231,8 @@ record Atom where
   constructor MkAtom
   position         : Vect 3 Coordinate
   symbol           : AtomSymbol
-  massDiff         : MassDiff
-  charge           : AtomCharge
+  massNr           : Maybe MassNr
+  charge           : Charge
   stereoParity     : StereoParity
   hydrogenCount    : HydrogenCount
   stereoCareBox    : StereoCareBox
@@ -417,92 +383,17 @@ Interpolation Radical where
   interpolate Triplet   = "3"
 
 %runElab derive "Radical" [Show,Eq,Ord]
---
--- namespace Radical
---   public export
---   read : String -> Maybe Radical
---   read "0" = Just NoRadical
---   read "1" = Just Singlet
---   read "2" = Just Doublet
---   read "3" = Just Triplet
---   read _   = Nothing
---
---   public export
---   readMsg : String -> Either String Radical
---   readMsg = mkReadE read "Radical"
---
-------------------------------
--- Property
 
--- public export
--- data Property : Type where
---   Chg : (n : N8) -> Vect n.value (AtomRef,Charge)  -> Property
---   Iso : (n : N8) -> Vect n.value (AtomRef,MassNr)  -> Property
---   Rad : (n : N8) -> Vect n.value (AtomRef,Radical) -> Property
---
--- %runElab derive "Property" [Show]
---
--- wpair : Interpolation a => (AtomRef,a) -> String
--- wpair (ar,va) = padLeft 4 ' ' "\{ar}" ++ padLeft 4 ' ' "\{va}"
---
--- writeN8 :
---      Interpolation a
---   => (c : N8)
---   -> Vect (cast c.value) (AtomRef,a)
---   -> String
--- writeN8 c ps = padLeft 3 ' ' "\{c}" ++ concatMap wpair ps
---
--- export
--- Interpolation Property where
---   interpolate (Chg c pairs) = "M  CHG" ++ writeN8 c pairs
---   interpolate (Iso c pairs) = "M  ISO" ++ writeN8 c pairs
---   interpolate (Rad c pairs) = "M  RAD" ++ writeN8 c pairs
---
--- public export
--- Eq Property where
---   Chg c1 ps1 == Chg c2 ps2 = c1 == c2 && toList ps1 == toList ps2
---   Iso c1 ps1 == Iso c2 ps2 = c1 == c2 && toList ps1 == toList ps2
---   Rad c1 ps1 == Rad c2 ps2 = c1 == c2 && toList ps1 == toList ps2
---   _          == _          = False
+--------------------------------------------------------------------------------
+--          MolFile
+--------------------------------------------------------------------------------
 
--- readN8 :  (re : String -> Either String a)
---        -> (f : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> b)
---        -> String
---        -> Either String b
--- readN8 re f s = do
---   c  <- readMsg . ltrim $ strSubstr 6 3 s
---   ps <- rpairs re s
---   pure $ f c ps
---
--- namespace Property
---
---   public export
---   readMsg : String -> Either String Property
---   readMsg s = case strSubstr 0 6 s of
---     "M  CHG" => readN8 readMsg Chg s
---     "M  ISO" => readN8 readMsg Iso s
---     "M  RAD" => readN8 readMsg Rad s
---     s        => Left $ #"Not a valid Property: \#{s}"#
---
--- --------------------------------------------------------------------------------
--- --          MolFile
--- --------------------------------------------------------------------------------
---
--- public export
--- record MolFile where
---   constructor MkMolFile
---   name    : MolLine
---   info    : MolLine
---   comment : MolLine
---   counts  : Counts
---   atoms   : Vect (cast counts.atoms.value) Atom
---   bonds   : Vect (cast counts.bonds.value) Bond
---   props   : List Property
---
--- %runElab derive "MolFile" [Show]
---
--- public export
--- Eq MolFile where
---   MkMolFile n1 i1 c1 cs1 as1 bs1 ps1 == MkMolFile n2 i2 c2 cs2 as2 bs2 ps2 =
---     n1 == n2 && i1 == i2 && c1 == c2 && cs1 == cs2 &&
---     toList as1 == toList as2 && toList bs1 == toList bs2 && ps1 == ps2
+public export
+record MolFile where
+  constructor MkMolFile
+  name    : MolLine
+  info    : MolLine
+  comment : MolLine
+  graph   : Graph Bond Atom
+
+%runElab derive "MolFile" [Show,Eq]

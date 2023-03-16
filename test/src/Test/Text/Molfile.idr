@@ -67,20 +67,12 @@ h0Designator : Gen H0Designator
 h0Designator = element [H0NotSpecified, NoHAllowed]
 
 export
-atomCharge : Gen AtomCharge
-atomCharge = fromMaybe 0 . refineAtomCharge <$> bits8 (linear 0 7)
-
-export
 invRetentionFlag : Gen InvRetentionFlag
 invRetentionFlag = element [InvNotApplied, ConfigInverted, ConfigRetained]
 
 export
 exactChangeFlag : Gen ExactChangeFlag
 exactChangeFlag = element [ChangeNotApplied, ExactChange]
-
-export
-massDiff : Gen MassDiff
-massDiff = fromMaybe 0 . refineMassDiff <$> int8 (linearFrom 0 (-3) 4)
 
 export
 hydrogenCount : Gen HydrogenCount
@@ -103,7 +95,7 @@ coords = vect 3 coordinate
 export
 atom : Gen Atom
 atom =
-  [| MkAtom coords atomSymbol massDiff atomCharge
+  [| MkAtom coords atomSymbol (pure Nothing) (pure $ the Charge 0)
             stereoParity hydrogenCount stereoCareBox valence
             h0Designator node invRetentionFlag exactChangeFlag |]
 
@@ -138,31 +130,6 @@ export
 radical : Gen Radical
 radical = element [NoRadical, Singlet, Doublet, Triplet]
 
--- genN8 : Gen a -> (f : (c : N8) -> Vect (cast c.value) (AtomRef,a) -> b) -> Gen b
--- genN8 ga f = do
---   c  <- fromMaybe 1 . N8.refine <$> bits8 (linear 1 8)
---   ps <- vect (cast c.value) [| MkPair atomRef ga |]
---   pure $ f c ps
---
--- export
--- prop : Gen Text.Molfile.Types.Property
--- prop = frequency [ (10, genN8 charge Chg)
---                  , (10, genN8 massNr Iso)
---                  , (10, genN8 radical Rad)
---                  ]
---
--- export
--- molFile : Gen MolFile
--- molFile = do
---   n  <- molLine
---   i  <- molLine
---   c  <- molLine
---   cs <- smallCounts
---   as <- vect (cast cs.atoms.value) atom
---   bs <- vect (cast cs.bonds.value) bond
---   ps <- list (linear 0 30) prop
---   pure (MkMolFile n i c cs as bs ps)
---
 --------------------------------------------------------------------------------
 --          Properties
 --------------------------------------------------------------------------------
@@ -180,7 +147,7 @@ rw gen tok wt = property $ do
 
   footnote ("Encoded: " ++ str)
 
-  runTok tok str === Right v
+  lineTok 0 tok str === Right v
 
 
 export
