@@ -5,6 +5,7 @@ import Data.String
 import Profile
 import Profile.Text.Lex.Element
 import Profile.Text.Smiles
+import Profile.Text.Molfile
 import System
 
 fromArgs : List String -> String -> Bool
@@ -19,4 +20,5 @@ main = do
   runDefault select Table show $ Group "all"
     [ Element.bench
     , Smiles.bench
+    , Molfile.bench
     ]

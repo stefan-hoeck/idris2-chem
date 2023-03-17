@@ -2,13 +2,14 @@
 ||| go to their own dedicated module
 module Text.Molfile.Types
 
-import Chem
-import Decidable.HDec.Integer
-import Data.Nat
-import Data.String
-import Data.Vect
 import Derive.Prelude
 import Derive.Refined
+import public Chem
+import public Data.List.Quantifiers
+import public Data.Nat
+import public Data.String
+import public Data.Vect
+import public Decidable.HDec.Integer
 
 --------------------------------------------------------------------------------
 --          Pragmas
@@ -72,6 +73,7 @@ Interpolation ChiralFlag where
   interpolate NonChiral = "0"
   interpolate Chiral    = "1"
 
+
 public export
 record Counts where
   constructor MkCounts
@@ -106,8 +108,9 @@ Interpolation AtomSymbol where
 
 %runElab derive "AtomSymbol" [Show, Eq]
 
--- ------------------------------
--- -- StereoParity
+
+------------------------------
+-- StereoParity
 
 ||| Atom Stereo parity encoded in V2000 CTAB
 public export
@@ -175,34 +178,6 @@ Interpolation H0Designator where
 %runElab derive "H0Designator" [Eq,Ord,Show]
 
 ------------------------------
--- InvRetentionFlag
-
-public export
-data InvRetentionFlag =
-  InvNotApplied | ConfigInverted | ConfigRetained
-
-export %inline
-Interpolation InvRetentionFlag where
-  interpolate InvNotApplied  = "0"
-  interpolate ConfigInverted = "1"
-  interpolate ConfigRetained = "2"
-
-%runElab derive "InvRetentionFlag" [Eq,Ord,Show]
-
-------------------------------
--- ExactChangeFlag
-
-public export
-data ExactChangeFlag = ChangeNotApplied | ExactChange
-
-export %inline
-Interpolation ExactChangeFlag where
-  interpolate ChangeNotApplied  = "0"
-  interpolate ExactChange       = "1"
-
-%runElab derive "ExactChangeFlag" [Eq,Ord,Show]
-
-------------------------------
 -- Hydrogen Count
 
 ||| HCount plus 1: 0 means "not explicitly given"
@@ -257,9 +232,6 @@ record Atom where
   stereoCareBox    : StereoCareBox
   valence          : Valence
   h0designator     : H0Designator
-  atomMapping      : Node
-  invRetentionFlag : InvRetentionFlag
-  exactChangeFlag  : ExactChangeFlag
 
 %runElab derive "Atom" [Eq,Show]
 
@@ -327,44 +299,12 @@ Interpolation BondTopo where
 
 %runElab derive "BondTopo" [Eq,Show,Ord]
 
-------------------------------
--- ReactingCenterStatus
-
-public export
-data ReactingCenterStatus =
-    Unmarked
-  | NotACenter      -- -1
-  | Center          -- 1
-  | NoChange        -- 2
-  | BondMadeBroken  -- 4
-  | BondOrderChange -- 8
-  | BondMBAndOC     -- 12
-  | CenterBMB       -- 5
-  | CenterBOC       -- 9
-  | CenterBMBAndOC  -- 13
-
-%runElab derive "ReactingCenterStatus" [Eq,Show]
-
-export %inline
-Interpolation ReactingCenterStatus where
-  interpolate Unmarked        = "0"
-  interpolate NotACenter      = "-1"
-  interpolate Center          = "1"
-  interpolate NoChange        = "2"
-  interpolate BondMadeBroken  = "4"
-  interpolate BondOrderChange = "8"
-  interpolate BondMBAndOC     = "12"
-  interpolate CenterBMB       = "5"
-  interpolate CenterBOC       = "9"
-  interpolate CenterBMBAndOC  = "13"
-
 public export
 record Bond where
   constructor MkBond
   type                 : BondType
   stereo               : BondStereo
   topology             : BondTopo
-  reactingCenterStatus : ReactingCenterStatus
 
 %runElab derive "Bond" [Eq,Show]
 

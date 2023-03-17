@@ -10,6 +10,7 @@ import Decidable.HDec.Integer
 import Hedgehog
 import Test.Chem.Element
 import Test.Data.Graph
+import Test.Text.Molfile.Examples
 import Text.Molfile
 import Text.Parse.Manual
 
@@ -67,14 +68,6 @@ h0Designator : Gen H0Designator
 h0Designator = element [H0NotSpecified, NoHAllowed]
 
 export
-invRetentionFlag : Gen InvRetentionFlag
-invRetentionFlag = element [InvNotApplied, ConfigInverted, ConfigRetained]
-
-export
-exactChangeFlag : Gen ExactChangeFlag
-exactChangeFlag = element [ChangeNotApplied, ExactChange]
-
-export
 hydrogenCount : Gen HydrogenCount
 hydrogenCount = fromMaybe 0 . refineHydrogenCount <$> bits8 (linear 0 5)
 
@@ -96,7 +89,7 @@ atom : Gen Atom
 atom =
   [| MkAtom coords atomSymbol (pure Nothing) (pure $ the Charge 0)
             stereoParity hydrogenCount stereoCareBox valence
-            h0Designator node invRetentionFlag exactChangeFlag |]
+            h0Designator |]
 
 export
 bondType : Gen BondType
@@ -112,14 +105,8 @@ bondTopo : Gen BondTopo
 bondTopo = element [AnyTopology,Ring,Chain]
 
 export
-reactingCenterStatus : Gen ReactingCenterStatus
-reactingCenterStatus =
-  element [ Unmarked, NotACenter, Center, NoChange, BondMadeBroken
-          , BondOrderChange, BondMBAndOC, CenterBMB, CenterBOC, CenterBMBAndOC]
-
-export
 bond : Gen Bond
-bond = [| MkBond bondType bondStereo bondTopo reactingCenterStatus |]
+bond = [| MkBond bondType bondStereo bondTopo |]
 
 export
 bondEdge : Gen (LEdge Bond)
@@ -148,6 +135,10 @@ rw gen tok wt = property $ do
 
   lineTok 0 tok str === Right v
 
+propRead : String -> Property
+propRead s = property1 $ case readMol Virtual s of
+  Right v       => pure ()
+  Left (fc,err) => failWith Nothing $ printParseError s fc err
 
 export
 props : Group
@@ -155,6 +146,6 @@ props = MkGroup "Molfile Properties"
   [ ("prop_count", rw counts counts counts)
   , ("prop_atom",  rw atom atom atom)
   , ("prop_bond",  rw bondEdge bond bond)
+  , ("prop_large",  propRead mfLarge)
+  , ("prop_medium",  propRead mfMedium)
   ]
---           , ("prop_mol",   rw molFile mol writeMol)
---           ]

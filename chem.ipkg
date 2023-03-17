@@ -18,6 +18,9 @@ modules = Chem
 
         , Text.Molfile
         , Text.Molfile.Reader
+        , Text.Molfile.Reader.Error
+        , Text.Molfile.Reader.Types
+        , Text.Molfile.Reader.Util
         , Text.Molfile.Types
         , Text.Molfile.Writer
 
