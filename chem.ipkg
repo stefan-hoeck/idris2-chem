@@ -17,12 +17,9 @@ modules = Chem
         , Chem.AtomType
 
         , Text.Molfile
-        , Text.Molfile.Float
         , Text.Molfile.Reader
         , Text.Molfile.Types
         , Text.Molfile.Writer
-
-        , Text.RW
 
         , Text.Lex.Element
 

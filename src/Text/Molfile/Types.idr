@@ -9,7 +9,6 @@ import Data.String
 import Data.Vect
 import Derive.Prelude
 import Derive.Refined
-import Text.Molfile.Float
 
 --------------------------------------------------------------------------------
 --          Pragmas
@@ -221,9 +220,29 @@ Interpolation HydrogenCount where
 namespace HydrogenCount
   %runElab derive "HydrogenCount" [Show,Eq,Ord,RefinedInteger]
 
+||| We encode coordinates as a sufficiently precise integer
+||| to prevent loss of precision during parsing.
 public export
-0 Coordinate : Type
-Coordinate = Float (-9999) 99999 4
+record Coordinate where
+  constructor MkCoordinate
+  value : Integer
+  {auto 0 prf : FromTo (-9999_9999) 99999_9999 value}
+
+public export
+Precision : Integer
+Precision = 10000
+
+disp : Integer -> String
+disp i =
+  show (i `div` Precision) ++ "." ++ padLeft 4 '0' (show (i `mod` Precision))
+
+export
+Interpolation Coordinate where
+  interpolate s = padLeft 10 ' ' $
+    if s.value < 0 then "-" ++ disp (abs s.value) else disp s.value
+
+namespace Coordinate
+  %runElab derive "Coordinate" [Show,Eq,Ord,RefinedInteger]
 
 ||| Data on a single V2000 Atom Line
 public export

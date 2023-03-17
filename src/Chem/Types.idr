@@ -6,7 +6,6 @@ import public Decidable.HDec.Bits8
 import public Decidable.HDec.Int8
 import Derive.Prelude
 import Derive.Refined
-import Text.RW
 
 %default total
 %language ElabReflection

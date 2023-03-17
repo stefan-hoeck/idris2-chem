@@ -9,7 +9,6 @@ import Derive.Prelude
 import Text.Lex.Element
 import Text.Lex.Manual.Syntax
 import Text.Parse.Manual
-import public Text.Molfile.Float
 import public Text.Molfile.Types
 
 %default total
@@ -138,7 +137,9 @@ coord cs = case Tok.[| coord (int 5 Just) dot (nat 4 Just) |] cs of
   Fail x y z            => Fail x y z
   where
     coord : Integer -> () -> Nat -> Maybe Coordinate
-    coord i _ k = refineFloat (cast i) (cast k)
+    coord i _ k =
+      let val := abs i * Precision + cast k
+       in refineCoordinate $ if i < 0 then negate val else val
 
 coords : Tok True e (Vect 3 Coordinate)
 coords = Tok.[| (\x,y,z => [x,y,z]) coord coord coord |]

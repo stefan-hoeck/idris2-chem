@@ -3,7 +3,6 @@ module Text.Molfile.Writer
 import Chem
 import Data.String
 import Data.Vect
-import Text.Molfile.Float
 import Text.Molfile.Types
 
 %default total
