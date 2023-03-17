@@ -14,7 +14,18 @@ type   = "local"
 path   = "doc"
 ipkg   = "doc.ipkg"
 
+[custom.all.chem-app]
+type   = "local"
+path   = "app"
+ipkg   = "app.ipkg"
+
 [custom.all.chem-profile]
 type   = "local"
 path   = "profile"
 ipkg   = "profile.ipkg"
+
+[custom.all.graph]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-graph"
+commit = "latest:main"
+ipkg   = "graph.ipkg"

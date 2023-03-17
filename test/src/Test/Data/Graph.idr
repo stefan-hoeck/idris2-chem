@@ -1,6 +1,6 @@
 module Test.Data.Graph
 
-import Data.Graph
+import Chem
 import Data.List
 import Data.Vect
 import Hedgehog
@@ -17,29 +17,36 @@ toNodes = go 0 Nil
         go i res []        = (i, reverse res)
         go i res (x :: xs) = go (i+1) (MkLNode i x :: res) xs
 
-edge : (upperBound : Node) -> (lbl : Gen e) -> Gen (Maybe $ LEdge e)
-edge 0  _   = pure Nothing
+export
+edge :
+     (upperBound : Node)
+  -> {auto 0 p : 0 < upperBound}
+  -> (lbl : Gen e)
+  -> Gen (LEdge e)
 edge ub lbl =
-  let gnode = bits64 (linear 0 (ub-1))
+  let gnode = bits32 (linear 0 (ub-1))
    in [| toEdge gnode gnode lbl |]
-  where toEdge : Node -> Node -> e -> Maybe (LEdge e)
-        toEdge k j l = (`MkLEdge` l) <$> mkEdge k j
+  where
+    toEdge : Node -> Node -> e -> LEdge e
+    toEdge k j l = MkLEdge (fromMaybe (MkEdge 0 ub p) (mkEdge k j)) l
 
 export
-edges :  (upperBound : Node)
-      -> (nrEdges    : Hedgehog.Range Nat)
-      -> (label      : Gen e)
-      -> Gen (List $ LEdge e)
-edges ub nr lbl =
-  if ub <= 1 then pure [] -- no valid edges exist
-  else mapMaybe id <$> list nr (edge ub lbl)
+edges :
+     (upperBound : Node)
+  -> (nrEdges    : Hedgehog.Range Nat)
+  -> (label      : Gen e)
+  -> Gen (List $ LEdge e)
+edges ub nr lbl = case lt 0 ub of
+  Just0 _  => list nr (edge ub lbl)
+  Nothing0 => pure []
 
 export
-lgraph :  (nrNodes   : Hedgehog.Range Nat)
-       -> (nrEdges   : Hedgehog.Range Nat)
-       -> (edgeLabel : Gen e)
-       -> (nodeLabel : Gen n)
-       -> Gen (Graph e n)
+lgraph :
+     (nrNodes   : Hedgehog.Range Nat)
+  -> (nrEdges   : Hedgehog.Range Nat)
+  -> (edgeLabel : Gen e)
+  -> (nodeLabel : Gen n)
+  -> Gen (Graph e n)
 lgraph nrn nre el nl = do
   (upperBound, ns) <- toNodes <$> list nrn nl
   es               <- edges upperBound nre el
@@ -78,7 +85,7 @@ add_matchAny = property $ do
 add_match : Property
 add_match = property $ do
   g <- forAll nonEmptySmallGraph
-  n <- forAll (bits64 $ linear 0 (cast (order g) - 1))
+  n <- forAll (bits32 $ linear 0 (cast (order g) - 1))
   case match n g of
     Split ctxt gr => g === add ctxt gr
     Empty         => failWith Nothing "Unexpected empty context"
@@ -90,7 +97,7 @@ add_match = property $ do
 export
 props : Group
 props = MkGroup "Graph Properties"
-          [ ("gmap_id", gmap_id)
-          , ("add_matchAny", add_matchAny)
-          , ("add_match", add_match)
-          ]
+  [ ("gmap_id", gmap_id)
+  , ("add_matchAny", add_matchAny)
+  , ("add_match", add_match)
+  ]

@@ -1,12 +1,26 @@
 module Profile.Main
 
-import Profile.Data.Refined
-import Profile.Text.Molfile
+import Data.List1
+import Data.String
+import Profile
+import Profile.Chem.AtomType
+import Profile.Text.Lex.Element
 import Profile.Text.Smiles
-import Profile.Text.Zinc
+import Profile.Text.Molfile
+import System
+
+fromArgs : List String -> String -> Bool
+fromArgs [_,p] = case split ('=' ==) p of
+  "--only" ::: [s] => isInfixOf s
+  _                => const False
+fromArgs _ = const True
 
 main : IO ()
 main = do
-  Zinc.profile
-  Refined.profile
-  Molfile.profile
+  select <- fromArgs <$> getArgs
+  runDefault select Table show $ Group "all"
+    [ Element.bench
+    , Smiles.bench
+    , Molfile.bench
+    , AtomType.bench
+    ]

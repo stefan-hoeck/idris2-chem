@@ -1,11 +1,10 @@
 module Test.Chem.AtomType
 
+import Chem
 import Chem.AtomType
-import Chem.Atom
-import Text.Smiles
+import Data.Maybe
 import Data.List
-import Data.Graph
-
+import Text.Smiles
 import Hedgehog
 
 %default total
@@ -22,17 +21,14 @@ import Hedgehog
   order.
 -}
 calcAtomTypes : String -> List AtomType
-calcAtomTypes str = case parse str of
-  Stuck _ _ => []
-  End result => case Prelude.maybe Nothing toAtomTypes (graphWithH result) of
-    Nothing => []
-    Just g  =>
-      map (\a => snd (Atom.label a.label))
-          (sortBy (\x,y => compare x.node y.node) (labNodes g))
-
+calcAtomTypes str = fromMaybe [] $ do
+  g1 <- either (const Nothing) Just $ parse str
+  g2 <- graphWithH g1
+  g3 <- toAtomTypes g2
+  pure $ snd . label . label <$> sortBy (comparing node) (labNodes g3)
 
 prop : (String,List AtomType) -> (PropertyName,Property)
-prop (s,ats) = MkPair (fromString "SMILES \{s}") $ withTests 1 $ property $
+prop (s,ats) = MkPair (fromString "SMILES \{s}") $ property1 $
   calcAtomTypes s === ats
 
 

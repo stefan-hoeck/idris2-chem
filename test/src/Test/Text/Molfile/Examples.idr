@@ -1,7 +1,4 @@
-module Profile.Text.Molfile
-
-import public Profile
-import public Text.Molfile
+module Test.Text.Molfile.Examples
 
 %default total
 
@@ -161,6 +158,7 @@ mfLarge = """
   M  END
   """
 
+export
 mfMedium : String
 mfMedium = """
 
@@ -230,10 +228,3 @@ mfMedium = """
  25 29  1  0  0  0  0
 M  END
 """
-
-export
-bench : Benchmark Void
-bench = Group "Text.Molfile.Reader.readMol" [
-    Single "large"  (basic (readMol Virtual) mfLarge)
-  , Single "medium" (basic (readMol Virtual) mfMedium)
-  ]

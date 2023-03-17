@@ -1,12 +1,7 @@
 module Chem.AtomType
 
-import Chem.Types
-import Chem.Atom
-import Chem.Element
+import Chem
 import Text.Smiles
-import Data.AssocList
-import Data.Graph
-import Data.BitMap
 import Derive.Prelude
 import System
 
@@ -46,6 +41,8 @@ toBonds : Bond -> Bonds
 toBonds Sngl = BS 1 0 0
 toBonds Arom = BS 1 0 0
 toBonds Dbl  = BS 0 1 0
+toBonds FW   = BS 0 1 0
+toBonds BW   = BS 0 1 0
 toBonds Trpl = BS 0 0 1
 toBonds Quad = BS 0 0 0
 
@@ -168,6 +165,8 @@ isPiBond : Bond -> Bool
 isPiBond Sngl = False
 isPiBond Arom = True
 isPiBond Dbl  = True
+isPiBond FW   = True
+isPiBond BW   = True
 isPiBond Trpl = True
 isPiBond Quad = False -- hock: not sure about this
 
@@ -215,28 +214,3 @@ parameters (g   : Graph Bond (Atom l))
 public export
 toAtomTypes : Graph Bond (Atom l) -> Maybe (Graph Bond (Atom (l,AtomType)))
 toAtomTypes g = MkGraph <$> traverseWithKey (adj g) (graph g)
-
-
--------------------------------------------------------------------------------
--- Test section
--------------------------------------------------------------------------------
-
-public export
-fromSmiles : String -> Either String (Graph Bond (Atom (Chirality, AtomType)))
-fromSmiles s =
-  let End g   := parse s  | Stuck x cs => Left (show x ++ pack cs)
-      Just g2 := graphWithH g
-        | Nothing => Left "Failed to determine implicit hydrogens"
-      Just g3 := toAtomTypes g2
-        | Nothing => Left "Failed to determine atom types"
-   in Right g3
-
-||| Read in a SMILES-string and convert the resulting graph into a graph with
-||| AtomTypes and print it
-public export
-smilesAtomTypeIO : IO ()
-smilesAtomTypeIO = do
-  str <- map trim getLine
-  case fromSmiles str of
-    Left s  => die s
-    Right g => putStrLn (pretty show show g)

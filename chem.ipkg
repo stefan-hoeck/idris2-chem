@@ -5,31 +5,29 @@ version    = 0.1.0
 sourcedir  = "src"
 depends    = base         >= 0.5.1
            , elab-util
-           , sop
-           , prim
+           , refined
+           , parser
            , graph
 
 modules = Chem
         , Chem.Element
         , Chem.Formula
-        , Chem.Isotope
         , Chem.Types
         , Chem.Atom
         , Chem.AtomType
 
-        , Data.List.Suffix
-        , Data.Refined
-
         , Text.Molfile
-        , Text.Molfile.Float
         , Text.Molfile.Reader
+        , Text.Molfile.Reader.Error
+        , Text.Molfile.Reader.Types
+        , Text.Molfile.Reader.Util
         , Text.Molfile.Types
+        , Text.Molfile.Writer
 
-        , Text.Parser.Util
-        , Text.RW
+        , Text.Lex.Element
 
         , Text.Smiles
+        , Text.Smiles.Lexer
         , Text.Smiles.Parser
         , Text.Smiles.Types
-        , Text.Smiles.Writer
         , Text.Smiles.ImplH

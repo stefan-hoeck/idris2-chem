@@ -1,12 +1,9 @@
 module Text.Smiles.ImplH
 
-import Data.List
 import Chem
-import Chem.Atom
+import Data.Maybe
+import Data.List
 import Text.Smiles.Types
-import Data.Graph
-import Data.BitMap
-import Data.AssocList
 
 %default total
 
@@ -24,6 +21,8 @@ bondTotal = foldl (\n,b => n + ord b) 0
     ord Dbl  = 2
     ord Trpl = 3
     ord Quad = 4
+    ord FW   = 2
+    ord BW   = 2
 
 -- generates a pair with a list of non aromatic bonds and a
 -- aromatic bond counter
@@ -31,7 +30,9 @@ aromBonds : List Bond -> (List Bond, Nat)
 aromBonds = foldl fun ([],0)
   where fun : (List Bond, Nat) -> Bond -> (List Bond, Nat)
         fun (x, z) Arom = (x, S z)
-        fun (x, z) b = (b :: x, z)
+        fun (x, z) FW = (Dbl :: x, z)
+        fun (x, z) BW = (Dbl :: x, z)
+        fun (x, z) b  = (b :: x, z)
 
 -- creates an atom from a non-aromatic subset element
 org : Elem -> HCount -> Atom Chirality
@@ -46,7 +47,7 @@ orgArom :
 orgArom e h = MkAtom e True Nothing 0 None h
 
 toImplH : (val : Nat) -> (bonds : Nat) -> Maybe HCount
-toImplH val bonds = refine (cast val - cast bonds)
+toImplH val bonds = refineHCount (cast val - cast bonds)
 
 subset :
      (e : Elem)

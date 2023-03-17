@@ -1,48 +1,58 @@
 module Text.Molfile.Reader
 
-import Data.List
+import Data.Nat
 import Data.String
 import Data.Vect
-import Text.RW
-import public Text.Molfile.Float
-import public Text.Molfile.Types
+import Text.Lex.Manual.Syntax
+import public Text.Molfile.Reader.Types
 
 %default total
+
+--------------------------------------------------------------------------------
+--          Properties
+--------------------------------------------------------------------------------
+
+
+repeat : Nat -> (a -> Tok b MolFileError a) -> a -> Tok False MolFileError a
+repeat 0     f x cs = Succ x cs
+repeat (S k) f x cs = case f x cs of
+  Succ x2 cs2 @{p} => weaken $ trans (repeat k f x2 cs2) p
+  Fail x y z       => Fail x y z
+
+charge : Graph Bond Atom -> Tok False MolFileError (Graph Bond Atom)
+charge (MkGraph g) = Tok.do
+  n <- node 4
+  c <- nat 4 (refineCharge . cast)
+  pure $ MkGraph $ update n (map {charge := c}) g
+
+iso : Graph Bond Atom -> Tok False MolFileError (Graph Bond Atom)
+iso (MkGraph g) = Tok.do
+  n <- node 4
+  v <- nat 4 (refineMassNr . cast)
+  pure $ MkGraph $ update n (map {massNr := Just v}) g
+
+n8 :
+     Graph Bond Atom
+  -> (Graph Bond Atom -> Tok False MolFileError (Graph Bond Atom))
+  -> Tok False MolFileError (Graph Bond Atom)
+n8 g f = Tok.do
+  n  <- nat 3 (\n => if 1 <= n && n <= 8 then Just n else Nothing)
+  g2 <- repeat n f g
+  pure g2
+
+property : Graph Bond Atom -> Tok False MolFileError (Graph Bond Atom)
+property g ('M'::' '::' '::'C'::'H'::'G'::t) = succF $ n8 g charge t
+property g ('M'::' '::' '::'I'::'S'::'O'::t) = succF $ n8 g iso t
+property g cs = fail Same
 
 --------------------------------------------------------------------------------
 --          Reading
 --------------------------------------------------------------------------------
 
--- this is significantly faster than `Data.String.trim`. Since
--- we use this a lot, it had quite an impact on parsing performance.
-trimOr0 : String -> String
-trimOr0 "" = "0"
-trimOr0 s  = go Nil $ unpack s
-  where go : (res : List Char) -> (rem : List Char) -> String
-        go res [] = pack $ reverse res
-        go res (x :: xs) = if isSpace x then go res xs else go (x :: res) xs
-
-||| Tries to split a `String` into a vector of
-||| chunks of exactly the given lengths.
-||| Fails if the length of the string does not exactly match
-||| the length of concatenated chunks.
-export
-trimmedChunks : Vect n Int -> String -> Either String (Vect n String)
-trimmedChunks ns s = go 0 ns
-  where go : (pos : Int) -> Vect k Int -> Either String (Vect k String)
-        go pos [] = if pos >= cast (length s)
-                       then Right []
-                       else Left $ #"String is too long: \#{s} (max : \#{show pos})"#
-        go pos (x :: xs) = (trimOr0 (strSubstr pos x s) ::) <$> go (pos + x) xs
-
-||| Chunks of the counts line. See `counts` for a description
-||| of the format and types of chunks.
-public export
-countChunks : Vect 12 Int
-countChunks = [3,3,3,3,3,3,3,3,3,3,3,6]
-
 ||| General format:
 |||   aaabbblllfffcccsssxxxrrrpppiiimmmvvvvvv
+|||     3  3  3  3  3  3  3  3  3  3  3     6
+|||     3  3     6
 |||
 |||   aaa    : number of atoms
 |||   bbb    : number of bonds
@@ -52,16 +62,15 @@ countChunks = [3,3,3,3,3,3,3,3,3,3,3,6]
 ||| The other fields are obsolete or no longer supported
 ||| and are being ignored by the parser.
 export
-counts : String -> Either String Counts
-counts s = do
-  [a,b,_,_,c,_,_,_,_,_,_,v] <- trimmedChunks countChunks s
-  [| MkCounts (readMsg a) (readMsg b) (readMsg c) (readMsg v) |]
-
-||| Chunks of an atom line. See `atom` for a description
-||| of the format and types of chunks.
-public export
-atomChunks : Vect 16 Int
-atomChunks = [10,10,10,4,2,3,3,3,3,3,3,3,3,3,3,3]
+counts : Tok False MolFileError Counts
+counts = Tok.do
+  ac <- count
+  bc <- count
+  drop 3
+  cf <- trim 3 chiralFlag
+  drop 21
+  v  <- trim 6 version
+  pure $ MkCounts ac bc cf v
 
 ||| General format:
 |||   xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
@@ -78,18 +87,19 @@ atomChunks = [10,10,10,4,2,3,3,3,3,3,3,3,3,3,3,3]
 |||
 |||   r and i are not used and ignored
 export
-atom : String -> Either String Atom
-atom s = do
-  [x,y,z,a,d,c,s,h,b,v,h0,_,_,m,n,e] <- trimmedChunks atomChunks s
-  [| MkAtom (readMsg x) (readMsg y) (readMsg z) (readMsg a) (readMsg d) (readMsg c)
-            (readMsg s) (readMsg h) (readMsg b) (readMsg v) (readMsg h0)
-            (readMsg m) (readMsg n) (readMsg e) |]
-
-||| Chunks of a bond line. See `bond` for a description
-||| of the format and types of chunks.
-export
-bondChunks : Vect 7 Int
-bondChunks = [3,3,3,3,3,3,3]
+atom : Tok False MolFileError Atom
+atom = Tok.do
+  cs <- coords
+  a  <- (trim 4 atomSymbol)
+  drop 2
+  c  <- nat 3 $ refineCharge . cast
+  s  <- trim 3 stereoParity
+  h  <- nat 3 $ refineHydrogenCount . cast
+  b  <- trim 3 stereoCareBox
+  v  <- nat 3 $ refineValence. cast
+  h0 <- trim 3 h0designator
+  drop 15
+  pure $ MkAtom cs a Nothing c s h b v h0
 
 ||| General format:
 |||   111222tttsssxxxrrrccc
@@ -102,86 +112,72 @@ bondChunks = [3,3,3,3,3,3,3]
 |||
 |||   xxx is not used and ignored
 export
-bond : String -> Either String Bond
-bond s = do
-  [r1,r2,t,ss,r,_,c] <- trimmedChunks bondChunks s
-  [| MkBond (readMsg r1) (readMsg r2) (readMsg t) (readMsg ss) (readMsg r) (readMsg c) |]
-
-readN :  {n : _}
-      -> (String -> Either String a)
-      -> List String
-      -> Either String (Vect n a, List String)
-readN read = go n
-  where go : (k : Nat) -> List String -> Either String (Vect k a, List String)
-        go Z ss           = Right ([], ss)
-        go (S k) []       = Left "Unexpected end of input"
-        go (S k) (h :: t) = do
-          va        <- read h
-          (vt,rest) <- go k t
-          pure (va :: vt, rest)
-
-readProps : List String -> Either String (List Property)
-readProps []         = Left "Unexpected end of mol file"
-readProps ["M  END"] = Right []
-readProps (x :: xs)  = do
-  p1 <- readMsg x
-  t  <- readProps xs
-  pure $ p1 :: t
-
-
-molLines : List String -> Either String MolFile
-molLines (n :: i :: c :: cnt :: t) = do
-  name    <- readMsg n
-  info    <- readMsg i
-  comm    <- readMsg c
-  cnts    <- counts cnt
-  (as,t1) <- readN atom t
-  (bs,t2) <- readN bond t1
-  ps      <- readProps t2
-  pure (MkMolFile name info comm cnts as bs ps)
-molLines _ = Left "Unexpected end of input"
+bond : Tok False MolFileError (LEdge Bond)
+bond = Tok.do
+  ed <- edge
+  t  <- trim 3 bondType
+  s  <- trim 3 bondStereo
+  drop 3
+  r  <- trim 3 bondTopo
+  drop 3
+  pure $ MkLEdge ed $ MkBond t s r
 
 export
-mol : String -> Either String MolFile
-mol = molLines . lines
+lineTok :
+     (line : Nat)
+  -> Tok b MolFileError a
+  -> String
+  -> Either (Bounded Error) a
+lineTok l f s = case f (unpack s) of
+  Succ val []           => Right val
+  Succ val (x::xs) @{p} =>
+    Left $ oneChar (Unexpected $ Left $ show x) (P l $ toNat p)
+  Fail x y z  => Left $ boundedErr (P l 0) x y z
 
---------------------------------------------------------------------------------
---          Writing
---------------------------------------------------------------------------------
+properties :
+     Graph Bond Atom
+  -> (line  : Nat)
+  -> (lines : List String)
+  -> Either (Bounded Error) (Graph Bond Atom)
+properties g l []               = Right g
+properties g l ("M  END" :: ss) = Right g
+properties g l (s        :: ss) = case lineTok l (property g) s of
+  Right g2 => properties g2 (S l) ss
+  Left err => Left err
 
-export
-writeChunks : Vect n Int -> Vect n String -> String
-writeChunks = go ""
-  where go : String -> Vect k Int -> Vect k String -> String
-        go res [] []               = res
-        go res (x :: xs) (y :: ys) =
-          go (res ++ padLeft (cast x) ' ' y) xs ys
+bonds :
+     Graph Bond Atom
+  -> (nbonds, line : Nat)
+  -> (lines        : List String)
+  -> Either (Bounded Error) (Graph Bond Atom)
+bonds g 0     l ss      = properties g l ss
+bonds g (S k) l (s::ss) = case lineTok l bond s of
+  Right e  => bonds (insEdge e g) k (S l) ss
+  Left err => Left err
+bonds g (S k) l [] = Left (oneChar EOI $ P l 0)
 
-export
-writeCounts : Counts -> String
-writeCounts (MkCounts a b c v) =
-  writeChunks countChunks
-    [write a,write b,"0","0",write c,"0","0","0","0","0","0", write v]
+atoms :
+     Graph Bond Atom
+  -> (natoms, nbonds, line : Nat)
+  -> (node         : Node)
+  -> (lines        : List String)
+  -> Either (Bounded Error) (Graph Bond Atom)
+atoms g 0     bs l n ss      = bonds g bs l ss
+atoms g (S k) bs l n (s::ss) = case lineTok l atom s of
+  Right a  => atoms (insNode n a g) k bs (S l) (n+1) ss
+  Left err => Left err
+atoms g (S k) bs l n [] = Left (oneChar EOI $ P l 0)
 
-export
-writeAtom : Atom -> String
-writeAtom (MkAtom x y z a d c s h b v h0 m n e) =
-  writeChunks atomChunks
-    [ write x, write y, write z, write a, write d, write c
-    , write s, write h, write b, write v, write h0, "0", "0", write m, write n
-    , write e]
+readMol' : (ls : List String) -> Either (Bounded Error) MolFile
+readMol' (h1::h2::h3::cs::t) = do
+  name    <- lineTok 0 molLine h1
+  info    <- lineTok 1 molLine h2
+  comment <- lineTok 2 molLine h3
+  counts  <- lineTok 3 counts cs
+  g       <- atoms empty counts.atoms counts.bonds 4 0 t
+  pure $ MkMolFile name info comment g
+readMol' ls = Left (B (Custom EHeader) $ BS begin (P (length ls) 0))
 
-export
-writeBond : Bond -> String
-writeBond (MkBond r1 r2 t ss r c) =
-  writeChunks bondChunks
-    [write r1, write r2, write t, write ss, write r, "0", write c]
-
-export
-writeMol : MolFile -> String
-writeMol (MkMolFile n i c cnts as bs ps) =
-  fastUnlines $  [value n, value i, value c, writeCounts cnts]
-              ++ toList (map writeAtom as)
-              ++ toList (map writeBond bs)
-              ++ map write ps
-              ++ ["M  END"]
+export %inline
+readMol : Origin -> String -> Either (FileContext,Error) MolFile
+readMol o = mapFst (fromBounded o) . readMol' . lines

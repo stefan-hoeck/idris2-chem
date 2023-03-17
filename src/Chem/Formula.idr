@@ -1,7 +1,7 @@
 module Chem.Formula
 
 import Chem.Element
-import Data.Maybe.NothingMax
+import Data.Maybe.Upper
 import Data.Nat
 import Data.Prim.String
 import Derive.Prelude
@@ -16,7 +16,7 @@ hill e = symbol e
 
 public export
 0 (<): Maybe String -> Maybe String -> Type
-(<) = LT (<)
+(<) = Upper (<)
 
 public export
 0 (<=): Maybe String -> Maybe String -> Type
@@ -47,6 +47,9 @@ record MergeRes (h1,h2 : Maybe String) where
   {0 hx  : Maybe String}
   repr   : Repr hx
   0 prf  : Either (h1 === hx) (h2 === hx)
+
+0 trans_LT_EQ : {0 lt : _} -> Transitive a lt => lt x y -> y === z -> lt x z
+trans_LT_EQ w Refl = w
 
 %inline
 prepLT : (p : (Elem,Nat))
