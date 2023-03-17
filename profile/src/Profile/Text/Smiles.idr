@@ -19,7 +19,7 @@ parseLines n f = do
   False <- fEOF f | True => pure $ Right ()
   Right str <- fGetLine f   | Left err => pure $ Left err
   Right _ <- pure (parse $ trim str)
-    | st => putStrLn #"Line \#{show n}: \#{show st}. (\#{str})"# >> parseLines (n+1) f
+    | st => putStrLn "Line \{show n}: \{show st}. (\{str})" >> parseLines (n+1) f
   parseLines (n+1) f
 
 profile : IO ()
