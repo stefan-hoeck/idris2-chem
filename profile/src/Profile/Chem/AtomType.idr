@@ -36,4 +36,3 @@ bench = Group "Chem.AtomTypes" [
   , Single "strychnine" (basic calcAtomTypes strychnine)
   , Single "zinc" (singleIO profile)
   ]
-
