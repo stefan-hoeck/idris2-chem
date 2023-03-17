@@ -1,25 +1,26 @@
-module Profile.Text.Smiles
+module Profile.Chem.AtomType
 
 import Chem
+import Chem.AtomType
+import Data.Maybe
 import Data.String
 import Profile
+import Profile.Text.Smiles
 import System.File
 import Text.Smiles
 
-export
-mol : String
-mol = "C[C@@H]1CCCN(C1)C(=O)[C@@H](C)Oc2ccccc2"
-
-export
-strychnine : String
-strychnine = "O=C7N2c1ccccc1[C@@]64[C@@H]2[C@@H]3[C@@H](OC/C=C5\[C@@H]3C[C@@H]6N(CC4)C5)C7"
+calcAtomTypes : String -> Maybe (Graph Bond (Atom (Chirality,AtomType)))
+calcAtomTypes str = do
+  g1 <- either (const Nothing) Just $ parse str
+  g2 <- graphWithH g1
+  toAtomTypes g2
 
 parseLines : Integer -> File -> IO (Either FileError ())
 parseLines n f = do
   False <- fEOF f | True => pure $ Right ()
   Right str <- fGetLine f   | Left err => pure $ Left err
-  Right _ <- pure (parse $ trim str)
-    | st => putStrLn #"Line \#{show n}: \#{show st}. (\#{str})"# >> parseLines (n+1) f
+  Just _ <- pure (calcAtomTypes $ trim str)
+    | st => parseLines (n+1) f
   parseLines (n+1) f
 
 profile : IO ()
@@ -30,8 +31,9 @@ profile = do
 
 export
 bench : Benchmark Void
-bench = Group "Text.Smiles.Parse" [
-    Single "mol1" (basic parse mol)
-  , Single "strychnine" (basic parse strychnine)
+bench = Group "Chem.AtomTypes" [
+    Single "mol" (basic calcAtomTypes mol)
+  , Single "strychnine" (basic calcAtomTypes strychnine)
   , Single "zinc" (singleIO profile)
   ]
+

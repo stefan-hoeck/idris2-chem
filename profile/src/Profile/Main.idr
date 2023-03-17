@@ -3,6 +3,7 @@ module Profile.Main
 import Data.List1
 import Data.String
 import Profile
+import Profile.Chem.AtomType
 import Profile.Text.Lex.Element
 import Profile.Text.Smiles
 import Profile.Text.Molfile
@@ -21,4 +22,5 @@ main = do
     [ Element.bench
     , Smiles.bench
     , Molfile.bench
+    , AtomType.bench
     ]

@@ -1,11 +1,12 @@
 module Profile.Text.Molfile
 
-import Profile
-import Text.Molfile
+import public Profile
+import public Text.Molfile
 
 %default total
 
 -- One of the larger molecules in CyBy
+export
 mfLarge : String
 mfLarge = """
   Molecule from ChemDoodle Web Components

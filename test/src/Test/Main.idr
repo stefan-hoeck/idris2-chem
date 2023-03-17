@@ -16,5 +16,5 @@ main = test [ Graph.props
             , Smiles.Lexer.props
             , Smiles.Parser.props
             , Molfile.props
-        --    , AtomType.props
+            , AtomType.props
             ]
