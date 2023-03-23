@@ -302,6 +302,8 @@ Interpolation BondTopo where
 public export
 record Bond where
   constructor MkBond
+  fst                  : Node
+  snd                  : Node
   type                 : BondType
   stereo               : BondStereo
   topology             : BondTopo
