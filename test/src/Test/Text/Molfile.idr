@@ -106,11 +106,15 @@ bondTopo = element [AnyTopology,Ring,Chain]
 
 export
 bond : Gen Bond
-bond = [| MkBond bondType bondStereo bondTopo |]
+bond = [| MkBond (pure 0) (pure 0) bondType bondStereo bondTopo |]
 
 export
 bondEdge : Gen (LEdge Bond)
-bondEdge = edge 998 bond
+bondEdge = adj <$> edge 998 bond
+  where
+    adj : LEdge Bond -> LEdge Bond
+    adj (MkLEdge e@(MkEdge n1 n2 prf) (MkBond _ _ t s x)) =
+      MkLEdge e (MkBond n1 n2 t s x)
 
 export
 radical : Gen Radical

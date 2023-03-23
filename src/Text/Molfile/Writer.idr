@@ -38,5 +38,5 @@ atom (MkAtom cs a _ c s h b v h0) =
 |||   111222tttsssxxxrrrccc
 export
 bond : LEdge Bond -> String
-bond (MkLEdge (MkEdge x y _) $ MkBond t s r) =
+bond (MkLEdge _ $ MkBond x y t s r) =
   fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s, fill 6 r]
