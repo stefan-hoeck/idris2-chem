@@ -130,8 +130,7 @@ bondTopo [<'2'] = Right Chain
 bondTopo sc     = customPack sc EBondTopo
 
 export
-edge : Tok False MolFileError Edge
-edge cs = case Tok.[| mkEdge (node 3) (node 3) |] cs of
-  Succ (Just v) cs2 => Succ v cs2
-  Succ Nothing  cs2 => Fail Same cs2 (Custom EEdge)
-  Fail x y z        => Fail x y z
+edge : (x,y : Node) -> Tok False MolFileError Edge
+edge x y cs = case mkEdge x y of
+  Just v  => Succ v cs
+  Nothing => Fail Same cs (Custom EEdge)

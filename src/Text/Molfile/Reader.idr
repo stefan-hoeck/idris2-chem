@@ -114,13 +114,15 @@ atom = Tok.do
 export
 bond : Tok False MolFileError (LEdge Bond)
 bond = Tok.do
-  ed <- edge
+  x  <- node 3
+  y  <- node 3
+  ed <- edge x y
   t  <- trim 3 bondType
   s  <- trim 3 bondStereo
   drop 3
   r  <- trim 3 bondTopo
   drop 3
-  pure $ MkLEdge ed $ MkBond t s r
+  pure $ MkLEdge ed $ MkBond x y t s r
 
 export
 lineTok :
