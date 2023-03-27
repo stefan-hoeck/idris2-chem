@@ -78,7 +78,7 @@ node = bits32 (linear 1 999)
 export
 coordinate : Gen Coordinate
 coordinate =
-  fromMaybe 0 . refineCoordinate <$> integer (linear (-9999_9999) 99999_9999)
+  fromMaybe 0 . refineCoordinate <$> integer (exponentialFrom 0 (-9999_9999) 99999_9999)
 
 export
 coords : Gen (Vect 3 Coordinate)
