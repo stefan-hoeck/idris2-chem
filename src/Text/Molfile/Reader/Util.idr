@@ -76,6 +76,10 @@ toInt : (Integer -> Maybe a) -> List Char -> Either Error a
 toInt f ('-' :: xs) = toNat ('-'::xs) 0 (f . negate . cast) xs
 toInt f xs          = toNat xs 0 (f . cast) xs
 
+toSigned : List Char -> Either Error (Bool,Nat)
+toSigned ('-' :: xs) = toNat ('-'::xs) 0 (Just . (True,)) xs
+toSigned xs          = toNat xs 0 (Just . (False,)) xs
+
 export %inline
 nat : Nat -> (Nat -> Maybe a) -> Tok False MolFileError a
 nat n f = trim n (\sc => let cs := sc <>> [] in toNat cs 0 f cs)
@@ -83,6 +87,10 @@ nat n f = trim n (\sc => let cs := sc <>> [] in toNat cs 0 f cs)
 export %inline
 int : Nat -> (Integer -> Maybe a) -> Tok False MolFileError a
 int n f = trim n (toInt f . (<>> []))
+
+export
+signed : Nat -> Tok False MolFileError (Bool,Nat)
+signed n = trim n (toSigned . (<>> []))
 
 drop' : (n : Nat) -> WeakTok ()
 drop' 0     cs        = Succ () cs

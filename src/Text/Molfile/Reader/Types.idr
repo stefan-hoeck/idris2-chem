@@ -47,15 +47,15 @@ dot (x::xs)   = single (Expected $ Left ".") Same
 dot []        = eoiAt Same
 
 coord : Tok False MolFileError Coordinate
-coord cs = case Tok.[| coord (int 5 Just) dot (nat 4 Just) |] cs of
+coord cs = case Tok.[| coord (signed 5) dot (nat 4 Just) |] cs of
   Succ (Just v) xs      => Succ v xs
   Succ Nothing  xs @{p} => unknownRange p xs
   Fail x y z            => Fail x y z
   where
-    coord : Integer -> () -> Nat -> Maybe Coordinate
-    coord i _ k =
-      let val := abs i * Precision + cast k
-       in refineCoordinate $ if i < 0 then negate val else val
+    coord : (Bool,Nat) -> () -> Nat -> Maybe Coordinate
+    coord (b,n) _ k =
+      let val := cast n * Precision + cast k
+       in refineCoordinate $ if b then negate val else val
 
 export
 coords : Tok False MolFileError (Vect 3 Coordinate)
