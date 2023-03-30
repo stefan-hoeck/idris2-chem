@@ -236,3 +236,9 @@ parameters (g    : Graph Bond (Atom l, List (Atom l,Bond)))
 -- Determines the AtomType if possible
 firstAtomTypes : Graph Bond (Atom l, List (Atom l,Bond)) -> Maybe (Graph Bond (Atom (l,AtomType), List (Atom l, Bond)))
 firstAtomTypes g = MkGraph <$> traverseWithKey (adj g) (graph g)
+
+secondAtomTypes :
+     Maybe (Graph Bond (Atom (l,AtomType), List (Atom l, Bond)))
+  -> Maybe (Graph Bond (Atom (l,AtomType), List (Atom l, Bond)))
+secondAtomTypes x = ?secondAtomTypes_rhs
+
