@@ -1,9 +1,11 @@
 module Chem.AtomType
 
 import Chem
+import Chem.Types
 import Text.Smiles
 import Derive.Prelude
 import System
+import Data.Graph.Util
 
 %language ElabReflection
 %default total
@@ -37,7 +39,7 @@ Monoid Bonds where
 ||| Folds a list of Bond's to Bonds
 ||| Caution: Quad-Bond's counts as 0!
 public export
-toBonds : Bond -> Bonds
+toBonds : Smiles.Types.Bond -> Bonds
 toBonds Sngl = BS 1 0 0
 toBonds Arom = BS 1 0 0
 toBonds Dbl  = BS 0 1 0
@@ -52,19 +54,6 @@ hCountToBonds h = BS (cast h.value) 0 0
 
 
 -------------------------------------------------------------------------------
--- Graph with additional internal infos
--------------------------------------------------------------------------------
-
--- later use equal function from idris2-graph lib!
-toGraphN : Graph e n -> Graph e (n, List (n,e))
-toGraphN g = MkGraph $ mapWithKey go (graph g)
-  where go1 : (Node, e) -> Maybe (n, e)
-        go1 (x, y) = (map (\h => (h,y))) $ lab g x
-        go : Node -> Adj e n -> Adj e (n, List (n, e))
-        go key adj = map (\y => (y,) (mapMaybe go1 (pairs adj.neighbours ))) adj
-
-
--------------------------------------------------------------------------------
 -- AtomType
 -------------------------------------------------------------------------------
 
@@ -76,7 +65,7 @@ data AtomType =
   C_sp2_diradical    | C_sp3_diradical    | C_planar_plus        | C_sp2_plus       |
   C_sp_plus          | C_sp2_arom_plus    | C_planar_minus       | C_sp2_minus      |
   C_sp_minus         | C_sp2_arom_minus   | H_sgl                | H_plus           |
-  H_minus            | O_sp3              | O_sp2                | O_sp2_hydroxyl   | O_sp2_carbonyl   | O_sp3_radical    |
+  H_minus            | O_sp3              | O_sp2                | O_sp2_sngl       | O_sp2_hydroxyl   | O_sp2_carbonyl   | O_sp3_radical    |
   O_sp2_arom         | O_sp3_plus         | O_sp2_plus           | O_sp_plus        |
   O_sp3_plus_radical | O_sp2_plus_radical | O_sp3_minus          | O_sp3_minus2     |
   S_2_sp3            | S_2_sp2            | S_6_sp3d2_anyl       | S_4_sp2_inyl     |
@@ -184,33 +173,24 @@ isPiBond BW   = True
 isPiBond Trpl = True
 isPiBond Quad = False -- hock: not sure about this
 
-parameters (g    : Graph Bond (Atom l, List (Atom l,Bond)))
-           (n    : Node)
+parameters (n    : Node)
            (adj  : Adj Bond (Atom l, List (Atom l,Bond)))
-  labeledBonds : List(Elem,Bond)
-  labeledBonds =
-    mapMaybe (\(k,b) => (,b) . elem <$> lab (map fst g) k) (pairs adj.neighbours)
 
   doubleTo : Elem -> Nat
-  doubleTo e = count isDoubleTo (map ?foooo adj)
+  doubleTo e = count isDoubleTo (snd adj.label)
     where isDoubleTo : (Atom l,Bond) -> Bool
-          isDoubleTo (e,Dbl) = True
+          isDoubleTo (a,Dbl) = e == a.elem
           isDoubleTo _       = False
---doubleTo e = count isDoubleTo (pairs adj.neighbours)
---  where isDoubleTo : (Node,Bond) -> Bool
---        isDoubleTo (k,Dbl) = Just e == (elem <$> lab (map fst g) k)
---        isDoubleTo _       = False
 
   inPiSystem : Bool
   inPiSystem = any (\x => any isPiBond (map snd x)) (map snd adj)
---  inPiSystem = any (any (isPiBond . snd) . lneighbours g) (keys adj.neighbours)
 
   refine : AtomType -> AtomType
   refine C_sp           = if doubleTo C == 2 then C_sp_allene else C_sp
   refine C_sp2          = if doubleTo O == 1 then C_sp2_carbonyl else C_sp2
-  refine C_sp2_carbonyl = if ?nextToHydroxyl then C_sp2_carboxyl else C_sp2_carbonyl -- !!
-  refine O_sp3          = if inPiSystem then O_sp2 else O_sp3
-  refine O_sp2          = if ?nextToCarbonyl then O_sp2_hydroxyl else O_sp2          -- !!
+  refine O_sp3          =
+    if inPiSystem && (count (\(a,b) => a.hydrogen == 1) (snd adj.label)) == 1 then O_sp2_hydroxyl
+    else if inPiSystem then O_sp2_sngl else O_sp3
   refine S_4_sp2        = if doubleTo O == 2 then S_4_planar3_oxide else S_4_sp2
   refine S_6_sp3        =
     if doubleTo O == 1 && doubleTo S == 1 then S_6_sp3_thionyl
@@ -221,7 +201,7 @@ parameters (g    : Graph Bond (Atom l, List (Atom l,Bond)))
   atArgs : ATArgs
   atArgs =
     let MkAtom el ar _ ch _ h := label (map fst adj)
-        bs := foldMap (\x => foldMap (toBonds . snd) x) (map snd adj) <+> BS (cast h.value) 0 0
+        bs := foldMap (foldMap (toBonds . snd)) (map snd adj) <+> BS (cast h.value) 0 0
      in AA el ar ch bs
 
   -- Wrap-up the new atom type with the existing adjacency information
@@ -234,11 +214,102 @@ parameters (g    : Graph Bond (Atom l, List (Atom l,Bond)))
 
 
 -- Determines the AtomType if possible
-firstAtomTypes : Graph Bond (Atom l, List (Atom l,Bond)) -> Maybe (Graph Bond (Atom (l,AtomType), List (Atom l, Bond)))
-firstAtomTypes g = MkGraph <$> traverseWithKey (adj g) (graph g)
+firstAtomTypes :
+  Graph Bond (Atom l, List (Atom l,Bond))
+  -> Maybe (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
+firstAtomTypes g = MkGraph <$> traverseWithKey adj (graph g)
+
+
+-- Changes the addition information from neighbour atoms with their bonds
+-- or their AtomTypes to the new neighbour atoms
+neighboursWithAT :
+     Graph Bond (Atom (l,AtomType), _)  --List (Atom l,Bond))
+  -> Graph Bond (Atom (l,AtomType), List (Atom (l,AtomType)))
+neighboursWithAT g =
+  pairWithNeighbours' (map fst g)
+
+-------------------------------------------------------------------------------
+-- Second Refinement
+
+secondRefine : AtomType -> List AtomType -> AtomType
+secondRefine O_sp2 xs =
+  if elem C_sp2_carbonyl xs then O_sp2_carbonyl else O_sp2
+secondRefine O_sp3 xs =
+  if elem C_sp2_carboxyl xs then O_sp2_hydroxyl else O_sp2
+secondRefine C_sp2_carbonyl xs =
+  if elem O_sp2_carbonyl xs then C_sp2_carboxyl else C_sp2_carbonyl
+secondRefine x xs = x
+
+helpFunction :
+     (Atom (l,AtomType), List (Atom (l,AtomType)))
+  -> (Atom (l,AtomType), List (Atom (l,AtomType)))
+helpFunction (a, li) =
+  let newAT := secondRefine (snd a.label) (map (snd . label) li)
+  in (map (\(lab,_) => (lab,newAT)) a, li)
 
 secondAtomTypes :
-     Maybe (Graph Bond (Atom (l,AtomType), List (Atom l, Bond)))
-  -> Maybe (Graph Bond (Atom (l,AtomType), List (Atom l, Bond)))
-secondAtomTypes x = ?secondAtomTypes_rhs
+     Graph Bond (Atom (l,AtomType), List (Atom (l,AtomType)))
+  -> Graph Bond (Atom (l,AtomType), List (Atom (l,AtomType)))
+secondAtomTypes g =
+  neighboursWithAT $ MkGraph (map (map (helpFunction)) (graph g))
 
+
+repeatRefine :
+  Graph Bond (Atom (l,AtomType) , List (Atom (l,AtomType)))
+  -> (c : Nat)
+  -> Graph Bond (Atom (l,AtomType) , List (Atom (l,AtomType)))
+repeatRefine x 0 = x
+repeatRefine x (S k) = repeatRefine (secondAtomTypes x) k
+
+
+-------------------------------------------------------------------------------
+-- Main function
+
+atomType :
+  Graph Bond (Atom l)
+  -> Maybe $ Graph Bond (Atom (l,AtomType))
+atomType g =
+  let prepare := pairWithNeighbours g
+      first   := firstAtomTypes prepare
+  in case first of
+    Nothing => Nothing
+    Just x  => case pairWithNeighbours' (map fst x) of
+      v => Just $ map fst $ repeatRefine v 4
+
+test :
+  Graph Bond (Atom l)
+  -> Show l
+  => String
+test g = case firstAtomTypes $ pairWithNeighbours g of
+  Nothing => "Nothing"
+  (Just x) => show x
+
+-------------------------------------------------------------------------------
+-- Test Section
+-------------------------------------------------------------------------------
+
+testMolecule : String
+testMolecule = "c1cccc(c1)CC(=O)O"
+
+testMolecule2 : String
+testMolecule2 = "O=CO"
+
+testAT1 : String -> String
+testAT1 str =
+  case parse str of
+    Left x  => "Parsing step went wrong"
+    Right x => case graphWithH x of
+      Nothing => "ImplH went wrong"
+      Just y  => case firstAtomTypes $ pairWithNeighbours y of
+        Nothing => "First AtomType determination failed"
+        Just z  => show z
+
+testAT : String -> String
+testAT str =
+  case parse str of
+    Left x  => "Parsing step went wrong"
+    Right x => case graphWithH x of
+      Nothing => "ImplH went wrong"
+      Just y  => case atomType y of
+        Nothing => "Atomtype determination went wrong"
+        Just z  => show z
