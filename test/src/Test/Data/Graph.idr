@@ -2,6 +2,7 @@ module Test.Data.Graph
 
 import Chem
 import Data.List
+import Data.Refined.Bits32
 import Data.Vect
 import Hedgehog
 

@@ -1,6 +1,7 @@
 module Text.Smiles.Parser
 
 import Chem
+import Data.Refined.Bits32
 import Data.SortedMap
 import Derive.Prelude
 import Text.Parse.Manual
