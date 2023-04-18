@@ -61,7 +61,7 @@ Mol = Graph Bond Atom
 -- hopefully, we know what we are doing...
 %inline
 unsafeEdge : Node -> Node -> Edge
-unsafeEdge x y = MkEdge x y (mkLT $ believe_me (Builtin.Refl {x = True}))
+unsafeEdge x y = MkEdge x y (?mkLT $ believe_me (Builtin.Refl {x = True}))
 
 %inline
 addBond : Node -> Node -> Bond -> Mol -> Mol

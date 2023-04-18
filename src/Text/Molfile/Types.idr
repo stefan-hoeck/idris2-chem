@@ -4,12 +4,13 @@ module Text.Molfile.Types
 
 import Derive.Prelude
 import Derive.Refined
+import public Data.Refined.String
+import public Data.Refined.Integer
 import public Chem
 import public Data.List.Quantifiers
 import public Data.Nat
 import public Data.String
 import public Data.Vect
-import public Decidable.HDec.Integer
 
 --------------------------------------------------------------------------------
 --          Pragmas
@@ -27,7 +28,7 @@ import public Decidable.HDec.Integer
 
 public export
 0 IsMolLine : String -> Type
-IsMolLine = StrLen (<= 80) && Str (All Printable)
+IsMolLine = Len (<= 80) && Str (All Printable)
 
 ||| An uninterpreted line in a v2000 mol file
 public export
