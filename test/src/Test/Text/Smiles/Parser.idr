@@ -1,6 +1,7 @@
 module Test.Text.Smiles.Parser
 
 import Data.SOP
+import Data.Refined.Bits32
 import Test.Text.Smiles.Generators
 
 %default total

@@ -4,9 +4,9 @@ import Chem
 import Data.Maybe
 import Data.Refined
 import Data.Vect
-import Decidable.HDec.Bits32
-import Decidable.HDec.Int32
-import Decidable.HDec.Integer
+import Data.Refined.Bits32
+import Data.Refined.Int32
+import Data.Refined.Integer
 import Hedgehog
 import Test.Chem.Element
 import Test.Data.Graph
