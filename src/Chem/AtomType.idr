@@ -65,7 +65,7 @@ data AtomType =
   C_sp2_diradical    | C_sp3_diradical    | C_planar_plus        | C_sp2_plus       |
   C_sp_plus          | C_sp2_arom_plus    | C_planar_minus       | C_sp2_minus      |
   C_sp_minus         | C_sp2_arom_minus   | H_sgl                | H_plus           |
-  H_minus            | O_sp3              | O_sp2                | O_sp2_sngl       | O_sp2_hydroxyl   | O_sp2_carbonyl   | O_sp3_radical    |
+  H_minus            | O_sp3              | O_sp3_hydroxyl       | O_sp2            | O_sp2_phenol | O_sp2_sngl       | O_sp2_hydroxyl   | O_sp2_carbonyl   | O_sp3_radical    |
   O_sp2_arom         | O_sp3_plus         | O_sp2_plus           | O_sp_plus        |
   O_sp3_plus_radical | O_sp2_plus_radical | O_sp3_minus          | O_sp3_minus2     |
   S_2_sp3            | S_2_sp2            | S_6_sp3d2_anyl       | S_4_sp2_inyl     |
@@ -182,20 +182,35 @@ parameters (n    : Node)
           isDoubleTo (a,Dbl) = e == a.elem
           isDoubleTo _       = False
 
+  aromNeighbour : Bool
+  aromNeighbour = any (\x => arom $ fst x) (snd adj.label)
+
+  implH : Nat
+  implH = (count (\(a,b) => a.hydrogen == 1) (snd adj.label))
+
   inPiSystem : Bool
   inPiSystem = any (\x => any isPiBond (map snd x)) (map snd adj)
 
   refine : AtomType -> AtomType
-  refine C_sp           = if doubleTo C == 2 then C_sp_allene else C_sp
-  refine C_sp2          = if doubleTo O == 1 then C_sp2_carbonyl else C_sp2
+  -- Carbon
+  refine C_sp           =
+    if doubleTo C == 2 then C_sp_allene else C_sp
+  refine C_sp2          =
+    if doubleTo O == 1 then C_sp2_carbonyl else C_sp2
+  -- Oxygen
   refine O_sp3          =
-    if inPiSystem && (count (\(a,b) => a.hydrogen == 1) (snd adj.label)) == 1 then O_sp2_hydroxyl
-    else if inPiSystem then O_sp2_sngl else O_sp3
-  refine S_4_sp2        = if doubleTo O == 2 then S_4_planar3_oxide else S_4_sp2
+    if inPiSystem && implH == 1 then O_sp2_hydroxyl
+    else if aromNeighbour       then O_sp2_phenol
+    else if implH == 1          then O_sp3_hydroxyl
+    else if inPiSystem          then O_sp2_sngl else O_sp3
+  -- Sulfur
+  refine S_4_sp2        =
+    if doubleTo O == 2 then S_4_planar3_oxide else S_4_sp2
   refine S_6_sp3        =
     if doubleTo O == 1 && doubleTo S == 1 then S_6_sp3_thionyl
     else if (doubleTo O + doubleTo N) == 2 then S_6_sp3_onyl
     else S_6_sp3
+  -- Rest
   refine at = at
 
   atArgs : ATArgs
@@ -232,39 +247,49 @@ neighboursWithAT g =
 -- Second Refinement
 
 secondRefine : AtomType -> List AtomType -> AtomType
+-- Oxygen
 secondRefine O_sp2 xs =
   if elem C_sp2_carbonyl xs then O_sp2_carbonyl else O_sp2
-secondRefine O_sp3 xs =
-  if elem C_sp2_carboxyl xs then O_sp2_hydroxyl else O_sp2
+secondRefine O_sp3_hydroxyl xs =
+  if elem C_sp2_carboxyl xs then O_sp2_hydroxyl else O_sp3_hydroxyl
+-- Carbon
 secondRefine C_sp2_carbonyl xs =
   if elem O_sp2_carbonyl xs then C_sp2_carboxyl else C_sp2_carbonyl
 secondRefine x xs = x
 
-helpFunction :
+-- helper function for a clearer representation
+secondAT' :
      (Atom (l,AtomType), List (Atom (l,AtomType)))
   -> (Atom (l,AtomType), List (Atom (l,AtomType)))
-helpFunction (a, li) =
+secondAT' (a, li) =
   let newAT := secondRefine (snd a.label) (map (snd . label) li)
   in (map (\(lab,_) => (lab,newAT)) a, li)
 
-secondAtomTypes :
+-- second determination of the atom types
+secondAT :
      Graph Bond (Atom (l,AtomType), List (Atom (l,AtomType)))
   -> Graph Bond (Atom (l,AtomType), List (Atom (l,AtomType)))
-secondAtomTypes g =
-  neighboursWithAT $ MkGraph (map (map (helpFunction)) (graph g))
+secondAT g =
+  neighboursWithAT $ MkGraph (map (map (secondAT')) (graph g))
 
-
+-- just for looping the second refinement
 repeatRefine :
   Graph Bond (Atom (l,AtomType) , List (Atom (l,AtomType)))
   -> (c : Nat)
   -> Graph Bond (Atom (l,AtomType) , List (Atom (l,AtomType)))
 repeatRefine x 0 = x
-repeatRefine x (S k) = repeatRefine (secondAtomTypes x) k
+repeatRefine x (S k) = repeatRefine (secondAT x) k
 
 
 -------------------------------------------------------------------------------
 -- Main function
 
+||| Determines the atom types if possible.
+||| If just one atom type determination fails, all other atom types
+||| may be wrong and therefore, the function returns a nothing.
+-- TODO: Maybe change number of second refine up to 2 or 3 if needed!
+--       At the moment, one cycle is necessary.
+export
 atomType :
   Graph Bond (Atom l)
   -> Maybe $ Graph Bond (Atom (l,AtomType))
@@ -274,26 +299,26 @@ atomType g =
   in case first of
     Nothing => Nothing
     Just x  => case pairWithNeighbours' (map fst x) of
-      v => Just $ map fst $ repeatRefine v 4
-
-test :
-  Graph Bond (Atom l)
-  -> Show l
-  => String
-test g = case firstAtomTypes $ pairWithNeighbours g of
-  Nothing => "Nothing"
-  (Just x) => show x
+      v => Just $ map fst $ repeatRefine v 1
 
 -------------------------------------------------------------------------------
 -- Test Section
 -------------------------------------------------------------------------------
 
+-- Phenylacetic acid
 testMolecule : String
 testMolecule = "c1cccc(c1)CC(=O)O"
 
+-- Formic acid
 testMolecule2 : String
 testMolecule2 = "O=CO"
 
+-- Phenol
+testMolecule3 : String
+testMolecule3 = "Oc1ccccc1"
+
+
+-- only first atom type processing
 testAT1 : String -> String
 testAT1 str =
   case parse str of
@@ -304,6 +329,7 @@ testAT1 str =
         Nothing => "First AtomType determination failed"
         Just z  => show z
 
+-- whole atom type processing
 testAT : String -> String
 testAT str =
   case parse str of
