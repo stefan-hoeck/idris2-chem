@@ -60,19 +60,64 @@ hCountToBonds h = BS (cast h.value) 0 0
 ||| Syntax: element_(std.valence)_hybridisation_aromaticity_charge_radical_specials
 public export
 data AtomType =
-  C_sp3              | C_sp2              | C_sp2_carbonyl       | C_sp2_carboxyl   | C_sp_allene          | C_sp             |
-  C_sp2_radical      | C_sp_radical       | C_planar_radical     | C_sp2_arom       |
-  C_sp2_diradical    | C_sp3_diradical    | C_planar_plus        | C_sp2_plus       |
-  C_sp_plus          | C_sp2_arom_plus    | C_planar_minus       | C_sp2_minus      |
-  C_sp_minus         | C_sp2_arom_minus   | H_sgl                | H_plus           |
-  H_minus            | O_sp3              | O_sp3_hydroxyl       | O_sp2            | O_sp2_phenol | O_sp2_sngl       | O_sp2_hydroxyl   | O_sp2_carbonyl   | O_sp3_radical    |
-  O_sp2_arom         | O_sp3_plus         | O_sp2_plus           | O_sp_plus        |
-  O_sp3_plus_radical | O_sp2_plus_radical | O_sp3_minus          | O_sp3_minus2     |
-  S_2_sp3            | S_2_sp2            | S_6_sp3d2_anyl       | S_4_sp2_inyl     |
-  S_4_sp2            | S_4_planar3_oxide  | S_6_sp3d2_octahedral | S_6_sp3d1        |
-  S_6_sp3            | S_6_sp3_thionyl    | S_6_sp3_onyl         | S_6_sp2_trioxide |
-  S_2_planar3        | S_4_sp2_arom_inyl2 | S_6_sp2_plus         | S_4_sp2_plus     |
-  S_4_sp3_plus2      | S_2_sp3_minus      | S_2_minus2
+  C_sp3                |
+  C_sp2                |
+  C_sp2_carbonyl       |
+  C_sp2_carboxyl       |
+  C_sp2_arom           |
+  C_sp_allene          |
+  C_sp                 |
+  C_sp2_radical        |
+  C_sp_radical         |
+  C_planar_radical     |
+  C_sp2_diradical      |
+  C_sp3_diradical      |
+  C_planar_plus        |
+  C_sp2_plus           |
+  C_sp2_arom_plus      |
+  C_sp_plus            |
+  C_planar_minus       |
+  C_sp2_minus          |
+  C_sp2_arom_minus     |
+  C_sp_minus           |
+  H_sgl                |
+  H_plus               |
+  H_minus              |
+  O_sp3                |
+  O_sp3_hydroxyl       |
+  O_sp2                |
+  O_sp2_hydroxyl       |
+  O_sp2_snglB          | -- temporary for esters, ethers and so on
+  O_sp2_phenol         |
+  O_sp2_carbonyl       |
+  O_sp2_arom           |
+  O_sp3_radical        |
+  O_sp3_plus           |
+  O_sp2_plus           |
+  O_sp_plus            |
+  O_sp3_plus_radical   |
+  O_sp2_plus_radical   |
+  O_sp3_minus          |
+  O_sp3_minus2         |
+  S_2_sp3              |
+  S_2_sp2              |
+  S_6_sp3d2_anyl       |
+  S_4_sp2_inyl         |
+  S_4_sp2              |
+  S_4_planar3_oxide    |
+  S_6_sp3d2_octahedral |
+  S_6_sp3d1            |
+  S_6_sp3              |
+  S_6_sp3_thionyl      |
+  S_6_sp3_onyl         |
+  S_6_sp2_trioxide     |
+  S_2_planar3          |
+  S_4_sp2_arom_inyl2   |
+  S_6_sp2_plus         |
+  S_4_sp2_plus         |
+  S_4_sp3_plus2        |
+  S_2_sp3_minus        |
+  S_2_minus2
 
 %runElab derive "AtomType" [Show,Eq,Ord]
 
@@ -186,7 +231,7 @@ parameters (n    : Node)
   aromNeighbour = any (\x => arom $ fst x) (snd adj.label)
 
   implH : Nat
-  implH = (count (\(a,b) => a.hydrogen == 1) (snd adj.label))
+  implH = (cast . value . hydrogen . fst) (adj.label)
 
   inPiSystem : Bool
   inPiSystem = any (\x => any isPiBond (map snd x)) (map snd adj)
@@ -199,10 +244,8 @@ parameters (n    : Node)
     if doubleTo O == 1 then C_sp2_carbonyl else C_sp2
   -- Oxygen
   refine O_sp3          =
-    if inPiSystem && implH == 1 then O_sp2_hydroxyl
-    else if aromNeighbour       then O_sp2_phenol
-    else if implH == 1          then O_sp3_hydroxyl
-    else if inPiSystem          then O_sp2_sngl else O_sp3
+    if implH == 1      then O_sp3_hydroxyl
+    else if inPiSystem then O_sp2_snglB else O_sp3
   -- Sulfur
   refine S_4_sp2        =
     if doubleTo O == 2 then S_4_planar3_oxide else S_4_sp2
@@ -248,10 +291,13 @@ neighboursWithAT g =
 
 secondRefine : AtomType -> List AtomType -> AtomType
 -- Oxygen
+secondRefine O_sp3 xs =
+  if elem C_sp2_arom xs then O_sp2_snglB else O_sp3
+secondRefine O_sp3_hydroxyl xs =
+  if elem C_sp2_carbonyl xs || elem C_sp2_arom xs then O_sp2_hydroxyl else O_sp3_hydroxyl
+secondRefine O_sp2_hydroxyl [C_sp2_arom] = O_sp2_phenol
 secondRefine O_sp2 xs =
   if elem C_sp2_carbonyl xs then O_sp2_carbonyl else O_sp2
-secondRefine O_sp3_hydroxyl xs =
-  if elem C_sp2_carboxyl xs then O_sp2_hydroxyl else O_sp3_hydroxyl
 -- Carbon
 secondRefine C_sp2_carbonyl xs =
   if elem O_sp2_carbonyl xs then C_sp2_carboxyl else C_sp2_carbonyl
@@ -287,9 +333,8 @@ repeatRefine x (S k) = repeatRefine (secondAT x) k
 ||| Determines the atom types if possible.
 ||| If just one atom type determination fails, all other atom types
 ||| may be wrong and therefore, the function returns a nothing.
--- TODO: Maybe change number of second refine up to 2 or 3 if needed!
---       At the moment, one cycle is necessary.
-export
+-- TODO: Maybe change number of second refine up to 3 or 4 if needed!
+public export
 atomType :
   Graph Bond (Atom l)
   -> Maybe $ Graph Bond (Atom (l,AtomType))
@@ -299,43 +344,4 @@ atomType g =
   in case first of
     Nothing => Nothing
     Just x  => case pairWithNeighbours' (map fst x) of
-      v => Just $ map fst $ repeatRefine v 1
-
--------------------------------------------------------------------------------
--- Test Section
--------------------------------------------------------------------------------
-
--- Phenylacetic acid
-testMolecule : String
-testMolecule = "c1cccc(c1)CC(=O)O"
-
--- Formic acid
-testMolecule2 : String
-testMolecule2 = "O=CO"
-
--- Phenol
-testMolecule3 : String
-testMolecule3 = "Oc1ccccc1"
-
-
--- only first atom type processing
-testAT1 : String -> String
-testAT1 str =
-  case parse str of
-    Left x  => "Parsing step went wrong"
-    Right x => case graphWithH x of
-      Nothing => "ImplH went wrong"
-      Just y  => case firstAtomTypes $ pairWithNeighbours y of
-        Nothing => "First AtomType determination failed"
-        Just z  => show z
-
--- whole atom type processing
-testAT : String -> String
-testAT str =
-  case parse str of
-    Left x  => "Parsing step went wrong"
-    Right x => case graphWithH x of
-      Nothing => "ImplH went wrong"
-      Just y  => case atomType y of
-        Nothing => "Atomtype determination went wrong"
-        Just z  => show z
+      v => Just $ map fst $ repeatRefine v 2

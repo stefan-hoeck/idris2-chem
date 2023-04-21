@@ -24,7 +24,7 @@ calcAtomTypes : String -> List AtomType
 calcAtomTypes str = fromMaybe [] $ do
   g1 <- either (const Nothing) Just $ parse str
   g2 <- graphWithH g1
-  g3 <- toAtomTypes g2
+  g3 <- atomType g2
   pure $ snd . label . label <$> sortBy (comparing node) (labNodes g3)
 
 prop : (String,List AtomType) -> (PropertyName,Property)
@@ -37,21 +37,18 @@ prop (s,ats) = MkPair (fromString "SMILES \{s}") $ property1 $
 --       minimal examples for every atom type to make sure the conversion
 --       works correctly.
 --
---       The third example is currently not correct (I changed it), because
---       we consider the bonds going to neighbours instead of the neighbours
---       themselves.
 -- Pairs of SMILES strings and expected list of atom types
 pairs : List (String,List AtomType)
-pairs = [("CCO"                      ,[C_sp3,C_sp3,O_sp3]),
+pairs = [("CCO"                      ,[C_sp3,C_sp3,O_sp3_hydroxyl]),
          ("[O-]S(=O)(=S)[O-]"        ,[O_sp3_minus,S_6_sp3_thionyl,O_sp2,S_2_sp2,O_sp3_minus]),
-         ("OS(=O)(=O)O"              ,[O_sp2,S_6_sp3_onyl,O_sp2,O_sp2,O_sp2]),
-         ("COc1ccccc1OC(=O)Cc2ccccc2",[C_sp3,O_sp2,C_sp2_arom,C_sp2_arom,C_sp2_arom,
-                                       C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2,C_sp2,
-                                       O_sp2,C_sp3,C_sp2_arom,C_sp2_arom,C_sp2_arom,
-                                       C_sp2_arom,C_sp2_arom,C_sp2_arom]),
-         ("COc1ccccc1OC[C@@H](CO)O"  ,[C_sp3,O_sp2,C_sp2_arom,C_sp2_arom,C_sp2_arom,
-                                      C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2,C_sp3,
-                                      C_sp3,C_sp3,O_sp3,O_sp3]),
+         ("OS(=O)(=O)O"              ,[O_sp3_hydroxyl,S_6_sp3_onyl,O_sp2,O_sp2,O_sp3_hydroxyl]),
+         ("COc1ccccc1OC(=O)Cc2ccccc2",[C_sp3,O_sp2_snglB,C_sp2_arom,C_sp2_arom,C_sp2_arom,
+                                       C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2_snglB,C_sp2_carboxyl,O_sp2_carbonyl,
+                                       C_sp3,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,
+                                       C_sp2_arom,C_sp2_arom]),
+         ("COc1ccccc1OC[C@@H](CO)O"  ,[C_sp3,O_sp2_snglB,C_sp2_arom,C_sp2_arom,C_sp2_arom,
+                                      C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2_snglB,C_sp3,
+                                      C_sp3,C_sp3,O_sp3_hydroxyl,O_sp3_hydroxyl]),
          ("[H-]"                     ,[H_minus])
          ]
 
