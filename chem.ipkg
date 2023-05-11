@@ -12,6 +12,7 @@ depends    = base         >= 0.5.1
 modules = Chem
         , Chem.Element
         , Chem.Formula
+        , Chem.Hydrogens
         , Chem.Types
         , Chem.Atom
         , Chem.AtomType
