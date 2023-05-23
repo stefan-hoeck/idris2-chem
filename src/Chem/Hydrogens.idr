@@ -7,6 +7,8 @@ import Chem.Types
 import Data.AssocList
 import Data.BitMap
 import Data.Graph
+import Data.String
+import Text.Smiles
 
 %default total
 
@@ -85,11 +87,6 @@ record MergeResults m where
 -- testing function whether hydrogen needs to be deleted
 testH : Edge -> Node -> Node -> MergeResults m
 
--- was macht diese Funktion?
-argumentgmap : (e -> n -> n -> MergeResults m) -> Graph e n -> Context e n -> Context e m
-argumentgmap f x (MkContext node label neighbours) = ?argumentgmap_rhs_0
-
-
 iterationList : (Node, e) -> e
 iterationList (_, y) = y
 
@@ -97,8 +94,8 @@ iterationList (_, y) = y
 -- 2. iterieren über Liste List (Node, e) -> für jeden Node ein Label
 -- 3. mit diesem Label 2. Funktion aufrufen (e -> ...) mit edge label, node label, akkumulierter Node = MergeResults m
 -- bei Rekursion label m mitführen, List (Node, e), weil sie angepasst wird
-argumentgmap2 : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> (n, List (Node, e)) -> (m, List (Node, e))
-argumentgmap2 f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
+mapUtil : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> (n, List (Node, e)) -> (m, List (Node, e))
+mapUtil f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
   where acc : (m, List (Node, e)) -> (Node, e) -> (m, List (Node, e))
         acc (ml, ps) (node, el) = case lab g node of
             Nothing => (ml, ps)
@@ -106,6 +103,15 @@ argumentgmap2 f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
                     (MkMR False y) => (y, ps)
                     (MkMR True y)  => (y, (node, el) :: ps)
 
+-- TODO: Nicole
+-- implement this by invoking `mapUtil`. Use `Data.AssocList.pairs` and `Data.AssocList.fromList`
+-- to convert from `AssocList e` to `List (Node,e)` and back.
+mapCtxt : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Context e n -> Context e m
+mapCtxt f g x (MkContext node label neighbours) = ?mapCtxt_rhs_0
+
+-- TODO: Nicole
+-- use `gmap` and `mapCtxt` here
+merge : Graph e n -> (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e m
 
 
   -- ?foo (map iterationList neigh) --(f2 ?e n (f1 n) )
@@ -114,6 +120,32 @@ argumentgmap2 f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
 -- second function
 -- kann ich ?e mit map lösen? Und dann etwas ähnliches wie die Funktion fst, aber das 2. Element
 -- n -> m : was wird hier geändert? Sind n und m nicht gleich?
+
+-- TODO: Nicole
+-- Use `merge` and define the two function arguments accordingly (see notes on
+-- paper)
+noImplicitHs : Graph Bond Elem -> Graph Bond (Elem,Nat)
+
+toElem : Atom -> Elem
+toElem (SubsetAtom elem arom) = elem
+toElem (Bracket massNr elem isArom chirality hydrogens charge) = elem
+
+showPair : (Elem,Nat) -> String
+showPair (e,n) = symbol e ++ "[" ++ show n ++ "]"
+
+-- run from project's root directory with: `pack exec src/Chem/Hydrogens.idr`
+covering
+main : IO ()
+main = do
+  putStr "please enter a SMILES code (q to quit): "
+  str <- trim <$> getLine
+  case str of
+    "q" => putStrLn "Goodbye!"
+    s   => case parse s of
+      Left (fc,e) =>  putStrLn (printParseError s fc e) >> main
+      Right mol   =>
+        let mol' := noImplicitHs (map toElem mol)
+         in putStrLn (pretty interpolate showPair mol') >> main
 
 
 
@@ -131,9 +163,6 @@ argumentgmap2 f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
 --               2. e -> n -> m -> MergeResults m (n = label neighbour, m = wird akkumuliert)
 
 
--- delete edges, adapt node labels (green nodes), just not delete nodes yet
-merge : Graph e n -> (e -> n -> n -> MergeResults m) -> Graph e m
-merge x f = gmap (argumentgmap f x) x
 
 test2 : Graph e n -> Graph e n
 
