@@ -107,24 +107,34 @@ mapUtil f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
 -- implement this by invoking `mapUtil`. Use `Data.AssocList.pairs` and `Data.AssocList.fromList`
 -- to convert from `AssocList e` to `List (Node,e)` and back.
 mapCtxt : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Context e n -> Context e m
-mapCtxt f g x (MkContext node label neighbours) = ?mapCtxt_rhs_0
+mapCtxt f1 f2 g (MkContext node label neighbours) =
+  MkContext node (fst (mapUtil f1 f2 g (label, pairs neighbours))) (AssocList.fromList (snd (mapUtil f1 f2 g (label, pairs neighbours))))
+-- wäre es sinnvoll, wenn Klammer mit mapUtil in eigener Funktion steht?
+
 
 -- TODO: Nicole
 -- use `gmap` and `mapCtxt` here
 merge : Graph e n -> (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e m
+merge g f1 f2 = gmap (mapCtxt f1 f2 g) g
 
 
-  -- ?foo (map iterationList neigh) --(f2 ?e n (f1 n) )
---            MkMR True m  => (m, (?something :: ?somethingelse) ) -- aber m muss auch in Rekursion rein?
---            MkMR False m => ?Falsecase
--- second function
--- kann ich ?e mit map lösen? Und dann etwas ähnliches wie die Funktion fst, aber das 2. Element
--- n -> m : was wird hier geändert? Sind n und m nicht gleich?
+
+
+-- MergeResults will show false if the neighbour is a hydrogen bound by a
+-- single bond and the count will be increased by one. MergeResults will
+-- show true if neighbour is any other element and count doesn't change
+explH : Bond -> Elem -> (Elem, Nat) -> MergeResults (Elem, Nat)
+explH Sngl H (elem, n) = MkMR False (elem, n+1)
+explH _    _ (elem, n) = MkMR True (elem, n)
 
 -- TODO: Nicole
 -- Use `merge` and define the two function arguments accordingly (see notes on
 -- paper)
+-- n -> m as a lambda
 noImplicitHs : Graph Bond Elem -> Graph Bond (Elem,Nat)
+noImplicitHs g = merge g (\x => (x,0)) explH
+
+
 
 toElem : Atom -> Elem
 toElem (SubsetAtom elem arom) = elem
@@ -164,14 +174,8 @@ main = do
 
 
 
-test2 : Graph e n -> Graph e n
 
 
--- wie bei map kann ich hier die Funktion schreiben, die angewendet wird
--- z.B. wie (+1), aber wie bringe ich ein Graph in die Form Context e n?
-
--- function `contexts` macht eine Liste von Contexts aus einem Graph
--- (Graph -> List (Context e n))
 -- `delEdge` löscht ein Edge aus dem Graph (Edge -> Graph -> Graph)
 
 
