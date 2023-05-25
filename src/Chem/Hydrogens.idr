@@ -109,7 +109,7 @@ mapUtil f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
 mapCtxt : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Context e n -> Context e m
 mapCtxt f1 f2 g (MkContext node label neighbours) =
   MkContext node (fst (mapUtil f1 f2 g (label, pairs neighbours))) (AssocList.fromList (snd (mapUtil f1 f2 g (label, pairs neighbours))))
--- wäre es sinnvoll, wenn Klammer mit mapUtil in eigener Funktion steht?
+-- wäre es sinnvoll, wenn Klammer mit mapUtil in eigener Funktion steht? Z.B. mit let (lbl, ns) := ...
 
 
 -- TODO: Nicole
@@ -126,6 +126,10 @@ merge g f1 f2 = gmap (mapCtxt f1 f2 g) g
 explH : Bond -> Elem -> (Elem, Nat) -> MergeResults (Elem, Nat)
 explH Sngl H (elem, n) = MkMR False (elem, n+1)
 explH _    _ (elem, n) = MkMR True (elem, n)
+
+-- hier wird nur ein Weg einer Bindung beachtet also z.B. von H nach C
+-- dann ist im Pattern Match Sngl C -> True
+
 
 -- TODO: Nicole
 -- Use `merge` and define the two function arguments accordingly (see notes on
