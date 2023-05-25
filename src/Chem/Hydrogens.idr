@@ -90,32 +90,34 @@ testH : Edge -> Node -> Node -> MergeResults m
 iterationList : (Node, e) -> e
 iterationList (_, y) = y
 
+mapMaybe : (a -> Maybe b) -> BitMap a -> BitMap b
+
 -- 1. scrutinee label in m umwandeln
 -- 2. iterieren über Liste List (Node, e) -> für jeden Node ein Label
 -- 3. mit diesem Label 2. Funktion aufrufen (e -> ...) mit edge label, node label, akkumulierter Node = MergeResults m
 -- bei Rekursion label m mitführen, List (Node, e), weil sie angepasst wird
-mapUtil : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> (n, List (Node, e)) -> (m, List (Node, e))
-mapUtil f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
-  where acc : (m, List (Node, e)) -> (Node, e) -> (m, List (Node, e))
-        acc (ml, ps) (node, el) = case lab g node of
-            Nothing => (ml, ps)
-            Just x  => case f2 el x ml of
-                    (MkMR False y) => (y, ps)
-                    (MkMR True y)  => (y, (node, el) :: ps)
+mapUtil : (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> (n, List (Node, e)) -> Maybe (m, List (Node, e))
+-- mapUtil f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
+--   where acc : (m, List (Node, e)) -> (Node, e) -> (m, List (Node, e))
+--         acc (ml, ps) (node, el) = case lab g node of
+--             Nothing => (ml, ps)
+--             Just x  => case f2 el x ml of
+--                     (MkMR False y) => (y, ps)
+--                     (MkMR True y)  => (y, (node, el) :: ps)
 
 -- TODO: Nicole
 -- implement this by invoking `mapUtil`. Use `Data.AssocList.pairs` and `Data.AssocList.fromList`
 -- to convert from `AssocList e` to `List (Node,e)` and back.
-mapAdj : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Adj e n -> Adj e m
-mapAdj f1 f2 g (MkAdj label neighbours) =
-  let (lbl,ns) := mapUtil f1 f2 g (label, pairs neighbours)
-   in MkAdj lbl (AssocList.fromList ns)
+mapAdj : (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Adj e n -> Maybe (Adj e m)
+-- mapAdj f1 f2 g (MkAdj label neighbours) =
+--   let (lbl,ns) := mapUtil f1 f2 g (label, pairs neighbours)
+--    in MkAdj lbl (AssocList.fromList ns)
 -- wäre es sinnvoll, wenn Klammer mit mapUtil in eigener Funktion steht? Z.B. mit let (lbl, ns) := ...
 
 -- TODO: Nicole
 -- use `gmap` and `mapCtxt` here
-merge : Graph e n -> (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e m
-merge g f1 f2 = MkGraph $ map (mapAdj f1 f2 g) g.graph
+merge : Graph e n -> (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e m
+merge g f1 f2 = MkGraph $ mapMaybe (mapAdj f1 f2 g) g.graph
 
 
 
@@ -125,8 +127,11 @@ merge g f1 f2 = MkGraph $ map (mapAdj f1 f2 g) g.graph
 -- show true if neighbour is any other element and count doesn't change
 explH : Bond -> Elem -> (Elem, Nat) -> MergeResults (Elem, Nat)
 explH Sngl H (elem, n) = MkMR False (elem, n+1)
-explH Sngl _ (H, n)    = MkMR False (H, n)
 explH _    _ (elem, n) = MkMR True (elem, n)
+
+initH : Elem -> Maybe (Elem,Nat)
+initH H = Nothing
+initH x = Just (x,0)
 
 -- hier wird nur ein Weg einer Bindung beachtet also z.B. von H nach C
 -- dann ist im Pattern Match Sngl C -> True
@@ -137,7 +142,7 @@ explH _    _ (elem, n) = MkMR True (elem, n)
 -- paper)
 -- n -> m as a lambda
 noImplicitHs : Graph Bond Elem -> Graph Bond (Elem,Nat)
-noImplicitHs g = merge g (\x => (x,0)) explH
+noImplicitHs g = merge g initH explH
 
 
 
