@@ -106,16 +106,15 @@ mapUtil f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
 -- TODO: Nicole
 -- implement this by invoking `mapUtil`. Use `Data.AssocList.pairs` and `Data.AssocList.fromList`
 -- to convert from `AssocList e` to `List (Node,e)` and back.
-mapCtxt : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Context e n -> Context e m
-mapCtxt f1 f2 g (MkContext node label neighbours) =
-  MkContext node (fst (mapUtil f1 f2 g (label, pairs neighbours))) (AssocList.fromList (snd (mapUtil f1 f2 g (label, pairs neighbours))))
--- wäre es sinnvoll, wenn Klammer mit mapUtil in eigener Funktion steht?
-
+mapAdj : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Adj e n -> Adj e m
+mapAdj f1 f2 g (MkAdj label neighbours) =
+  let (lbl,ns) := mapUtil f1 f2 g (label, pairs neighbours)
+   in MkAdj lbl (AssocList.fromList ns)
 
 -- TODO: Nicole
 -- use `gmap` and `mapCtxt` here
 merge : Graph e n -> (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e m
-merge g f1 f2 = gmap (mapCtxt f1 f2 g) g
+merge g f1 f2 = MkGraph $ map (mapAdj f1 f2 g) g.graph
 
 
 
@@ -125,6 +124,7 @@ merge g f1 f2 = gmap (mapCtxt f1 f2 g) g
 -- show true if neighbour is any other element and count doesn't change
 explH : Bond -> Elem -> (Elem, Nat) -> MergeResults (Elem, Nat)
 explH Sngl H (elem, n) = MkMR False (elem, n+1)
+explH Sngl _ (H, n)    = MkMR False (H, n)
 explH _    _ (elem, n) = MkMR True (elem, n)
 
 -- TODO: Nicole
