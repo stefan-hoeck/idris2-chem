@@ -64,7 +64,7 @@ data AtomType =
   C_sp2                |
   C_sp2_carbonyl       |
   C_sp2_carboxyl       |
-  C_sp2_arom           |
+  C_sp2_arom           | --
   C_sp_allene          |
   C_sp                 |
   C_sp2_radical        |
@@ -83,20 +83,21 @@ data AtomType =
   H_sgl                |
   H_plus               |
   H_minus              |
-  O_sp3                |
-  O_sp3_hydroxyl       |
-  O_sp2                |
-  O_sp2_hydroxyl       |
-  O_sp2_snglB          | -- temporary for esters, ethers and so on
-  O_sp2_phenol         |
-  O_sp2_carbonyl       |
-  O_sp2_arom           |
+  O_sp3                | --...
+  O_sp3_hydroxyl       | --
+  O_sp2                | --...
+  O_sp2_hydroxyl       | --...
+  O_sp2_snglB          | -- temporary for benzole ethers and so on
+  O_sp2_phenol         | --
+  O_sp2_carbonyl       | --
+  O_sp2_arom           | --
   O_sp3_radical        |
   O_sp3_plus           |
   O_sp2_plus           |
   O_sp_plus            |
   O_sp3_plus_radical   |
   O_sp2_plus_radical   |
+  O_sp2_minus          |
   O_sp3_minus          |
   O_sp3_minus2         |
   S_2_sp3              |
@@ -292,15 +293,15 @@ neighboursWithAT g =
 secondRefine : AtomType -> List AtomType -> AtomType
 -- Oxygen
 secondRefine O_sp3 xs =
-  if elem C_sp2_arom xs then O_sp2_snglB else O_sp3
+  if elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_snglB else O_sp3
 secondRefine O_sp3_hydroxyl xs =
-  if elem C_sp2_carbonyl xs || elem C_sp2_arom xs then O_sp2_hydroxyl else O_sp3_hydroxyl
+  if elem C_sp2_carbonyl xs || elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_hydroxyl else O_sp3_hydroxyl
 secondRefine O_sp2_hydroxyl [C_sp2_arom] = O_sp2_phenol
 secondRefine O_sp2 xs =
   if elem C_sp2_carbonyl xs then O_sp2_carbonyl else O_sp2
 -- Carbon
 secondRefine C_sp2_carbonyl xs =
-  if elem O_sp2_carbonyl xs then C_sp2_carboxyl else C_sp2_carbonyl
+  if elem O_sp2_carbonyl xs && elem O_sp2_hydroxyl xs then C_sp2_carboxyl else C_sp2_carbonyl
 secondRefine x xs = x
 
 -- helper function for a clearer representation
@@ -333,7 +334,6 @@ repeatRefine x (S k) = repeatRefine (secondAT x) k
 ||| Determines the atom types if possible.
 ||| If just one atom type determination fails, all other atom types
 ||| may be wrong and therefore, the function returns a nothing.
--- TODO: Maybe change number of second refine up to 3 or 4 if needed!
 public export
 atomType :
   Graph Bond (Atom l)
@@ -344,4 +344,13 @@ atomType g =
   in case first of
     Nothing => Nothing
     Just x  => case pairWithNeighbours' (map fst x) of
-      v => Just $ map fst $ repeatRefine v 2
+      v => Just $ map fst $ repeatRefine v 4
+
+--- Test SMILES Parser
+
+smilesParser : String -> String
+smilesParser str =
+  let graph := parse str
+  in case graph of
+    (Left x) => show $ snd x
+    (Right x) => show $ graphWithH x
