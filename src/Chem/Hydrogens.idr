@@ -110,6 +110,7 @@ mapAdj : (n -> m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Adj e n -> 
 mapAdj f1 f2 g (MkAdj label neighbours) =
   let (lbl,ns) := mapUtil f1 f2 g (label, pairs neighbours)
    in MkAdj lbl (AssocList.fromList ns)
+-- wäre es sinnvoll, wenn Klammer mit mapUtil in eigener Funktion steht? Z.B. mit let (lbl, ns) := ...
 
 -- TODO: Nicole
 -- use `gmap` and `mapCtxt` here
@@ -126,6 +127,10 @@ explH : Bond -> Elem -> (Elem, Nat) -> MergeResults (Elem, Nat)
 explH Sngl H (elem, n) = MkMR False (elem, n+1)
 explH Sngl _ (H, n)    = MkMR False (H, n)
 explH _    _ (elem, n) = MkMR True (elem, n)
+
+-- hier wird nur ein Weg einer Bindung beachtet also z.B. von H nach C
+-- dann ist im Pattern Match Sngl C -> True
+
 
 -- TODO: Nicole
 -- Use `merge` and define the two function arguments accordingly (see notes on
