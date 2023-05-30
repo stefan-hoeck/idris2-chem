@@ -77,39 +77,35 @@ import Text.Smiles
 
 
 
-||| Define record whether to merge results
+-- Define record whether to merge results
 record MergeResults m where
   constructor MkMR
   keepNeigh : Bool
   node      : m
 
 
--- testing function whether hydrogen needs to be deleted
-testH : Edge -> Node -> Node -> MergeResults m
-
-iterationList : (Node, e) -> e
-iterationList (_, y) = y
-
-mapMaybe : (a -> Maybe b) -> BitMap a -> BitMap b
 
 -- 1. scrutinee label in m umwandeln
 -- 2. iterieren über Liste List (Node, e) -> für jeden Node ein Label
 -- 3. mit diesem Label 2. Funktion aufrufen (e -> ...) mit edge label, node label, akkumulierter Node = MergeResults m
 -- bei Rekursion label m mitführen, List (Node, e), weil sie angepasst wird
 mapUtil : (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> (n, List (Node, e)) -> Maybe (m, List (Node, e))
--- mapUtil f1 f2 g (n, neigh) = foldl acc (f1 n,[]) neigh
---   where acc : (m, List (Node, e)) -> (Node, e) -> (m, List (Node, e))
---         acc (ml, ps) (node, el) = case lab g node of
---             Nothing => (ml, ps)
---             Just x  => case f2 el x ml of
---                     (MkMR False y) => (y, ps)
---                     (MkMR True y)  => (y, (node, el) :: ps)
+mapUtil f1 f2 g (n, neigh) = map (\x => foldl acc (x,[]) neigh) (f1 n)
+  where acc : (m, List (Node, e)) -> (Node, e) -> (m, List (Node, e))
+        acc (ml, ps) (node, el) = case lab g node of
+            Nothing => (ml, ps)
+            Just x  => case f2 el x ml of
+                    (MkMR False y) => (y, ps)
+                    (MkMR True y)  => (y, (node, el) :: ps)
+
 
 -- TODO: Nicole
 -- implement this by invoking `mapUtil`. Use `Data.AssocList.pairs` and `Data.AssocList.fromList`
 -- to convert from `AssocList e` to `List (Node,e)` and back.
 mapAdj : (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Adj e n -> Maybe (Adj e m)
--- mapAdj f1 f2 g (MkAdj label neighbours) =
+mapAdj f1 f2 g (MkAdj label neighbours) = case mapUtil f1 f2 g (label, pairs neighbours) of
+     Nothing       => Nothing
+     Just (lbl,ns) => Just (MkAdj lbl (AssocList.fromList ns))
 --   let (lbl,ns) := mapUtil f1 f2 g (label, pairs neighbours)
 --    in MkAdj lbl (AssocList.fromList ns)
 -- wäre es sinnvoll, wenn Klammer mit mapUtil in eigener Funktion steht? Z.B. mit let (lbl, ns) := ...
