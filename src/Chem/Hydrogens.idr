@@ -9,6 +9,7 @@ import Data.BitMap
 import Data.Graph
 import Data.String
 import Text.Smiles
+import Data.List
 
 %default total
 
@@ -68,8 +69,11 @@ import Text.Smiles
 -- note: c in ufold kann auch für einen Graph stehen
 
 
+--------------------------------------------------------------------------
 
------------------------------- Task --------------------------------------
+--------------------------- Explicit to Implicit -------------------------
+
+--------------------------------------------------------------------------
 
 -- define function (in general) with nothing to do with hydrogens.
 -- just how the edges and nodes are tested
@@ -137,35 +141,40 @@ initH x = Just (x,0)
 -- Use `merge` and define the two function arguments accordingly (see notes on
 -- paper)
 -- n -> m as a lambda
-noImplicitHs : Graph Bond Elem -> Graph Bond (Elem,Nat)
-noImplicitHs g = merge g initH explH
-
-
-
-toElem : Atom -> Elem
-toElem (SubsetAtom elem arom) = elem
-toElem (Bracket massNr elem isArom chirality hydrogens charge) = elem
-
-showPair : (Elem,Nat) -> String
-showPair (e,n) = symbol e ++ "[" ++ show n ++ "]"
-
--- run from project's root directory with: `pack exec src/Chem/Hydrogens.idr`
-covering
-main : IO ()
-main = do
-  putStr "please enter a SMILES code (q to quit): "
-  str <- trim <$> getLine
-  case str of
-    "q" => putStrLn "Goodbye!"
-    s   => case parse s of
-      Left (fc,e) =>  putStrLn (printParseError s fc e) >> main
-      Right mol   =>
-        let mol' := noImplicitHs (map toElem mol)
-         in putStrLn (pretty interpolate showPair mol') >> main
+noExplicitHs : Graph Bond Elem -> Graph Bond (Elem,Nat)
+noExplicitHs g = merge g initH explH
 
 
 
 
+
+
+
+
+--------------------------------------------------------------------------
+
+------------------------ Implicit to Explicit ----------------------------
+
+--------------------------------------------------------------------------
+newHydrogen : (Elem, Nat) -> List (Bond, Elem)
+newHydrogen (_, n) = replicate n (Sngl, H)
+-- function replicate
+
+foldNode : (m -> List (e, n)) -> Graph e m -> (List (Adj e n))
+foldNode f g = (foldlKV accList [] g.graph)
+  where accList : List (Adj e n) -> Node -> Adj e m -> List (Adj e n)
+        accList xs node x = map (\(ve, vn) => MkAdj vn (fromList [(node,ve)])) (f x.label) ++ xs
+-- Adjacency = MkAdj H (fromList [(Node,Sngl)])
+
+
+
+
+noImplicitHs : Graph Bond (Elem, Nat) -> Graph Bond Elem
+noImplicitHs g = map fst g
+
+
+test : Graph Bond Elem -> Graph Bond Elem
+test g = noImplicitHs (noExplicitHs g)
 
 -- Types:
 -- neighbours = List (Node, e)
@@ -178,10 +187,42 @@ main = do
 -- 2 Funktionen: 1. n -> m (n = label scrutinee)
 --               2. e -> n -> m -> MergeResults m (n = label neighbour, m = wird akkumuliert)
 
+toElem : Atom -> Elem
+toElem (SubsetAtom elem arom) = elem
+toElem (Bracket massNr elem isArom chirality hydrogens charge) = elem
+
+--showPair : (Elem,Nat) -> String
+--showPair (e,n) = symbol e ++ "[" ++ show n ++ "]"
+
+-- run from project's root directory with: `pack exec src/Chem/Hydrogens.idr`
+--covering
+--main : IO ()
+--main = do
+--  putStr "please enter a SMILES code (q to quit): "
+--  str <- trim <$> getLine
+--  case str of
+--    "q" => putStrLn "Goodbye!"
+--    s   => case parse s of
+--      Left (fc,e) =>  putStrLn (printParseError s fc e) >> main
+--      Right mol   =>
+--        let mol' := noExplicitHs (map toElem mol)
+--         in putStrLn (pretty interpolate showPair mol') >> main
 
 
+showPair : Elem -> String
+showPair e = symbol e
 
 
--- `delEdge` löscht ein Edge aus dem Graph (Edge -> Graph -> Graph)
-
+covering
+main : IO ()
+main = do
+  putStr "please enter a SMILES code (q to quit): "
+  str <- trim <$> getLine
+  case str of
+    "q" => putStrLn "Goodbye!"
+    s   => case parse s of
+      Left (fc,e) =>  putStrLn (printParseError s fc e) >> main
+      Right mol   =>
+       let mol' := test (map toElem mol)
+        in putStrLn (pretty interpolate showPair mol') >> main
 
