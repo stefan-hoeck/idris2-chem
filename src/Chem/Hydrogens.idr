@@ -156,9 +156,11 @@ noExplicitHs g = merge g initH explH
 ------------------------ Implicit to Explicit ----------------------------
 
 --------------------------------------------------------------------------
+-- create new pairs with bond label and hydrogen, amount of pairs depends
+-- on Nat
 newHydrogen : (Elem, Nat) -> List (Bond, Elem)
 newHydrogen (_, n) = replicate n (Sngl, H)
--- function replicate
+
 
 foldNode : (m -> List (e, n)) -> Graph e m -> (List (Adj e n))
 foldNode f g = (foldlKV accList [] g.graph)
@@ -169,12 +171,36 @@ foldNode f g = (foldlKV accList [] g.graph)
 
 
 
+-- starting value for Node
+startNode : Graph e m -> Node
+startNode g = foldl max 0 (nodes g) + 1
+
+-- transform Adj e n to Context e n by using
+-- MkContext nodeValue and given Adjacency
+newCtxt : Adj e n -> Bits32 -> Context e n
+newCtxt (MkAdj label neighbours) node = MkContext node label neighbours
+
+
+newCtxts : (Adj e n -> Bits32 -> Context e n) -> List (Adj e n) -> Bits32 -> List (Context e n)
+newCtxts fun Nil _ = Nil
+newCtxts fun (x :: xs) node = fun x node :: newCtxts fun xs (node+1)
+
+getCtxts : Graph e m -> (m -> List (e,n)) -> List (Context e n)
+getCtxts g f1 = newCtxts newCtxt (foldNode f1 g) (startNode g)
+-- f1 is here supposed to be newHydrogen
+
+
 noImplicitHs : Graph Bond (Elem, Nat) -> Graph Bond Elem
 noImplicitHs g = map fst g
 
 
 test : Graph Bond Elem -> Graph Bond Elem
 test g = noImplicitHs (noExplicitHs g)
+
+
+
+
+
 
 -- Types:
 -- neighbours = List (Node, e)
