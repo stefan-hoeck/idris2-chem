@@ -194,11 +194,16 @@ noImplicitHs : Graph Bond (Elem, Nat) -> Graph Bond Elem
 noImplicitHs g = map fst g
 
 
+
+-- merge new contexts and original graph
+expandGraph : Graph Bond (Elem, Nat) -> Graph Bond Elem
+expandGraph g = foldl addCtxt (noImplicitHs g) (getCtxts g newHydrogen)
+  where addCtxt : Graph e n -> Context e n -> Graph e n
+        addCtxt g x = add x g
+
+
 test : Graph Bond Elem -> Graph Bond Elem
-test g = noImplicitHs (noExplicitHs g)
-
-
-
+test g = expandGraph (noExplicitHs g)
 
 
 
