@@ -196,11 +196,17 @@ noImplicitHs g = map fst g
 
 
 -- merge new contexts and original graph
+--
+-- TODO: * Abstract over edge and node label types
+--       * Read idris2-hedgehog introduction and have a look
+--         at the chem test suite. Try to come up with one or
+--         more property tests for your algorithms.
+--       * Think of another application/use case of the the
+--         abstract versions of expandGraph and merge
 expandGraph : Graph Bond (Elem, Nat) -> Graph Bond Elem
 expandGraph g = foldl addCtxt (noImplicitHs g) (getCtxts g newHydrogen)
   where addCtxt : Graph e n -> Context e n -> Graph e n
         addCtxt g x = add x g
-
 
 test : Graph Bond Elem -> Graph Bond Elem
 test g = expandGraph (noExplicitHs g)
@@ -243,6 +249,8 @@ toElem (Bracket massNr elem isArom chirality hydrogens charge) = elem
 showPair : Elem -> String
 showPair e = symbol e
 
+toPair : Atom Chirality -> (Elem,Nat)
+toPair a = (a.elem, cast a.hydrogen)
 
 covering
 main : IO ()
@@ -251,9 +259,10 @@ main = do
   str <- trim <$> getLine
   case str of
     "q" => putStrLn "Goodbye!"
-    s   => case parse s of
-      Left (fc,e) =>  putStrLn (printParseError s fc e) >> main
-      Right mol   =>
-       let mol' := test (map toElem mol)
+    s   => case graphWithH <$> parse s of
+      Left (fc,e)      =>  putStrLn (printParseError s fc e) >> main
+      Right Nothing    =>  putStrLn "Implicit H detection failed"
+      Right (Just mol) =>
+       let mol' := expandGraph (map toPair mol)
         in putStrLn (pretty interpolate showPair mol') >> main
 

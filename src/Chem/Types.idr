@@ -178,6 +178,10 @@ record HCount where
   value : Bits8
   {auto 0 prf : value < 10}
 
+export
+Cast HCount Nat where
+  cast = cast . value
+
 export %inline
 Interpolation HCount where
   interpolate = show . value
