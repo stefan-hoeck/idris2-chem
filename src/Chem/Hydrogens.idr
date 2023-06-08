@@ -116,8 +116,9 @@ mapAdj f1 f2 g (MkAdj label neighbours) = case mapUtil f1 f2 g (label, pairs nei
 
 -- TODO: Nicole
 -- use `gmap` and `mapCtxt` here
-merge : Graph e n -> (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e m
-merge g f1 f2 = MkGraph $ mapMaybe (mapAdj f1 f2 g) g.graph
+public export
+collapseGraph : Graph e n -> (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e m
+collapseGraph g f1 f2 = MkGraph $ mapMaybe (mapAdj f1 f2 g) g.graph
 
 
 
@@ -125,10 +126,12 @@ merge g f1 f2 = MkGraph $ mapMaybe (mapAdj f1 f2 g) g.graph
 -- MergeResults will show false if the neighbour is a hydrogen bound by a
 -- single bond and the count will be increased by one. MergeResults will
 -- show true if neighbour is any other element and count doesn't change
+public export
 explH : Bond -> Elem -> (Elem, Nat) -> MergeResults (Elem, Nat)
 explH Sngl H (elem, n) = MkMR False (elem, n+1)
 explH _    _ (elem, n) = MkMR True (elem, n)
 
+public export
 initH : Elem -> Maybe (Elem,Nat)
 initH H = Nothing
 initH x = Just (x,0)
@@ -141,8 +144,9 @@ initH x = Just (x,0)
 -- Use `merge` and define the two function arguments accordingly (see notes on
 -- paper)
 -- n -> m as a lambda
+public export
 noExplicitHs : Graph Bond Elem -> Graph Bond (Elem,Nat)
-noExplicitHs g = merge g initH explH
+noExplicitHs g = collapseGraph g initH explH
 
 
 
@@ -156,42 +160,34 @@ noExplicitHs g = merge g initH explH
 ------------------------ Implicit to Explicit ----------------------------
 
 --------------------------------------------------------------------------
--- create new pairs with bond label and hydrogen, amount of pairs depends
--- on Nat
-newHydrogen : (Elem, Nat) -> List (Bond, Elem)
-newHydrogen (_, n) = replicate n (Sngl, H)
-
-
+-- create new list of adjacencies from given graph
+public export
 foldNode : (m -> List (e, n)) -> Graph e m -> (List (Adj e n))
 foldNode f g = (foldlKV accList [] g.graph)
   where accList : List (Adj e n) -> Node -> Adj e m -> List (Adj e n)
         accList xs node x = map (\(ve, vn) => MkAdj vn (fromList [(node,ve)])) (f x.label) ++ xs
--- Adjacency = MkAdj H (fromList [(Node,Sngl)])
-
-
 
 
 -- starting value for Node
+public export
 startNode : Graph e m -> Node
 startNode g = foldl max 0 (nodes g) + 1
 
 -- transform Adj e n to Context e n by using
 -- MkContext nodeValue and given Adjacency
+public export
 newCtxt : Adj e n -> Bits32 -> Context e n
 newCtxt (MkAdj label neighbours) node = MkContext node label neighbours
 
-
+public export
 newCtxts : (Adj e n -> Bits32 -> Context e n) -> List (Adj e n) -> Bits32 -> List (Context e n)
 newCtxts fun Nil _ = Nil
 newCtxts fun (x :: xs) node = fun x node :: newCtxts fun xs (node+1)
 
+public export
 getCtxts : Graph e m -> (m -> List (e,n)) -> List (Context e n)
 getCtxts g f1 = newCtxts newCtxt (foldNode f1 g) (startNode g)
 -- f1 is here supposed to be newHydrogen
-
-
-noImplicitHs : Graph Bond (Elem, Nat) -> Graph Bond Elem
-noImplicitHs g = map fst g
 
 
 
@@ -203,13 +199,26 @@ noImplicitHs g = map fst g
 --         more property tests for your algorithms.
 --       * Think of another application/use case of the the
 --         abstract versions of expandGraph and merge
-expandGraph : Graph Bond (Elem, Nat) -> Graph Bond Elem
-expandGraph g = foldl addCtxt (noImplicitHs g) (getCtxts g newHydrogen)
+--       -> stereochemistry? Für Keil-Strich-Formel expandieren
+--          oder wenn es egal ist, dann collapse?
+public export
+expandGraph : Graph e m -> (m -> n) -> (m -> List (e,n)) -> Graph e n
+expandGraph g f1 f2 = foldl addCtxt (map f1 g) (getCtxts g f2)
   where addCtxt : Graph e n -> Context e n -> Graph e n
         addCtxt g x = add x g
 
-test : Graph Bond Elem -> Graph Bond Elem
-test g = expandGraph (noExplicitHs g)
+
+
+-- create new pairs with bond label and hydrogen, amount of pairs depends
+-- on Nat
+public export
+newHydrogen : (Elem, Nat) -> List (Bond, Elem)
+newHydrogen (_, n) = replicate n (Sngl, H)
+
+
+public export
+testExpand : Graph Bond (Elem, Nat) -> Graph Bond Elem
+testExpand g = expandGraph g fst newHydrogen
 
 
 
@@ -228,6 +237,7 @@ toElem : Atom -> Elem
 toElem (SubsetAtom elem arom) = elem
 toElem (Bracket massNr elem isArom chirality hydrogens charge) = elem
 
+------------------- test explicit to implicit -------------------------------
 --showPair : (Elem,Nat) -> String
 --showPair (e,n) = symbol e ++ "[" ++ show n ++ "]"
 
@@ -245,7 +255,26 @@ toElem (Bracket massNr elem isArom chirality hydrogens charge) = elem
 --        let mol' := noExplicitHs (map toElem mol)
 --         in putStrLn (pretty interpolate showPair mol') >> main
 
+------------------- test explicit to implicit to explicit -------------------
+--showPair : Elem -> String
+--showPair e = symbol e
 
+
+--covering
+--main : IO ()
+--main = do
+--  putStr "please enter a SMILES code (q to quit): "
+--  str <- trim <$> getLine
+--  case str of
+--    "q" => putStrLn "Goodbye!"
+--    s   => case parse s of
+--      Left (fc,e) =>  putStrLn (printParseError s fc e) >> main
+--      Right mol   =>
+--        let mol' := testExpand (noExplicitHs (map toElem mol))
+--         in putStrLn (pretty interpolate showPair mol') >> main
+
+
+------------------- test implicit to explicit -------------------------------
 showPair : Elem -> String
 showPair e = symbol e
 
@@ -263,6 +292,6 @@ main = do
       Left (fc,e)      =>  putStrLn (printParseError s fc e) >> main
       Right Nothing    =>  putStrLn "Implicit H detection failed"
       Right (Just mol) =>
-       let mol' := expandGraph (map toPair mol)
+       let mol' := testExpand (map toPair mol)
         in putStrLn (pretty interpolate showPair mol') >> main
 
