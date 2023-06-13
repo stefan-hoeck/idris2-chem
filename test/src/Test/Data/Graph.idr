@@ -21,7 +21,7 @@ toNodes = go 0 Nil
 export
 edge :
      (upperBound : Node)
-  -> {auto 0 p : 0 < upperBound}
+  -> {auto 0 p : 1 < upperBound}
   -> (lbl : Gen e)
   -> Gen (LEdge e)
 edge ub lbl =
@@ -29,7 +29,7 @@ edge ub lbl =
    in [| toEdge gnode gnode lbl |]
   where
     toEdge : Node -> Node -> e -> LEdge e
-    toEdge k j l = MkLEdge (fromMaybe (MkEdge 0 ub p) (mkEdge k j)) l
+    toEdge k j l = MkLEdge (fromMaybe (MkEdge 0 1 %search) (mkEdge k j)) l
 
 export
 edges :
@@ -37,7 +37,7 @@ edges :
   -> (nrEdges    : Hedgehog.Range Nat)
   -> (label      : Gen e)
   -> Gen (List $ LEdge e)
-edges ub nr lbl = case lt 0 ub of
+edges ub nr lbl = case lt 1 ub of
   Just0 _  => list nr (edge ub lbl)
   Nothing0 => pure []
 
