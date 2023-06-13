@@ -10,6 +10,8 @@ import Hedgehog
 
 
 pair : Gen (Elem,Nat)
+pair = [| MkPair element (nat $ linear 0 10) |]
+
 --pair = element $  map (,0) ?something
 --               ++ map (,1) ?something2
 --               ++ map (,2) ?something3
@@ -29,4 +31,11 @@ graph = lgraph (linear 0 50) (linear 0 50) bond pair
 -- Graph vorher und nachher vergleichen
 prop_expand_roundTrip : Property
 prop_expand_roundTrip =
-  property . ?hole $ \g => noExplicitHs (testExpand g) === g
+  property $ do
+    g <- forAll graph
+    noExplicitHs (testExpand g) === g
+
+export
+props : Group
+props = MkGroup "Hydrogen Properties"
+  [ ("prop_expand_roundTrip", prop_expand_roundTrip) ]

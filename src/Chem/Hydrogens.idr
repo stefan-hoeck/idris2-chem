@@ -93,8 +93,13 @@ record MergeResults m where
 -- 2. iterieren über Liste List (Node, e) -> für jeden Node ein Label
 -- 3. mit diesem Label 2. Funktion aufrufen (e -> ...) mit edge label, node label, akkumulierter Node = MergeResults m
 -- bei Rekursion label m mitführen, List (Node, e), weil sie angepasst wird
-mapUtil : (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> (n, List (Node, e)) -> Maybe (m, List (Node, e))
-mapUtil f1 f2 g (n, neigh) = map (\x => foldl acc (x,[]) neigh) (f1 n)
+mapUtil :
+     Maybe m
+  -> (e -> n -> m -> MergeResults m)
+  -> Graph e n
+  -> (n, List (Node, e))
+  -> Maybe (m, List (Node, e))
+mapUtil mm f2 g (n, neigh) = map (\x => foldl acc (x,[]) neigh) mm
   where acc : (m, List (Node, e)) -> (Node, e) -> (m, List (Node, e))
         acc (ml, ps) (node, el) = case lab g node of
             Nothing => (ml, ps)
@@ -106,8 +111,13 @@ mapUtil f1 f2 g (n, neigh) = map (\x => foldl acc (x,[]) neigh) (f1 n)
 -- TODO: Nicole
 -- implement this by invoking `mapUtil`. Use `Data.AssocList.pairs` and `Data.AssocList.fromList`
 -- to convert from `AssocList e` to `List (Node,e)` and back.
-mapAdj : (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e n -> Adj e n -> Maybe (Adj e m)
-mapAdj f1 f2 g (MkAdj label neighbours) = case mapUtil f1 f2 g (label, pairs neighbours) of
+mapAdj :
+     (Adj e n -> Maybe m)
+  -> (e -> n -> m -> MergeResults m)
+  -> Graph e n
+  -> Adj e n
+  -> Maybe (Adj e m)
+mapAdj f1 f2 g adj@(MkAdj label neighbours) = case mapUtil (f1 adj) f2 g (label, pairs neighbours) of
      Nothing       => Nothing
      Just (lbl,ns) => Just (MkAdj lbl (AssocList.fromList ns))
 --   let (lbl,ns) := mapUtil f1 f2 g (label, pairs neighbours)
@@ -117,7 +127,11 @@ mapAdj f1 f2 g (MkAdj label neighbours) = case mapUtil f1 f2 g (label, pairs nei
 -- TODO: Nicole
 -- use `gmap` and `mapCtxt` here
 public export
-collapseGraph : Graph e n -> (n -> Maybe m) -> (e -> n -> m -> MergeResults m) -> Graph e m
+collapseGraph :
+     Graph e n
+  -> (Adj e n -> Maybe m)
+  -> (e -> n -> m -> MergeResults m)
+  -> Graph e m
 collapseGraph g f1 f2 = MkGraph $ mapMaybe (mapAdj f1 f2 g) g.graph
 
 
@@ -132,9 +146,14 @@ explH Sngl H (elem, n) = MkMR False (elem, n+1)
 explH _    _ (elem, n) = MkMR True (elem, n)
 
 public export
-initH : Elem -> Maybe (Elem,Nat)
-initH H = Nothing
-initH x = Just (x,0)
+initH : Graph Bond Elem -> Adj Bond Elem -> Maybe (Elem,Nat)
+initH g (MkAdj H (MkAL [(k,Sngl)])) = case lab g k of
+  Just H => Just (H,0)
+  _      => Nothing
+initH g (MkAdj x _) = Just (x,0)
+
+-- initH H = Nothing
+-- initH x = Just (x,0)
 
 -- hier wird nur ein Weg einer Bindung beachtet also z.B. von H nach C
 -- dann ist im Pattern Match Sngl C -> True
@@ -146,7 +165,7 @@ initH x = Just (x,0)
 -- n -> m as a lambda
 public export
 noExplicitHs : Graph Bond Elem -> Graph Bond (Elem,Nat)
-noExplicitHs g = collapseGraph g initH explH
+noExplicitHs g = collapseGraph g (initH g) explH
 
 
 
@@ -164,6 +183,10 @@ noExplicitHs g = collapseGraph g initH explH
 public export
 foldNode : (m -> List (e, n)) -> Graph e m -> (List (Adj e n))
 foldNode f g = (foldlKV accList [] g.graph)
+  -- TODO : Use `SnocList` for the first argument.
+  -- At the REPL: Use `:doc SnocList` to see the available data constructors.
+  -- Use `(<>>)` to convert a `SnocList` to a `List`.
+  -- Use `(<><)` to append a `List` to a `SnocList`
   where accList : List (Adj e n) -> Node -> Adj e m -> List (Adj e n)
         accList xs node x = map (\(ve, vn) => MkAdj vn (fromList [(node,ve)])) (f x.label) ++ xs
 
