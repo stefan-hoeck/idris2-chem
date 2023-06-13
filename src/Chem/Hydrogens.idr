@@ -238,22 +238,22 @@ toElem (SubsetAtom elem arom) = elem
 toElem (Bracket massNr elem isArom chirality hydrogens charge) = elem
 
 ------------------- test explicit to implicit -------------------------------
---showPair : (Elem,Nat) -> String
---showPair (e,n) = symbol e ++ "[" ++ show n ++ "]"
+showPair : (Elem,Nat) -> String
+showPair (e,n) = symbol e ++ "[" ++ show n ++ "]"
 
 -- run from project's root directory with: `pack exec src/Chem/Hydrogens.idr`
---covering
---main : IO ()
---main = do
---  putStr "please enter a SMILES code (q to quit): "
---  str <- trim <$> getLine
---  case str of
---    "q" => putStrLn "Goodbye!"
---    s   => case parse s of
---      Left (fc,e) =>  putStrLn (printParseError s fc e) >> main
---      Right mol   =>
---        let mol' := noExplicitHs (map toElem mol)
---         in putStrLn (pretty interpolate showPair mol') >> main
+covering
+main : IO ()
+main = do
+  putStr "please enter a SMILES code (q to quit): "
+  str <- trim <$> getLine
+  case str of
+    "q" => putStrLn "Goodbye!"
+    s   => case parse s of
+      Left (fc,e) =>  putStrLn (printParseError s fc e) >> main
+      Right mol   =>
+        let mol' := noExplicitHs (map toElem mol)
+         in putStrLn (pretty interpolate showPair mol') >> main
 
 ------------------- test explicit to implicit to explicit -------------------
 --showPair : Elem -> String
@@ -275,23 +275,23 @@ toElem (Bracket massNr elem isArom chirality hydrogens charge) = elem
 
 
 ------------------- test implicit to explicit -------------------------------
-showPair : Elem -> String
-showPair e = symbol e
+--showPair : Elem -> String
+--showPair e = symbol e
 
-toPair : Atom Chirality -> (Elem,Nat)
-toPair a = (a.elem, cast a.hydrogen)
+--toPair : Atom Chirality -> (Elem,Nat)
+--toPair a = (a.elem, cast a.hydrogen)
 
-covering
-main : IO ()
-main = do
-  putStr "please enter a SMILES code (q to quit): "
-  str <- trim <$> getLine
-  case str of
-    "q" => putStrLn "Goodbye!"
-    s   => case graphWithH <$> parse s of
-      Left (fc,e)      =>  putStrLn (printParseError s fc e) >> main
-      Right Nothing    =>  putStrLn "Implicit H detection failed"
-      Right (Just mol) =>
-       let mol' := testExpand (map toPair mol)
-        in putStrLn (pretty interpolate showPair mol') >> main
+--covering
+--main : IO ()
+--main = do
+--  putStr "please enter a SMILES code (q to quit): "
+--  str <- trim <$> getLine
+--  case str of
+--    "q" => putStrLn "Goodbye!"
+--    s   => case graphWithH <$> parse s of
+--      Left (fc,e)      =>  putStrLn (printParseError s fc e) >> main
+--      Right Nothing    =>  putStrLn "Implicit H detection failed"
+--      Right (Just mol) =>
+--       let mol' := testExpand (map toPair mol)
+--        in putStrLn (pretty interpolate showPair mol') >> main
 
