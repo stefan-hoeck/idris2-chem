@@ -33,7 +33,7 @@ prop_expand_roundTrip : Property
 prop_expand_roundTrip =
   property $ do
     g <- forAll graph
-    noExplicitHs (testExpand g) === g
+    noExplicitHs (noImplicitHs g) === g
 
 export
 props : Group

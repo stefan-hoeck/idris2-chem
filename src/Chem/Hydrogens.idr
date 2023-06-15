@@ -13,61 +13,6 @@ import Data.List
 
 %default total
 
----------------------------------- Notes ---------------------------------
-
------- Existing types
-
--- HCount (= Bits8; <10), Elem (= all elements),
-
--- Graph: Node, Edge, LNode, LEdge
--- Adj: with node label and AssocList e
--- Context: Node + node label + AssocList e
--- AssocList (= List of neighbours and labels of edges)
-
--- Atom is not imported yet!!
--- Atom a (in Atom.idr) (= record with Elem, arom (Bool), Maybe massNr -> Nothing = natürlicher mix, Just = Isotop,
---                       charge, label a, hydrogen (HCount)
--- No information should be lost like charge, isotope, single bond
-
-
------- Necessary types
-
----- With explicit hydrogen atoms:
--- Graph with edge labels and node labels
--- Elem as it is (with H) -> do we have a function that reads the nodes
--- and makes it type element?
-
----- for the transformation I need:
--- List of all nodes that are hydrogen atoms (only Nat, label not needed)
--- or is it needed for control?
--- List of all edges between all Hydrogens and another atom
--- (to know what to delete)
--- Number of neighbouring H atoms of a node (not an H)
--- Function that changes element into a new type (atom?) which has space
--- for a hydrogen count -> might need a test that it's not H to avoid
--- errors?
--- Then I can write element in new type with hydrogen count,
--- then delete H and edges between H and other atom
-
-
-
-
----- with implicit hydrogen atoms:
--- new Type like Elem, but shouldn't include H to avoid errors
--- is the type Atom needed here? Because we have the value hydrogen
---
-
-
-
-
--- notes:
--- gmap
--- alternative mit fold Graph traversieren, dabei sammeln, welche Knoten gelöscht werden müssen
-
--- dann überlegen, was kann man mit ufold und gmap machen. Wie löschen wir Nodes, brauchen wir noch mehr Infos
--- wie bauen wir Graph am Schluss auf?
--- note: c in ufold kann auch für einen Graph stehen
-
 
 --------------------------------------------------------------------------
 
@@ -81,7 +26,7 @@ import Data.List
 
 
 
--- Define record whether to merge results
+-- Define record whether to merge results into graph
 record MergeResults m where
   constructor MkMR
   keepNeigh : Bool
@@ -89,10 +34,8 @@ record MergeResults m where
 
 
 
--- 1. scrutinee label in m umwandeln
--- 2. iterieren über Liste List (Node, e) -> für jeden Node ein Label
--- 3. mit diesem Label 2. Funktion aufrufen (e -> ...) mit edge label, node label, akkumulierter Node = MergeResults m
--- bei Rekursion label m mitführen, List (Node, e), weil sie angepasst wird
+-- map over new node labels by applying f2 and deleting all nodes which
+-- fullfill the deleting criterion
 mapUtil :
      Maybe m
   -> (e -> n -> m -> MergeResults m)
@@ -108,9 +51,8 @@ mapUtil mm f2 g (n, neigh) = map (\x => foldl acc (x,[]) neigh) mm
                     (MkMR True y)  => (y, (node, el) :: ps)
 
 
--- TODO: Nicole
--- implement this by invoking `mapUtil`. Use `Data.AssocList.pairs` and `Data.AssocList.fromList`
--- to convert from `AssocList e` to `List (Node,e)` and back.
+-- Generate an Adjacency of a Node by using mapUtil and change node label
+-- with f1
 mapAdj :
      (Adj e n -> Maybe m)
   -> (e -> n -> m -> MergeResults m)
@@ -120,12 +62,12 @@ mapAdj :
 mapAdj f1 f2 g adj@(MkAdj label neighbours) = case mapUtil (f1 adj) f2 g (label, pairs neighbours) of
      Nothing       => Nothing
      Just (lbl,ns) => Just (MkAdj lbl (AssocList.fromList ns))
---   let (lbl,ns) := mapUtil f1 f2 g (label, pairs neighbours)
---    in MkAdj lbl (AssocList.fromList ns)
--- wäre es sinnvoll, wenn Klammer mit mapUtil in eigener Funktion steht? Z.B. mit let (lbl, ns) := ...
 
--- TODO: Nicole
--- use `gmap` and `mapCtxt` here
+
+
+-- Collapse a graph by calling mapAdj and therefore mapUtil
+-- f1 defines how to change the node label and f2 defines the criteria
+-- of how to collapse the graph
 public export
 collapseGraph :
      Graph e n
@@ -137,14 +79,18 @@ collapseGraph g f1 f2 = MkGraph $ mapMaybe (mapAdj f1 f2 g) g.graph
 
 
 
--- MergeResults will show false if the neighbour is a hydrogen bound by a
--- single bond and the count will be increased by one. MergeResults will
--- show true if neighbour is any other element and count doesn't change
+-- MergeResults will show False if the neighbour is a hydrogen bound by a
+-- single bond. The count will be increased by one and the node will be
+-- deleted. In all other cases, MergeResults will show True and the node
+-- will be kept.
 public export
 explH : Bond -> Elem -> (Elem, Nat) -> MergeResults (Elem, Nat)
 explH Sngl H (elem, n) = MkMR False (elem, n+1)
 explH _    _ (elem, n) = MkMR True (elem, n)
 
+
+-- The node label is changed to a pair of an element and a natural number
+-- as an indicator of how many neighbouring nodes have been deleted
 public export
 initH : Graph Bond Elem -> Adj Bond Elem -> Maybe (Elem,Nat)
 initH g (MkAdj H (MkAL [(k,Sngl)])) = case lab g k of
@@ -152,22 +98,12 @@ initH g (MkAdj H (MkAL [(k,Sngl)])) = case lab g k of
   _      => Nothing
 initH g (MkAdj x _) = Just (x,0)
 
--- initH H = Nothing
--- initH x = Just (x,0)
 
--- hier wird nur ein Weg einer Bindung beachtet also z.B. von H nach C
--- dann ist im Pattern Match Sngl C -> True
-
-
--- TODO: Nicole
--- Use `merge` and define the two function arguments accordingly (see notes on
--- paper)
--- n -> m as a lambda
+-- Specific case to collaps graph and convert all explicit hydrogen atoms
+-- into implicit ones
 public export
 noExplicitHs : Graph Bond Elem -> Graph Bond (Elem,Nat)
 noExplicitHs g = collapseGraph g (initH g) explH
-
-
 
 
 
@@ -179,51 +115,53 @@ noExplicitHs g = collapseGraph g (initH g) explH
 ------------------------ Implicit to Explicit ----------------------------
 
 --------------------------------------------------------------------------
--- create new list of adjacencies from given graph
+-- Create new list of adjacencies from given graph
 public export
 foldNode : (m -> List (e, n)) -> Graph e m -> (List (Adj e n))
-foldNode f g = (foldlKV accList [] g.graph)
+foldNode f g = (<>>) (foldlKV accList Lin g.graph) []
   -- TODO : Use `SnocList` for the first argument.
   -- At the REPL: Use `:doc SnocList` to see the available data constructors.
   -- Use `(<>>)` to convert a `SnocList` to a `List`.
   -- Use `(<><)` to append a `List` to a `SnocList`
-  where accList : List (Adj e n) -> Node -> Adj e m -> List (Adj e n)
-        accList xs node x = map (\(ve, vn) => MkAdj vn (fromList [(node,ve)])) (f x.label) ++ xs
+  where accList : SnocList (Adj e n) -> Node -> Adj e m -> SnocList (Adj e n)
+        accList xs node x = (<><) xs $ map (\(ve, vn) => MkAdj vn (fromList [(node,ve)])) (f x.label)
 
 
--- starting value for Node
+-- Starting value for new Node
 public export
 startNode : Graph e m -> Node
 startNode g = foldl max 0 (nodes g) + 1
 
--- transform Adj e n to Context e n by using
--- MkContext nodeValue and given Adjacency
+-- Convert Adjacency to Context by using
+-- MkContext, new node value and given Adjacency
 public export
 newCtxt : Adj e n -> Bits32 -> Context e n
 newCtxt (MkAdj label neighbours) node = MkContext node label neighbours
 
+-- Convert List of Adjacencies to a List of Contexts by using newCtxt.
+-- Every Node gets a new Bits32 value
 public export
-newCtxts : (Adj e n -> Bits32 -> Context e n) -> List (Adj e n) -> Bits32 -> List (Context e n)
-newCtxts fun Nil _ = Nil
-newCtxts fun (x :: xs) node = fun x node :: newCtxts fun xs (node+1)
+newCtxts : List (Adj e n) -> Bits32 -> List (Context e n)
+newCtxts Nil _ = Nil
+newCtxts (x :: xs) node = newCtxt x node :: newCtxts xs (node+1)
 
+-- Given a Graph with implicit Nodes and a function f1, getCtxts creates
+-- a List of new Contexts
 public export
 getCtxts : Graph e m -> (m -> List (e,n)) -> List (Context e n)
-getCtxts g f1 = newCtxts newCtxt (foldNode f1 g) (startNode g)
--- f1 is here supposed to be newHydrogen
+getCtxts g f1 = newCtxts (foldNode f1 g) (startNode g)
 
 
 
 -- merge new contexts and original graph
 --
--- TODO: * Abstract over edge and node label types
---       * Read idris2-hedgehog introduction and have a look
---         at the chem test suite. Try to come up with one or
---         more property tests for your algorithms.
---       * Think of another application/use case of the the
+-- TODO: * Think of another application/use case of the the
 --         abstract versions of expandGraph and merge
 --       -> stereochemistry? Für Keil-Strich-Formel expandieren
 --          oder wenn es egal ist, dann collapse?
+
+-- Expand Graph by creating new Contexts and adding them to the original
+-- Graph
 public export
 expandGraph : Graph e m -> (m -> n) -> (m -> List (e,n)) -> Graph e n
 expandGraph g f1 f2 = foldl addCtxt (map f1 g) (getCtxts g f2)
@@ -231,17 +169,17 @@ expandGraph g f1 f2 = foldl addCtxt (map f1 g) (getCtxts g f2)
         addCtxt g x = add x g
 
 
-
--- create new pairs with bond label and hydrogen, amount of pairs depends
+-- Create new pairs with bond label and hydrogen, amount of pairs depends
 -- on Nat
 public export
 newHydrogen : (Elem, Nat) -> List (Bond, Elem)
 newHydrogen (_, n) = replicate n (Sngl, H)
 
 
+--
 public export
-testExpand : Graph Bond (Elem, Nat) -> Graph Bond Elem
-testExpand g = expandGraph g fst newHydrogen
+noImplicitHs : Graph Bond (Elem, Nat) -> Graph Bond Elem
+noImplicitHs g = expandGraph g fst newHydrogen
 
 
 
@@ -293,7 +231,7 @@ main = do
 --    s   => case parse s of
 --      Left (fc,e) =>  putStrLn (printParseError s fc e) >> main
 --      Right mol   =>
---        let mol' := testExpand (noExplicitHs (map toElem mol))
+--        let mol' := noImplicitHs (noExplicitHs (map toElem mol))
 --         in putStrLn (pretty interpolate showPair mol') >> main
 
 
@@ -315,6 +253,6 @@ main = do
 --      Left (fc,e)      =>  putStrLn (printParseError s fc e) >> main
 --      Right Nothing    =>  putStrLn "Implicit H detection failed"
 --      Right (Just mol) =>
---       let mol' := testExpand (map toPair mol)
+--       let mol' := noImplicitHs (map toPair mol)
 --        in putStrLn (pretty interpolate showPair mol') >> main
 
