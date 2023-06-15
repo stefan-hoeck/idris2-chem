@@ -8,9 +8,11 @@ import Test.Text.Smiles.Generators
 
 import Hedgehog
 
+notH : Gen Elem
+notH = map (\x => if x == H then C else x) element
 
 pair : Gen (Elem,Nat)
-pair = [| MkPair element (nat $ linear 0 10) |]
+pair = [| MkPair notH (nat $ linear 0 10) |]
 
 --pair = element $  map (,0) ?something
 --               ++ map (,1) ?something2

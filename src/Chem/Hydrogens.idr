@@ -142,6 +142,7 @@ collapseGraph g f1 f2 = MkGraph $ mapMaybe (mapAdj f1 f2 g) g.graph
 -- show true if neighbour is any other element and count doesn't change
 public export
 explH : Bond -> Elem -> (Elem, Nat) -> MergeResults (Elem, Nat)
+explH _    H (H, n)    = MkMR True (H, n)
 explH Sngl H (elem, n) = MkMR False (elem, n+1)
 explH _    _ (elem, n) = MkMR True (elem, n)
 
