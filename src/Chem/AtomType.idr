@@ -59,66 +59,70 @@ hCountToBonds h = BS (cast h.value) 0 0
 
 ||| Syntax: element_(std.valence)_hybridisation_aromaticity_charge_radical_specials
 public export
-data AtomType =
-  C_sp3                |
-  C_sp2                |
-  C_sp2_carbonyl       |
-  C_sp2_carboxyl       |
-  C_sp2_arom           | --
-  C_sp_allene          |
-  C_sp                 |
-  C_sp2_radical        |
-  C_sp_radical         |
-  C_planar_radical     |
-  C_sp2_diradical      |
-  C_sp3_diradical      |
-  C_planar_plus        |
-  C_sp2_plus           |
-  C_sp2_arom_plus      |
-  C_sp_plus            |
-  C_planar_minus       |
-  C_sp2_minus          |
-  C_sp2_arom_minus     |
-  C_sp_minus           |
-  H_sgl                |
-  H_plus               |
-  H_minus              |
-  O_sp3                | --...
-  O_sp3_hydroxyl       | --
-  O_sp2                | --...
-  O_sp2_hydroxyl       | --...
-  O_sp2_snglB          | -- temporary for benzole ethers and so on
-  O_sp2_phenol         | --
-  O_sp2_carbonyl       | --
-  O_sp2_arom           | --
-  O_sp3_radical        |
-  O_sp3_plus           |
-  O_sp2_plus           |
-  O_sp_plus            |
-  O_sp3_plus_radical   |
-  O_sp2_plus_radical   |
-  O_sp2_minus          |
-  O_sp3_minus          |
-  O_sp3_minus2         |
-  S_2_sp3              |
-  S_2_sp2              |
-  S_6_sp3d2_anyl       |
-  S_4_sp2_inyl         |
-  S_4_sp2              |
-  S_4_planar3_oxide    |
-  S_6_sp3d2_octahedral |
-  S_6_sp3d1            |
-  S_6_sp3              |
-  S_6_sp3_thionyl      |
-  S_6_sp3_onyl         |
-  S_6_sp2_trioxide     |
-  S_2_planar3          |
-  S_4_sp2_arom_inyl2   |
-  S_6_sp2_plus         |
-  S_4_sp2_plus         |
-  S_4_sp3_plus2        |
-  S_2_sp3_minus        |
-  S_2_minus2
+data AtomType =          -- Tested | Comment
+  C_sp3                | -- [ ]
+  C_sp2                | -- [ ]
+  C_carbonyl           | -- [ ]
+  C_carboxyl           | -- [ ]
+  C_sp2_arom           | -- [x]
+  C_sp_allene          | -- [ ]
+  C_sp                 | -- [ ]
+  C_sp2_radical        | -- [ ]
+  C_sp_radical         | -- [ ]
+  C_planar_radical     | -- [ ]
+  C_sp2_diradical      | -- [ ]
+  C_sp3_diradical      | -- [ ]
+  C_planar_plus        | -- [ ]
+  C_sp2_plus           | -- [ ]
+  C_sp2_arom_plus      | -- [ ]
+  C_sp_plus            | -- [ ]
+  C_planar_minus       | -- [ ]
+  C_sp2_minus          | -- [ ]
+  C_sp2_arom_minus     | -- [ ]
+  C_sp_minus           | -- [ ]
+  H_sgl                | -- [ ]
+  H_plus               | -- [ ]
+  H_minus              | -- [ ]
+
+  O_sp3                | -- [x] represents ethers
+  O_sp3_hydroxyl       | -- [x]
+  O_sp3_hydroxyl_plus  | -- [x]
+  O_sp2                | -- [x]
+  O_sp2_hydroxyl       | -- [x]
+  O_sp2_hydroxyl_plus  | -- [x] triggers only if a C_sp2 is present as neighbour
+  O_sp2_snglB          | -- [x] temporary for benzole ethers and so on
+  O_sp2_phenol         | -- [x]
+  O_carbonyl           | -- [x]
+  O_carbonyl_plus      | -- [x]
+  O_sp2_arom           | -- [x]
+  O_sp3_radical        | -- [x]
+  O_sp2_radical        | -- [x]
+  O_sp3_plus           | -- [x]
+  O_sp2_plus           | -- [x]
+  O_sp_plus            | -- [x]
+  O_plus_radical       | -- [ ]  not found a valid SMILES-string
+  O_sp2_minus          | -- [x]  triggers only if a C_sp2 is present as neighbour
+  O_sp3_minus          | -- [x]
+
+  S_2_sp3              | -- [ ]
+  S_2_sp2              | -- [ ]
+  S_6_sp3d2_anyl       | -- [ ]
+  S_4_sp2_inyl         | -- [ ]
+  S_4_sp2              | -- [ ]
+  S_4_planar3_oxide    | -- [ ]
+  S_6_sp3d2_octahedral | -- [ ]
+  S_6_sp3d1            | -- [ ]
+  S_6_sp3              | -- [ ]
+  S_6_sp3_thionyl      | -- [ ]
+  S_6_sp3_onyl         | -- [ ]
+  S_6_sp2_trioxide     | -- [ ]
+  S_2_planar3          | -- [ ]
+  S_4_sp2_arom_inyl2   | -- [ ]
+  S_6_sp2_plus         | -- [ ]
+  S_4_sp2_plus         | -- [ ]
+  S_4_sp3_plus2        | -- [ ]
+  S_2_sp3_minus        | -- [ ]
+  S_2_minus2             -- [ ]
 
 %runElab derive "AtomType" [Show,Eq,Ord]
 
@@ -178,10 +182,8 @@ atomTypes = [
   (AA O False 1    (BS 3 0 0), O_sp3_plus),
   (AA O False 1    (BS 1 1 0), O_sp2_plus),
   (AA O False 1    (BS 0 0 1), O_sp_plus),
-  (AA O False 1    (BS 2 0 0), O_sp3_plus_radical),
-  (AA O False 1    (BS 0 1 0), O_sp2_plus_radical),
+  (AA O False 1    (BS 0 0 0), O_plus_radical),
   (AA O False (-1) (BS 1 0 0), O_sp3_minus),
-  (AA O False (-2) (BS 0 0 0), O_sp3_minus2),
 
   -- Sulfur
   (AA S False 0    (BS 2 0 0), S_2_sp3),
@@ -242,11 +244,17 @@ parameters (n    : Node)
   refine C_sp           =
     if doubleTo C == 2 then C_sp_allene else C_sp
   refine C_sp2          =
-    if doubleTo O == 1 then C_sp2_carbonyl else C_sp2
+    if doubleTo O == 1 then C_carbonyl else C_sp2
+
   -- Oxygen
   refine O_sp3          =
     if implH == 1      then O_sp3_hydroxyl
     else if inPiSystem then O_sp2_snglB else O_sp3
+  refine O_sp3_plus          =
+    if implH == 2      then O_sp3_hydroxyl_plus else O_sp3_plus
+  refine O_sp3_radical  =
+    if aromNeighbour then O_sp2_radical else O_sp3_radical
+
   -- Sulfur
   refine S_4_sp2        =
     if doubleTo O == 2 then S_4_planar3_oxide else S_4_sp2
@@ -254,6 +262,7 @@ parameters (n    : Node)
     if doubleTo O == 1 && doubleTo S == 1 then S_6_sp3_thionyl
     else if (doubleTo O + doubleTo N) == 2 then S_6_sp3_onyl
     else S_6_sp3
+
   -- Rest
   refine at = at
 
@@ -295,14 +304,26 @@ secondRefine : AtomType -> List AtomType -> AtomType
 secondRefine O_sp3 xs =
   if elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_snglB else O_sp3
 secondRefine O_sp3_hydroxyl xs =
-  if elem C_sp2_carbonyl xs || elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_hydroxyl else O_sp3_hydroxyl
-secondRefine O_sp2_hydroxyl [C_sp2_arom] = O_sp2_phenol
+  if elem C_carbonyl xs || elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_hydroxyl else O_sp3_hydroxyl
+secondRefine O_sp2_hydroxyl [C_sp2_arom] =
+  O_sp2_phenol
 secondRefine O_sp2 xs =
-  if elem C_sp2_carbonyl xs then O_sp2_carbonyl else O_sp2
+  if elem C_carbonyl xs then O_carbonyl else O_sp2
+secondRefine O_sp2_plus xs =
+  if elem C_carbonyl xs then O_carbonyl_plus
+  else O_sp2_plus
+secondRefine O_sp3_hydroxyl_plus xs =
+  if elem C_sp2 xs then O_sp2_hydroxyl_plus else O_sp3_hydroxyl_plus  -- not only C_sp2 -> all kind of atoms with sp2
+secondRefine O_carbonyl xs =
+  if length xs >= 2 then O_carbonyl_plus else O_carbonyl
+secondRefine O_sp3_minus xs =
+  if elem C_sp2 xs then O_sp2_minus else O_sp3_minus  -- not only C_sp2 -> all kind of atoms with sp2
+
 -- Carbon
-secondRefine C_sp2_carbonyl xs =
-  if elem O_sp2_carbonyl xs && elem O_sp2_hydroxyl xs then C_sp2_carboxyl else C_sp2_carbonyl
+secondRefine C_carbonyl xs =
+  if elem O_carbonyl xs && elem O_sp2_hydroxyl xs then C_carboxyl else C_carbonyl
 secondRefine x xs = x
+
 
 -- helper function for a clearer representation
 secondAT' :

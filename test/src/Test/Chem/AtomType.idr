@@ -44,48 +44,57 @@ pairs =
   [  ("[H]O[H]",[H_sgl,O_sp3,H_sgl]),
      ("[H-]",[H_minus]),
      ("[H+]",[H_plus]),
+
   -- Oxygen
     -- hydroxyl
      ("CCO",[C_sp3,C_sp3,O_sp3_hydroxyl]),
+    -- hydroxyl plus
+     ("CC[OH2+]",[C_sp3,C_sp3,O_sp3_hydroxyl_plus]),
     -- hydroxyl sp2
      ("C=CO",[C_sp2,C_sp2,O_sp2_hydroxyl]),
-    -- carbonyl
-     ("C(=O)C",[C_sp2_carbonyl,O_sp2_carbonyl,C_sp3]),
-    -- sp2
-     ("C=COC=C",[C_sp2,C_sp2,O_sp2_snglB,C_sp2,C_sp2]),
+    -- hydroxyl plus sp2
+     ("C=C[OH2+]",[C_sp2,C_sp2,O_sp2_hydroxyl_plus]),
     -- sp3
      ("COC",[C_sp3,O_sp3,C_sp3]),
+    -- carbonyl
+     ("C(=O)C",[C_carbonyl,O_carbonyl,C_sp3]),
+    -- carbonyl plus
+     ("CC(=[OH+])C",[C_sp3,C_carbonyl,O_carbonyl_plus,C_sp3]),
+    -- sp2
+     ("C=COC=C",[C_sp2,C_sp2,O_sp2_snglB,C_sp2,C_sp2]),
+     ("CCOC=C",[C_sp3,C_sp3,O_sp2_snglB,C_sp2,C_sp2]),
+    -- arom
+     ("c1occc1",[C_sp2_arom,O_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom]),
     -- phenol
      ("Oc1ccccc1",[O_sp2_phenol,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom]),
+    -- singel bond sp2
+     ("COc1ccccc1",[C_sp3,O_sp2_snglB,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom]),
     -- sp3 radical
      ("[OH]",[O_sp3_radical]),
+    -- sp2 radical
+     ("[O]c1ccccc1",[O_sp2_radical,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom]),
     -- sp3 plus
      ("[OH3+]",[O_sp3_plus]),
     -- sp2 plus
-     ("C=[OH+]",[C_sp2_carbonyl,O_sp2_plus]), -- own type O_sp2_hydroxyl_plus
-
-    -- sp2 minus
-     ("C=C[O-]",[C_sp2,C_sp2,O_sp2_minus]),
+     ("S=[OH+]",[S_2_sp2,O_sp2_plus]),
+    -- sp2 plus
+     ("C#[O+]",[C_sp,O_sp_plus]),
     -- sp3 minus
      ("CC[O-]",[C_sp3,C_sp3,O_sp3_minus]),
+    -- sp2 minus
+     ("C=C[O-]",[C_sp2,C_sp2,O_sp2_minus]),  -- not fully correct, only sp2 if the neighbouring atoms inclueds a C_sp2!
+
+    -- sp3 minus
+     ("CC[O-]",[C_sp3,C_sp3,O_sp3_minus]),
+    -- sp3 radical
+     ("CC[O]",[C_sp3,C_sp3,O_sp3_radical]),
+    -- radical cation
+      -- not found a way to store it in a smiles string
+
   -- carbon
     -- arom
      ("c1ccccc1",[C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom])
   ]
-{-
-pairs = [("CCO"                      ,[C_sp3,C_sp3,O_sp3_hydroxyl]),
-         ("[O-]S(=O)(=S)[O-]"        ,[O_sp3_minus,S_6_sp3_thionyl,O_sp2,S_2_sp2,O_sp3_minus]),
-         ("OS(=O)(=O)O"              ,[O_sp3_hydroxyl,S_6_sp3_onyl,O_sp2,O_sp2,O_sp3_hydroxyl]),
-         ("COc1ccccc1OC(=O)Cc2ccccc2",[C_sp3,O_sp2_snglB,C_sp2_arom,C_sp2_arom,C_sp2_arom,
-                                       C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2_snglB,C_sp2_carboxyl,O_sp2_carbonyl,
-                                       C_sp3,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,
-                                       C_sp2_arom,C_sp2_arom]),
-         ("COc1ccccc1OC[C@@H](CO)O"  ,[C_sp3,O_sp2_snglB,C_sp2_arom,C_sp2_arom,C_sp2_arom,
-                                      C_sp2_arom,C_sp2_arom,C_sp2_arom,O_sp2_snglB,C_sp3,
-                                      C_sp3,C_sp3,O_sp3_hydroxyl,O_sp3_hydroxyl]),
-         ("[H-]"                     ,[H_minus])
-         ]
-         -}
 
 export
 props : Group
