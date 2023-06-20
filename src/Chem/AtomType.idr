@@ -6,6 +6,7 @@ import Text.Smiles
 import Derive.Prelude
 import System
 import Data.Graph.Util
+import Data.List.Quantifiers.Extra
 
 %language ElabReflection
 %default total
@@ -219,7 +220,8 @@ atomTypes = [
 
 public export
 data ATErr : Type where
-  Missing  : Graph e n -> Adj Bond (Atom a) -> ATArgs -> ATErr
+  Missing  : Graph e n -> Adj Bond (Atom l, List (Atom l, Bond)) -> ATArgs -> ATErr
+
 
 
 -- TODO:
@@ -242,9 +244,10 @@ isPiBond BW   = True
 isPiBond Trpl = True
 isPiBond Quad = False -- hock: not sure about this
 
-parameters (n    : Node)
-           (adj  : Adj Bond (Atom l, List (Atom l,Bond)))
-
+parameters (n     : Node)
+           (adj   : Adj Bond (Atom l, List (Atom l,Bond)))
+           (graph : Graph Bond (Atom l, List (Atom l,Bond)))  -- the graph is only used to make the error statment clearer
+                                                              -- may cause decrease in computing time
   doubleTo : Elem -> Nat
   doubleTo e = count isDoubleTo (snd adj.label)
     where isDoubleTo : (Atom l,Bond) -> Bool
@@ -300,15 +303,18 @@ parameters (n    : Node)
   relabel aa = map (\x => (x,snd $ label adj)) $ (map . map) (,aa) (map fst adj)
 
   -- Helper funtion to determine all needed arguments to lookup the AtomType
-  adj : Maybe (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
-  adj = relabel . refine <$> lookup atArgs atomTypes
+  adj : ChemRes [ATErr,HErr] (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
+  adj =
+    case lookup atArgs atomTypes of
+      Nothing => Left $ inject $ Missing graph adj atArgs
+      Just x  => Right $ relabel $ refine x
 
 
 -- Determines the AtomType if possible
 firstAtomTypes :
   Graph Bond (Atom l, List (Atom l,Bond))
-  -> Maybe (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
-firstAtomTypes g = MkGraph <$> traverseWithKey adj (graph g)
+  -> ChemRes [ATErr,HErr] (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
+--firstAtomTypes g = MkGraph <$> traverseWithKey adj (graph g)
 
 
 -- Changes the addition information from neighbour atoms with their bonds
@@ -399,14 +405,14 @@ repeatRefine x (S k) = repeatRefine (secondAT x) k
 public export
 atomType :
   Graph Bond (Atom l)
-  -> Maybe $ Graph Bond (Atom (l,AtomType))
+  -> ChemRes [ATErr,HErr] $ Graph Bond (Atom (l,AtomType))
 atomType g =
   let prepare := pairWithNeighbours g
       first   := firstAtomTypes prepare
   in case first of
-    Nothing => Nothing
-    Just x  => case pairWithNeighbours' (map fst x) of
-      v => Just $ map fst $ repeatRefine v 6
+    Left x  => Left x
+    Right x => case pairWithNeighbours' $ map fst x of
+      v => Right $ map fst $ repeatRefine v 6
 
 --- Test SMILES Parser
 
