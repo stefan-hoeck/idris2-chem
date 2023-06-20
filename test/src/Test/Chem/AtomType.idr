@@ -63,7 +63,7 @@ pairs =
     -- sp2 diradical
      ("C=[C]",[C_sp2,C_sp2_diradical]),
     -- sp radical
-     ("C#[C]",[C_sp,C_sp_radical]),  --    SMILES string wrong!!!!!!!
+     ("C#[C]",[C_sp,C_sp_radical]),
     -- carbonyl
      ("CC(=O)C",[C_sp3,C_carbonyl,O_carbonyl,C_sp3]),
     -- carboxyl

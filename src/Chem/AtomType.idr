@@ -214,6 +214,21 @@ atomTypes = [
 
 
 -------------------------------------------------------------------------------
+-- Error Type
+-------------------------------------------------------------------------------
+
+public export
+data ATErr : Type where
+  Missing  : Graph e n -> Adj Bond (Atom a) -> ATArgs -> ATErr
+
+
+-- TODO:
+-- Implement the 'Missing' error with the 'ChemRes' alias.
+-- Implement a function from input (string) to output (show Either (err) (graph))
+-- Try to merge the two error types (implH, atomType) in the HSum list. ~~
+
+
+-------------------------------------------------------------------------------
 -- Determination AtomType
 -------------------------------------------------------------------------------
 
@@ -399,5 +414,7 @@ smilesParser : String -> String
 smilesParser str =
   let graph := parse str
   in case graph of
-    (Left x) => show $ snd x
-    (Right x) => show $ graphWithH x
+    Left x  => show $ snd x
+    Right x => case graphWithH x of
+      Left y  => "Something went wrong!"
+      Right y => show y

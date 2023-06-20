@@ -6,6 +6,7 @@ import public Data.Refined.Bits8
 import public Data.Refined.Int8
 import Derive.Prelude
 import Derive.Refined
+import Data.List.Quantifiers.Extra
 
 %default total
 %language ElabReflection
@@ -184,3 +185,12 @@ Interpolation HCount where
 
 namespace HCount
   %runElab derive "HCount" [Show,Eq,Ord,RefinedInteger]
+
+--------------------------------------------------------------------------------
+--          Error Type
+--------------------------------------------------------------------------------
+
+public export
+0 ChemRes : List Type -> Type -> Type
+ChemRes es x = Either (HSum es) x
+
