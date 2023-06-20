@@ -40,8 +40,45 @@ prop (s,ats) = MkPair (fromString "SMILES \{s}") $ property1 $
 -- Pairs of SMILES strings and expected list of atom types
 pairs : List (String,List AtomType)
 pairs =
+  -- carbon
+    -- sp3
+  [  ("CC",[C_sp3,C_sp3]),
+    -- sp2
+     ("C=C",[C_sp2,C_sp2]),
+    -- sp
+     ("C#CC#C",[C_sp,C_sp,C_sp,C_sp]),
+     ("C#[O+]",[C_sp,O_sp_plus]),
+    -- planar plus
+     ("[CH3+]",[C_planar_plus]),
+    -- sp2 plus
+     ("C=[CH+]",[C_sp2,C_sp2_plus]),
+--  -- sp2 arom plus
+--   ("c1cc[c+]cc1",[C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom_plus,C_sp2_arom,C_sp2_arom]),
+    -- planar radical
+     ("[CH3]",[C_planar_radical]),
+    -- sp3 diradical
+     ("C[CH]",[C_sp3,C_sp3_diradical]),
+    -- sp2 radical
+     ("C=[CH]",[C_sp2,C_sp2_radical]),
+    -- sp2 diradical
+     ("C=[C]",[C_sp2,C_sp2_diradical]),
+    -- sp radical
+     ("C#[C]",[C_sp,C_sp_radical]),  --    SMILES string wrong!!!!!!!
+    -- carbonyl
+     ("CC(=O)C",[C_sp3,C_carbonyl,O_carbonyl,C_sp3]),
+    -- carboxyl
+     ("CC(=O)O",[C_sp3,C_carboxyl,O_carbonyl,O_sp2_hydroxyl]),
+    -- aldehyde
+     ("CC(=O)",[C_sp3,C_aldehyde,O_carbonyl]),
+    -- ester
+     ("CC(=O)OC",[C_sp3,C_ester,O_carbonyl,O_ester,C_sp3]),
+    -- arom
+     ("c1ccccc1",[C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom]),
+    -- allene
+     ("C=C=C=C",[C_sp2,C_sp_allene,C_sp_allene,C_sp2]),
+
   -- Hydrogen
-  [  ("[H]O[H]",[H_sgl,O_sp3,H_sgl]),
+     ("[H]O[H]",[H_sgl,O_sp3,H_sgl]),
      ("[H-]",[H_minus]),
      ("[H+]",[H_plus]),
 
@@ -57,9 +94,11 @@ pairs =
     -- sp3
      ("COC",[C_sp3,O_sp3,C_sp3]),
     -- carbonyl
-     ("C(=O)C",[C_carbonyl,O_carbonyl,C_sp3]),
+     ("CC(=O)C",[C_sp3,C_carbonyl,O_carbonyl,C_sp3]),
     -- carbonyl plus
      ("CC(=[OH+])C",[C_sp3,C_carbonyl,O_carbonyl_plus,C_sp3]),
+    -- ester
+     ("C(=O)OC",[C_ester,O_carbonyl,O_ester,C_sp3]),
     -- sp2
      ("C=COC=C",[C_sp2,C_sp2,O_sp2_snglB,C_sp2,C_sp2]),
      ("CCOC=C",[C_sp3,C_sp3,O_sp2_snglB,C_sp2,C_sp2]),
@@ -87,13 +126,10 @@ pairs =
     -- sp3 minus
      ("CC[O-]",[C_sp3,C_sp3,O_sp3_minus]),
     -- sp3 radical
-     ("CC[O]",[C_sp3,C_sp3,O_sp3_radical]),
+     ("CC[O]",[C_sp3,C_sp3,O_sp3_radical])
     -- radical cation
       -- not found a way to store it in a smiles string
 
-  -- carbon
-    -- arom
-     ("c1ccccc1",[C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom])
   ]
 
 export
