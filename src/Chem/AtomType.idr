@@ -368,6 +368,16 @@ repeatRefine x (S k) = repeatRefine (secondAT x) k
 -------------------------------------------------------------------------------
 -- Main function
 
+--
+-- TODO: Track 2
+-- Define a proper error type for this and return an `Either`
+-- in case implicit hydrogen perception did not work.
+-- Implement a conversion function to display errors as strings
+--
+-- Idea: Use an Either with an `HSum` (from Data.List.Quantifiers.Extra) as
+-- the result type together with a proof of `Has Error es`, where
+-- `es` are the possible error types defined by the client code, and `Error`
+-- is the error type we can fail with in this algorithm
 ||| Determines the atom types if possible.
 ||| If just one atom type determination fails, all other atom types
 ||| may be wrong and therefore, the function returns a nothing.

@@ -8,6 +8,7 @@ depends    = base         >= 0.5.1
            , refined
            , parser
            , graph
+           , quantifiers-extra
 
 modules = Chem
         , Chem.Element

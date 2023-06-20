@@ -101,6 +101,10 @@ export
 adjToAtom : Adj Bond Atom -> Maybe (Adj Bond (Atom Chirality))
 adjToAtom (MkAdj e ns) = map (`MkAdj` ns) (toAtom e (values ns))
 
+-- TODO: Track 2
+-- Define a proper error type for this and return an `Either`
+-- in case implicit hydrogen perception did not work.
+-- Implement a conversion function to display errors as strings
 public export
 graphWithH : Graph Bond Atom -> Maybe (Graph Bond (Atom Chirality))
 graphWithH (MkGraph graph) = map MkGraph (traverse adjToAtom graph)
