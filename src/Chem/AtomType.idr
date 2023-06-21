@@ -246,7 +246,7 @@ isPiBond Quad = False -- hock: not sure about this
 
 parameters (n     : Node)
            (adj   : Adj Bond (Atom l, List (Atom l,Bond)))
-           (graph : Graph Bond (Atom l, List (Atom l,Bond)))  -- the graph is only used to make the error statment clearer
+--         (graph : Graph Bond (Atom l, List (Atom l,Bond)))  -- the graph is only used to make the error statment clearer
                                                               -- may cause decrease in computing time
   doubleTo : Elem -> Nat
   doubleTo e = count isDoubleTo (snd adj.label)
@@ -303,18 +303,18 @@ parameters (n     : Node)
   relabel aa = map (\x => (x,snd $ label adj)) $ (map . map) (,aa) (map fst adj)
 
   -- Helper funtion to determine all needed arguments to lookup the AtomType
-  adj : ChemRes [ATErr,HErr] (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
+  adj : ChemRes [ATErr] (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
   adj =
     case lookup atArgs atomTypes of
-      Nothing => Left $ inject $ Missing graph adj atArgs
+      Nothing => Left $ inject $ Missing ?graph adj atArgs
       Just x  => Right $ relabel $ refine x
 
 
 -- Determines the AtomType if possible
 firstAtomTypes :
   Graph Bond (Atom l, List (Atom l,Bond))
-  -> ChemRes [ATErr,HErr] (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
---firstAtomTypes g = MkGraph <$> traverseWithKey adj (graph g)
+  -> ChemRes [ATErr] (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
+firstAtomTypes g = MkGraph <$> (traverseWithKey adj $ graph g)
 
 
 -- Changes the addition information from neighbour atoms with their bonds
@@ -405,7 +405,7 @@ repeatRefine x (S k) = repeatRefine (secondAT x) k
 public export
 atomType :
   Graph Bond (Atom l)
-  -> ChemRes [ATErr,HErr] $ Graph Bond (Atom (l,AtomType))
+  -> ChemRes [ATErr] $ Graph Bond (Atom (l,AtomType))
 atomType g =
   let prepare := pairWithNeighbours g
       first   := firstAtomTypes prepare
@@ -416,11 +416,13 @@ atomType g =
 
 --- Test SMILES Parser
 
-smilesParser : String -> String
-smilesParser str =
+smilesToAtomType : String -> String
+smilesToAtomType str =
   let graph := parse str
   in case graph of
     Left x  => show $ snd x
     Right x => case graphWithH x of
-      Left y  => "Something went wrong!"
-      Right y => show y
+      Left y  => ?collapsHErr
+      Right y => case atomType y of
+        Left z  => ?collapsATErr
+        Right z => show z
