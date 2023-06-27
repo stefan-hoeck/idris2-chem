@@ -1,6 +1,7 @@
 module Text.Smiles.Parser
 
 import Chem
+import Data.List.Quantifiers.Extra
 import Data.Refined.Bits32
 import Data.SortedMap
 import Derive.Prelude
@@ -38,6 +39,23 @@ public export
 Err = ParseError SmilesToken SmilesErr
 
 %runElab derive "SmilesErr" [Eq,Show]
+
+public export
+record SmilesParseErr where
+  constructor SPE
+  smiles  : String
+  context : FileContext
+  error   : Err
+
+export
+fromBounded : String -> Origin -> Bounded Err -> SmilesParseErr
+fromBounded s o (B v bs) = SPE s (FC o bs) v
+
+%runElab derive "SmilesParseErr" [Eq,Show]
+
+export
+Interpolation SmilesParseErr where
+  interpolate (SPE s c e) = printParseError s c e
 
 record RingInfo where
   constructor R
@@ -165,12 +183,14 @@ start []               = Right empty
 start ((t,c) :: _)     = custom (bounds t c) ExpectedAtom
 
 export
-parseFrom : Origin -> String -> Either (FileContext,Err) Mol
+parseFrom : Has SmilesParseErr es => Origin -> String -> ChemRes es Mol
 parseFrom o s =
-  let Right ts := lexSmiles s | Left e => Left $ fromBounded o (voidLeft <$> e)
-      Right m  := start ts    | Left e => Left $ fromBounded o e
+  let Right ts := lexSmiles s
+        | Left e => Left $ inject (fromBounded s o (voidLeft <$> e))
+      Right m  := start ts
+        | Left e => Left $ inject (fromBounded s o e)
    in Right m
 
 export %inline
-parse : String -> Either (FileContext,Err) Mol
+parse : Has SmilesParseErr es => String -> ChemRes es Mol
 parse = parseFrom Virtual
