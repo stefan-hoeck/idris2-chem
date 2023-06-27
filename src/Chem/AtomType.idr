@@ -303,7 +303,7 @@ parameters (n     : Node)
   relabel aa = map (\x => (x,snd $ label adj)) $ (map . map) (,aa) (map fst adj)
 
   -- Helper funtion to determine all needed arguments to lookup the AtomType
-  adj : ChemRes [ATErr] (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
+  adj : {0 es : List Type} -> Has ATErr es => ChemRes es (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
   adj =
     case lookup atArgs atomTypes of
       Nothing => Left $ inject $ Missing ?graph adj atArgs
@@ -312,9 +312,11 @@ parameters (n     : Node)
 
 -- Determines the AtomType if possible
 firstAtomTypes :
-  Graph Bond (Atom l, List (Atom l,Bond))
-  -> ChemRes [ATErr] (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
-firstAtomTypes g = MkGraph <$> (traverseWithKey adj $ graph g)
+     {0 es : List Type}
+  -> Has ATErr es
+  => Graph Bond (Atom l, List (Atom l,Bond))
+  -> ChemRes es (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
+firstAtomTypes g = MkGraph <$> (traverseWithKey (\x,y => adj x y) $ graph g)
 
 
 -- Changes the addition information from neighbour atoms with their bonds
@@ -404,8 +406,9 @@ repeatRefine x (S k) = repeatRefine (secondAT x) k
 ||| may be wrong and therefore, the function returns a nothing.
 public export
 atomType :
-  Graph Bond (Atom l)
-  -> ChemRes [ATErr] $ Graph Bond (Atom (l,AtomType))
+     Has ATErr es
+  => Graph Bond (Atom l)
+  -> ChemRes es $ Graph Bond (Atom (l,AtomType))
 atomType g =
   let prepare := pairWithNeighbours g
       first   := firstAtomTypes prepare
@@ -416,13 +419,21 @@ atomType g =
 
 --- Test SMILES Parser
 
-smilesToAtomType : String -> String
+smilesToAtomType :
+     {0 es : List Type}
+  -> Has HErr es
+  => Has ATErr es
+  => Has SmilesErr es
+  => String
+  -> ChemRes es $ Graph Bond (Atom (l,AtomType))
 smilesToAtomType str =
   let graph := parse str
   in case graph of
-    Left x  => show $ snd x
-    Right x => case graphWithH x of
+    Left (x, y)  => ?bar
+    Right x => ?foo
+                  {-
       Left y  => ?collapsHErr
       Right y => case atomType y of
         Left z  => ?collapsATErr
         Right z => show z
+        -}

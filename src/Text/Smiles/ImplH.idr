@@ -61,20 +61,22 @@ orgArom :
 orgArom e h = MkAtom e True Nothing 0 None h
 
 toImplH :
-     (val : Nat)
+     Has HErr es
+  => (val : Nat)
   -> (bonds : Nat)
   -> (elem : Elem)
-  -> ChemRes [HErr] HCount
+  -> ChemRes es HCount
 toImplH val bonds e = case refineHCount (cast val - cast bonds) of
   Nothing => Left $ inject $ ImplHErr e val False bonds
   Just x  => Right x
 
 -- maybe create implement an interface for 'Alternative Either'
 subset :
-     (e : Elem)
+     Has HErr es
+  => (e : Elem)
   -> {auto 0 prf : ValidSubset e False}
   -> Nat
-  -> ChemRes [HErr] HCount
+  -> ChemRes es HCount
 subset C n  = toImplH 4 n C
 subset O n  = toImplH 2 n O
 subset N n  = case toImplH 3 n N of --<|> toImplH 5 n
@@ -95,10 +97,11 @@ subset Br n = toImplH 1 n Br
 subset I n  = toImplH 1 n I
 
 subsetArom :
-     (e : Elem)
+     Has HErr es
+  => (e : Elem)
   -> {auto 0 prf : ValidSubset e True}
   -> (List Bond, Nat)
-  -> ChemRes [HErr] HCount
+  -> ChemRes es HCount
 subsetArom C ([], 2)      = Right 1
 subsetArom C ([], 3)      = Right 0
 subsetArom C ([Sngl], 2)  = Right 0
@@ -121,14 +124,22 @@ subsetArom P ([], 2)      = Right 0
 subsetArom P (l, n)       = Left $ inject $ ImplHErr P 3 True (length l + n)
 
 export
-toAtom : Atom -> List Bond -> ChemRes [HErr] (Atom Chirality)
+toAtom :
+     Has HErr es
+  => Atom
+  -> List Bond
+  -> ChemRes es (Atom Chirality)
 toAtom (SubsetAtom e False) xs = org e <$> subset e (bondTotal xs)
 toAtom (SubsetAtom e True) xs  = orgArom e <$> subsetArom e (aromBonds xs)
 toAtom (Bracket _ e a _ h c) _ = Right $ MkAtom e a Nothing c None h
 
 export
-adjToAtom : Adj Bond Atom -> ChemRes [HErr] (Adj Bond (Atom Chirality))
-adjToAtom (MkAdj e ns) = map (`MkAdj` ns) (toAtom e (values ns))
+adjToAtom :
+     Has HErr es
+  => Adj Bond Atom
+  -> ChemRes es (Adj Bond (Atom Chirality))
+adjToAtom (MkAdj e ns) =
+  map (`MkAdj` ns) (toAtom e (values ns))
 
 
 -- TODO: Track 2
@@ -140,5 +151,9 @@ adjToAtom (MkAdj e ns) = map (`MkAdj` ns) (toAtom e (values ns))
 -- Main function
 ---------------------------------------------------------------------
 public export
-graphWithH : Graph Bond Atom -> ChemRes [HErr] (Graph Bond (Atom Chirality))
-graphWithH (MkGraph graph) = map MkGraph (traverse adjToAtom graph)
+graphWithH :
+     Has HErr es
+  => Graph Bond Atom
+  -> ChemRes es (Graph Bond (Atom Chirality))
+graphWithH (MkGraph graph) =
+  map MkGraph (traverse adjToAtom graph)
