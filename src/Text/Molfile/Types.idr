@@ -208,6 +208,10 @@ public export
 Precision : Integer
 Precision = 10000
 
+export %inline
+Cast Coordinate Double where
+  cast x = cast x.value / cast Precision
+
 disp : Integer -> String
 disp i =
   show (i `div` Precision) ++ "." ++ padLeft 4 '0' (show (i `mod` Precision))
