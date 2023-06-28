@@ -3,9 +3,11 @@ module Text.Smiles.ImplH
 import Chem
 import Data.Maybe
 import Data.List
+import Derive.Prelude
 import Text.Smiles.Types
 import Data.List.Quantifiers.Extra
 
+%language ElabReflection
 %default total
 
 ---------------------------------------------------------------------
@@ -20,6 +22,8 @@ data HErr : Type where
     -> (arom : Bool)
     -> (bonds : Nat)
     -> HErr
+
+%runElab derive "HErr" [Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Utilities

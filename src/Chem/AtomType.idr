@@ -220,9 +220,9 @@ atomTypes = [
 
 public export
 data ATErr : Type where
-  Missing  : Graph e n -> Adj Bond (Atom l, List (Atom l, Bond)) -> ATArgs -> ATErr
+  Missing  : (nodeNr : Bits32) -> ATArgs -> ATErr
 
-
+%runElab derive "ATErr" [Eq,Show]
 
 -- TODO:
 -- Implement the 'Missing' error with the 'ChemRes' alias.
@@ -246,8 +246,7 @@ isPiBond Quad = False -- hock: not sure about this
 
 parameters (n     : Node)
            (adj   : Adj Bond (Atom l, List (Atom l,Bond)))
---         (graph : Graph Bond (Atom l, List (Atom l,Bond)))  -- the graph is only used to make the error statment clearer
-                                                              -- may cause decrease in computing time
+
   doubleTo : Elem -> Nat
   doubleTo e = count isDoubleTo (snd adj.label)
     where isDoubleTo : (Atom l,Bond) -> Bool
@@ -306,7 +305,7 @@ parameters (n     : Node)
   adj : {0 es : List Type} -> Has ATErr es => ChemRes es (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
   adj =
     case lookup atArgs atomTypes of
-      Nothing => Left $ inject $ Missing ?graph adj atArgs
+      Nothing => Left $ inject $ Missing n atArgs
       Just x  => Right $ relabel $ refine x
 
 
@@ -403,7 +402,7 @@ repeatRefine x (S k) = repeatRefine (secondAT x) k
 -- is the error type we can fail with in this algorithm
 ||| Determines the atom types if possible.
 ||| If just one atom type determination fails, all other atom types
-||| may be wrong and therefore, the function returns a nothing.
+||| may be wrong and therefore, an error results
 public export
 atomType :
      Has ATErr es
@@ -423,17 +422,11 @@ smilesToAtomType :
      {0 es : List Type}
   -> Has HErr es
   => Has ATErr es
-  => Has SmilesErr es
+  => Has SmilesParseErr es
   => String
-  -> ChemRes es $ Graph Bond (Atom (l,AtomType))
-smilesToAtomType str =
-  let graph := parse str
-  in case graph of
-    Left (x, y)  => ?bar
-    Right x => ?foo
-                  {-
-      Left y  => ?collapsHErr
-      Right y => case atomType y of
-        Left z  => ?collapsATErr
-        Right z => show z
-        -}
+  -> ChemRes es $ Graph Bond (Atom (Chirality,AtomType))
+smilesToAtomType str = do
+  graph <- parse str
+  graphH <- graphWithH graph
+  atomType graphH
+
