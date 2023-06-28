@@ -24,6 +24,19 @@ import Hedgehog
   order.
 -}
 
+-- hock: You'll need this. I thought it was already in `Data.List.Quantifiers`,
+--       but it is not. I'll add it to quantifiers-extra later on.
+All (Show . f) ts => Show (Any f ts) where
+  showPrec @{_ :: _} p (Here v)  = showCon p "Here" (showArg v)
+  showPrec @{_ :: _} p (There v) = showCon p "There" (showArg v)
+
+-- hock: Here you no longer want the `es` parameter. At the end
+--       of the world, we need to be specific about the error types
+--       we expect and can handle (and about their order).
+--
+--       If you get the types right, you should be able to uncomment
+--       `prop` (which will then need a very minor modification in order
+--       to typecheck).
 calcAtomTypes :
      {0 es : List Type}
   -> Has HErr es
@@ -37,6 +50,7 @@ calcAtomTypes str = do
   g3 <- atomType g2
   pure $ snd . label . label <$> sortBy (comparing node) (labNodes g3)
 
+-- hock: You don't need this.
 propTest :
      {0 es : List Type}
   -> Has HErr es
