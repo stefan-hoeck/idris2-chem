@@ -224,11 +224,6 @@ data ATErr : Type where
 
 %runElab derive "ATErr" [Eq,Show]
 
--- TODO:
--- Implement the 'Missing' error with the 'ChemRes' alias.
--- Implement a function from input (string) to output (show Either (err) (graph))
--- Try to merge the two error types (implH, atomType) in the HSum list. ~~
-
 
 -------------------------------------------------------------------------------
 -- Determination AtomType
@@ -390,19 +385,9 @@ repeatRefine x (S k) = repeatRefine (secondAT x) k
 -------------------------------------------------------------------------------
 -- Main function
 
---
--- TODO: Track 2
--- Define a proper error type for this and return an `Either`
--- in case implicit hydrogen perception did not work.
--- Implement a conversion function to display errors as strings
---
--- Idea: Use an Either with an `HSum` (from Data.List.Quantifiers.Extra) as
--- the result type together with a proof of `Has Error es`, where
--- `es` are the possible error types defined by the client code, and `Error`
--- is the error type we can fail with in this algorithm
 ||| Determines the atom types if possible.
 ||| If just one atom type determination fails, all other atom types
-||| may be wrong and therefore, an error results
+||| may be wrong and therefore, an error is given back
 public export
 atomType :
      Has ATErr es

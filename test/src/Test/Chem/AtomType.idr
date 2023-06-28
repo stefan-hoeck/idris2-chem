@@ -19,6 +19,7 @@ import Hedgehog
   * return `[]` if any of the above steps fails
 -}
 
+-- Only temporary. Will be in `Data.List.Quantifiers.Extra`
 All (Show . f) ts => Show (Any f ts) where
   showPrec @{_ :: _} p (Here v)  = showCon p "Here" (showArg v)
   showPrec @{_ :: _} p (There v) = showCon p "There" (showArg v)
