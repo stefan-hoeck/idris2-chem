@@ -37,14 +37,18 @@ calcAtomTypes str = do
   g3 <- atomType g2
   pure $ snd . label . label <$> sortBy (comparing node) (labNodes g3)
 
--- prop :
---      {0 es : List Type}
---   -> Has HErr es
---   => Has ATErr es
---   => Has SmilesParseErr es
---   => (String,List AtomType)
---   -> (PropertyName,Property)
--- prop (s,ats) = ?bar
+propTest :
+     {0 es : List Type}
+  -> Has HErr es
+  => Has ATErr es
+  => Has SmilesParseErr es
+  => Show HErr
+  => Show ATErr
+  => Show SmilesParseErr
+  => (String,List AtomType)
+  -> (PropertyName,Property)
+propTest (s,ats) = MkPair (fromString "SMILES \{s}") $ property1 $
+                 failDiff (calcAtomTypes s) ats
 --
 -- prop : (String,List AtomType) -> (PropertyName,Property)
 -- prop (s,ats) = MkPair (fromString "SMILES \{s}") $ property1 $
