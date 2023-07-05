@@ -24,7 +24,6 @@ record Bonds where
 
 %runElab derive "Bonds" [Show,Eq,Ord]
 
-
 ||| Calculates total number of bonds
 ||| (triple bond => 1 bond)
 public export
@@ -144,7 +143,6 @@ record ATArgs where
 
 %runElab derive "ATArgs" [Show,Eq,Ord]
 
-
 -------------------------------------------------------------------------------
 -- AtomType / Argument List
 -------------------------------------------------------------------------------
@@ -224,6 +222,18 @@ data ATErr : Type where
 
 %runElab derive "ATErr" [Eq,Show]
 
+export
+Interpolation ATErr where
+  interpolate (Missing n $ AA e ar ch $ BS s d t) = """
+    Unknown atom type at node \{show n}:
+      Element:    \{e}
+      Aromatic:   \{show ar}
+      Charge:     \{show ch.value}
+      Bond types:
+        Single:  \{show s}
+        Double:  \{show d}
+        Triple:  \{show t}
+    """
 
 -------------------------------------------------------------------------------
 -- Determination AtomType
@@ -403,6 +413,7 @@ atomType g =
 
 --- Test SMILES Parser
 
+export
 smilesToAtomType :
      {0 es : List Type}
   -> Has HErr es
@@ -414,4 +425,3 @@ smilesToAtomType str = do
   graph <- parse str
   graphH <- graphWithH graph
   atomType graphH
-

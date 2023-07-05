@@ -51,6 +51,10 @@ data Elem =
 
 %runElab derive "Elem" [Show, Eq, Ord]
 
+export %inline
+Interpolation Elem where
+  interpolate = show
+
 --------------------------------------------------------------------------------
 --          Conversion from and to AtomicNr
 --------------------------------------------------------------------------------

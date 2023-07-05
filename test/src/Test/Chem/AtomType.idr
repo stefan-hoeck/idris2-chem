@@ -24,16 +24,7 @@ All (Show . f) ts => Show (Any f ts) where
   showPrec @{_ :: _} p (Here v)  = showCon p "Here" (showArg v)
   showPrec @{_ :: _} p (There v) = showCon p "There" (showArg v)
 
-
-lErrors : List Type
-lErrors = [HErr, ATErr, SmilesParseErr]
-
-calcAtomTypes :
-     Has HErr lErrors
-  => Has ATErr lErrors
-  => Has SmilesParseErr lErrors
-  => String
-  -> ChemRes lErrors (List AtomType)
+calcAtomTypes : String -> ChemRes [HErr, ATErr, SmilesParseErr] (List AtomType)
 calcAtomTypes str = do
   g1 <- parse str
   g2 <- graphWithH g1
@@ -41,8 +32,8 @@ calcAtomTypes str = do
   pure $ snd . label . label <$> sortBy (comparing node) (labNodes g3)
 
 prop : (String,List AtomType) -> (PropertyName,Property)
-prop (s,ats) = MkPair (fromString "SMILES \{s}") $ property1 $
-               calcAtomTypes {lErrors} s === (Right ats)
+prop (s,ats) =
+  (fromString "SMILES \{s}", property1 $ calcAtomTypes s === Right ats)
 
 
 -- Pairs of SMILES strings and expected list of atom types

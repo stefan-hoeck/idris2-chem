@@ -9,3 +9,4 @@ executable = "chem-app"
 
 depends    = base         >= 0.5.1
            , chem
+           , rio
