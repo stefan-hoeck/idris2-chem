@@ -29,3 +29,9 @@ type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-graph"
 commit = "latest:main"
 ipkg   = "graph.ipkg"
+
+[custom.all.quantifiers-extra]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-quantifiers-extra"
+commit = "latest:main"
+ipkg   = "quantifiers-extra.ipkg"

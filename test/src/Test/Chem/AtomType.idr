@@ -2,9 +2,12 @@ module Test.Chem.AtomType
 
 import Chem
 import Chem.AtomType
+import Data.List.Quantifiers.Extra
 import Data.Maybe
 import Data.List
 import Text.Smiles
+import Text.Smiles.Parser
+import Text.Smiles.ImplH
 import Hedgehog
 
 %default total
@@ -14,34 +17,76 @@ import Hedgehog
   * convert to graph annotated with atom types
   * extract list of atom types from graph
   * return `[]` if any of the above steps fails
-
-  Use `labNodes` to extract labeled nodes from the graph
-  and sort them by key (using `Data.List.sortBy`) before
-  extracting the labels, because they might be listed in arbitrary
-  order.
 -}
-calcAtomTypes : String -> List AtomType
-calcAtomTypes str = fromMaybe [] $ do
-  g1 <- either (const Nothing) Just $ parse str
+
+-- Only temporary. Will be in `Data.List.Quantifiers.Extra`
+All (Show . f) ts => Show (Any f ts) where
+  showPrec @{_ :: _} p (Here v)  = showCon p "Here" (showArg v)
+  showPrec @{_ :: _} p (There v) = showCon p "There" (showArg v)
+
+
+lErrors : List Type
+lErrors = [HErr, ATErr, SmilesParseErr]
+
+calcAtomTypes :
+     Has HErr lErrors
+  => Has ATErr lErrors
+  => Has SmilesParseErr lErrors
+  => String
+  -> ChemRes lErrors (List AtomType)
+calcAtomTypes str = do
+  g1 <- parse str
   g2 <- graphWithH g1
   g3 <- atomType g2
   pure $ snd . label . label <$> sortBy (comparing node) (labNodes g3)
 
 prop : (String,List AtomType) -> (PropertyName,Property)
 prop (s,ats) = MkPair (fromString "SMILES \{s}") $ property1 $
-  calcAtomTypes s === ats
+               calcAtomTypes {lErrors} s === (Right ats)
 
 
--- hock: While these tests are surely useful, the are kind of arbitrary
---       and hard to digest if they go wrong. Try to provide one or several
---       minimal examples for every atom type to make sure the conversion
---       works correctly.
---
 -- Pairs of SMILES strings and expected list of atom types
 pairs : List (String,List AtomType)
 pairs =
+  -- carbon
+    -- sp3
+  [  ("CC",[C_sp3,C_sp3]),
+    -- sp2
+     ("C=C",[C_sp2,C_sp2]),
+    -- sp
+     ("C#CC#C",[C_sp,C_sp,C_sp,C_sp]),
+     ("C#[O+]",[C_sp,O_sp_plus]),
+    -- planar plus
+     ("[CH3+]",[C_planar_plus]),
+    -- sp2 plus
+     ("C=[CH+]",[C_sp2,C_sp2_plus]),
+--  -- sp2 arom plus
+--   ("c1cc[c+]cc1",[C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom_plus,C_sp2_arom,C_sp2_arom]),
+    -- planar radical
+     ("[CH3]",[C_planar_radical]),
+    -- sp3 diradical
+     ("C[CH]",[C_sp3,C_sp3_diradical]),
+    -- sp2 radical
+     ("C=[CH]",[C_sp2,C_sp2_radical]),
+    -- sp2 diradical
+     ("C=[C]",[C_sp2,C_sp2_diradical]),
+    -- sp radical
+     ("C#[C]",[C_sp,C_sp_radical]),
+    -- carbonyl
+     ("CC(=O)C",[C_sp3,C_carbonyl,O_carbonyl,C_sp3]),
+    -- carboxyl
+     ("CC(=O)O",[C_sp3,C_carboxyl,O_carbonyl,O_sp2_hydroxyl]),
+    -- aldehyde
+     ("CC(=O)",[C_sp3,C_aldehyde,O_carbonyl]),
+    -- ester
+     ("CC(=O)OC",[C_sp3,C_ester,O_carbonyl,O_ester,C_sp3]),
+    -- arom
+     ("c1ccccc1",[C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom]),
+    -- allene
+     ("C=C=C=C",[C_sp2,C_sp_allene,C_sp_allene,C_sp2]),
+
   -- Hydrogen
-  [  ("[H]O[H]",[H_sgl,O_sp3,H_sgl]),
+     ("[H]O[H]",[H_sgl,O_sp3,H_sgl]),
      ("[H-]",[H_minus]),
      ("[H+]",[H_plus]),
 
@@ -57,9 +102,11 @@ pairs =
     -- sp3
      ("COC",[C_sp3,O_sp3,C_sp3]),
     -- carbonyl
-     ("C(=O)C",[C_carbonyl,O_carbonyl,C_sp3]),
+     ("CC(=O)C",[C_sp3,C_carbonyl,O_carbonyl,C_sp3]),
     -- carbonyl plus
      ("CC(=[OH+])C",[C_sp3,C_carbonyl,O_carbonyl_plus,C_sp3]),
+    -- ester
+     ("C(=O)OC",[C_ester,O_carbonyl,O_ester,C_sp3]),
     -- sp2
      ("C=COC=C",[C_sp2,C_sp2,O_sp2_snglB,C_sp2,C_sp2]),
      ("CCOC=C",[C_sp3,C_sp3,O_sp2_snglB,C_sp2,C_sp2]),
@@ -87,13 +134,10 @@ pairs =
     -- sp3 minus
      ("CC[O-]",[C_sp3,C_sp3,O_sp3_minus]),
     -- sp3 radical
-     ("CC[O]",[C_sp3,C_sp3,O_sp3_radical]),
+     ("CC[O]",[C_sp3,C_sp3,O_sp3_radical])
     -- radical cation
       -- not found a way to store it in a smiles string
 
-  -- carbon
-    -- arom
-     ("c1ccccc1",[C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom,C_sp2_arom])
   ]
 
 export

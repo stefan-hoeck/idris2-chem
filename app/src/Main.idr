@@ -1,9 +1,7 @@
 module Main
 
 import Data.String
-import Text.FC
-import Text.Smiles.Lexer
-import Text.Smiles.Parser
+import Text.Smiles
 
 main : IO ()
 main = do

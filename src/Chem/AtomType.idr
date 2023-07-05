@@ -6,6 +6,7 @@ import Text.Smiles
 import Derive.Prelude
 import System
 import Data.Graph.Util
+import Data.List.Quantifiers.Extra
 
 %language ElabReflection
 %default total
@@ -60,26 +61,29 @@ hCountToBonds h = BS (cast h.value) 0 0
 ||| Syntax: element_(std.valence)_hybridisation_aromaticity_charge_radical_specials
 public export
 data AtomType =          -- Tested | Comment
-  C_sp3                | -- [ ]
-  C_sp2                | -- [ ]
-  C_carbonyl           | -- [ ]
-  C_carboxyl           | -- [ ]
+  C_sp3                | -- [x]
+  C_sp2                | -- [x]
+  C_carbonyl           | -- [x]
+  C_carboxyl           | -- [x]
+  C_aldehyde           | -- [x]
+  C_ester              | -- [x]
   C_sp2_arom           | -- [x]
-  C_sp_allene          | -- [ ]
-  C_sp                 | -- [ ]
-  C_sp2_radical        | -- [ ]
-  C_sp_radical         | -- [ ]
-  C_planar_radical     | -- [ ]
-  C_sp2_diradical      | -- [ ]
-  C_sp3_diradical      | -- [ ]
-  C_planar_plus        | -- [ ]
-  C_sp2_plus           | -- [ ]
+  C_sp_allene          | -- [x]
+  C_sp                 | -- [x]
+  C_sp2_radical        | -- [x]
+  C_sp_radical         | -- [ ] found no SMILES-string for alkynyls
+  C_planar_radical     | -- [x]
+  C_sp2_diradical      | -- [x]
+  C_sp3_diradical      | -- [x]
+  C_planar_plus        | -- [x]
+  C_sp2_plus           | -- [x]
   C_sp2_arom_plus      | -- [ ]
   C_sp_plus            | -- [ ]
   C_planar_minus       | -- [ ]
   C_sp2_minus          | -- [ ]
   C_sp2_arom_minus     | -- [ ]
   C_sp_minus           | -- [ ]
+
   H_sgl                | -- [ ]
   H_plus               | -- [ ]
   H_minus              | -- [ ]
@@ -94,6 +98,9 @@ data AtomType =          -- Tested | Comment
   O_sp2_phenol         | -- [x]
   O_carbonyl           | -- [x]
   O_carbonyl_plus      | -- [x]
+  -- carboxyl
+  O_ester              | -- [x]
+  -- aldehyde
   O_sp2_arom           | -- [x]
   O_sp3_radical        | -- [x]
   O_sp2_radical        | -- [x]
@@ -152,7 +159,7 @@ atomTypes = [
   (AA C False 0    (BS 1 0 1), C_sp),
   (AA C False 0    (BS 0 2 0), C_sp),
   (AA C False 0    (BS 1 1 0), C_sp2_radical),
-  (AA C False 0    (BS 1 0 0), C_sp_radical),
+  (AA C False 0    (BS 0 0 1), C_sp_radical),
   (AA C False 0    (BS 3 0 0), C_planar_radical),
   (AA C False 0    (BS 0 1 0), C_sp2_diradical),
   (AA C False 0    (BS 2 0 0), C_sp3_diradical),
@@ -208,6 +215,17 @@ atomTypes = [
 
 
 -------------------------------------------------------------------------------
+-- Error Type
+-------------------------------------------------------------------------------
+
+public export
+data ATErr : Type where
+  Missing  : (nodeNr : Bits32) -> ATArgs -> ATErr
+
+%runElab derive "ATErr" [Eq,Show]
+
+
+-------------------------------------------------------------------------------
 -- Determination AtomType
 -------------------------------------------------------------------------------
 
@@ -221,8 +239,8 @@ isPiBond BW   = True
 isPiBond Trpl = True
 isPiBond Quad = False -- hock: not sure about this
 
-parameters (n    : Node)
-           (adj  : Adj Bond (Atom l, List (Atom l,Bond)))
+parameters (n     : Node)
+           (adj   : Adj Bond (Atom l, List (Atom l,Bond)))
 
   doubleTo : Elem -> Nat
   doubleTo e = count isDoubleTo (snd adj.label)
@@ -244,7 +262,9 @@ parameters (n    : Node)
   refine C_sp           =
     if doubleTo C == 2 then C_sp_allene else C_sp
   refine C_sp2          =
-    if doubleTo O == 1 then C_carbonyl else C_sp2
+    if doubleTo O == 1 && implH == 1 then C_aldehyde
+    else if doubleTo O == 1          then C_carbonyl
+    else C_sp2
 
   -- Oxygen
   refine O_sp3          =
@@ -277,15 +297,20 @@ parameters (n    : Node)
   relabel aa = map (\x => (x,snd $ label adj)) $ (map . map) (,aa) (map fst adj)
 
   -- Helper funtion to determine all needed arguments to lookup the AtomType
-  adj : Maybe (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
-  adj = relabel . refine <$> lookup atArgs atomTypes
+  adj : {0 es : List Type} -> Has ATErr es => ChemRes es (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
+  adj =
+    case lookup atArgs atomTypes of
+      Nothing => Left $ inject $ Missing n atArgs
+      Just x  => Right $ relabel $ refine x
 
 
 -- Determines the AtomType if possible
 firstAtomTypes :
-  Graph Bond (Atom l, List (Atom l,Bond))
-  -> Maybe (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
-firstAtomTypes g = MkGraph <$> traverseWithKey adj (graph g)
+     {0 es : List Type}
+  -> Has ATErr es
+  => Graph Bond (Atom l, List (Atom l,Bond))
+  -> ChemRes es (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
+firstAtomTypes g = MkGraph <$> (traverseWithKey (\x,y => adj x y) $ graph g)
 
 
 -- Changes the addition information from neighbour atoms with their bonds
@@ -302,13 +327,15 @@ neighboursWithAT g =
 secondRefine : AtomType -> List AtomType -> AtomType
 -- Oxygen
 secondRefine O_sp3 xs =
-  if elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_snglB else O_sp3
+  if elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_snglB
+  else if elem C_aldehyde xs || elem C_carbonyl xs then O_ester
+  else O_sp3
 secondRefine O_sp3_hydroxyl xs =
   if elem C_carbonyl xs || elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_hydroxyl else O_sp3_hydroxyl
 secondRefine O_sp2_hydroxyl [C_sp2_arom] =
   O_sp2_phenol
 secondRefine O_sp2 xs =
-  if elem C_carbonyl xs then O_carbonyl else O_sp2
+  if elem C_carbonyl xs || elem C_aldehyde xs then O_carbonyl else O_sp2
 secondRefine O_sp2_plus xs =
   if elem C_carbonyl xs then O_carbonyl_plus
   else O_sp2_plus
@@ -321,7 +348,13 @@ secondRefine O_sp3_minus xs =
 
 -- Carbon
 secondRefine C_carbonyl xs =
-  if elem O_carbonyl xs && elem O_sp2_hydroxyl xs then C_carboxyl else C_carbonyl
+  if   (elem O_carbonyl xs || elem O_carbonyl_plus xs)
+    && (elem O_sp2_hydroxyl xs || elem O_sp3_hydroxyl_plus xs)
+    then C_carboxyl
+  else if elem O_ester xs then C_ester
+  else C_carbonyl
+secondRefine C_aldehyde xs =
+  if elem O_ester xs then C_ester else C_aldehyde
 secondRefine x xs = x
 
 
@@ -354,24 +387,31 @@ repeatRefine x (S k) = repeatRefine (secondAT x) k
 
 ||| Determines the atom types if possible.
 ||| If just one atom type determination fails, all other atom types
-||| may be wrong and therefore, the function returns a nothing.
+||| may be wrong and therefore, an error is given back
 public export
 atomType :
-  Graph Bond (Atom l)
-  -> Maybe $ Graph Bond (Atom (l,AtomType))
+     Has ATErr es
+  => Graph Bond (Atom l)
+  -> ChemRes es $ Graph Bond (Atom (l,AtomType))
 atomType g =
   let prepare := pairWithNeighbours g
       first   := firstAtomTypes prepare
   in case first of
-    Nothing => Nothing
-    Just x  => case pairWithNeighbours' (map fst x) of
-      v => Just $ map fst $ repeatRefine v 4
+    Left x  => Left x
+    Right x => case pairWithNeighbours' $ map fst x of
+      v => Right $ map fst $ repeatRefine v 6
 
 --- Test SMILES Parser
 
-smilesParser : String -> String
-smilesParser str =
-  let graph := parse str
-  in case graph of
-    (Left x) => show $ snd x
-    (Right x) => show $ graphWithH x
+smilesToAtomType :
+     {0 es : List Type}
+  -> Has HErr es
+  => Has ATErr es
+  => Has SmilesParseErr es
+  => String
+  -> ChemRes es $ Graph Bond (Atom (Chirality,AtomType))
+smilesToAtomType str = do
+  graph <- parse str
+  graphH <- graphWithH graph
+  atomType graphH
+

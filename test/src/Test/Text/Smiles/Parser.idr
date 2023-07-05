@@ -1,10 +1,19 @@
 module Test.Text.Smiles.Parser
 
+import Data.List.Quantifiers.Extra
 import Data.SOP
 import Data.Refined.Bits32
 import Test.Text.Smiles.Generators
 
 %default total
+
+-- TODO: This must go to quantifiers-extra
+All (Show . f) ts => Show (Any f ts) where
+  showPrec @{_ :: _} p (Here v)  = showCon p "Here" (showArg v)
+  showPrec @{_ :: _} p (There v) = showCon p "There" (showArg v)
+
+parse' : String -> ChemRes [SmilesParseErr] Mol
+parse' s = parse s
 
 --------------------------------------------------------------------------------
 --          Properties
@@ -15,21 +24,21 @@ parse_atom = property $ do
   a <- forAll atom
   let str = interpolate a
   footnote "Encoded: \{str}"
-  parse str === Right (mkGraph [0 :> a] Nil)
+  parse' str === Right (mkGraph [0 :> a] Nil)
 
 parse_bond : Property
 parse_bond = property $ do
   [a1,a2,b] <- forAll $ np [atom,atom,bond]
   let str = "\{a1}\{b}\{a2}"
   footnote "Encoded: \{str}"
-  parse str === Right (mkGraph [0 :> a1, 1 :> a2] [0 <> 1 :> b])
+  parse' str === Right (mkGraph [0 :> a1, 1 :> a2] [0 <> 1 :> b])
 
 parse_branch : Property
 parse_branch = property $ do
   [a1,a2,a3,b1,b2] <- forAll $ np [atom,atom,atom,bond,bond]
   let str = "\{a1}(\{b1}\{a2})\{b2}\{a3}"
   footnote "Encoded: \{str}"
-  parse str === Right (mkGraph [0 :> a1, 1 :> a2, 2 :> a3]
+  parse' str === Right (mkGraph [0 :> a1, 1 :> a2, 2 :> a3]
                                [0 <> 1 :> b1, 0 <> 2 :> b2])
 
 parse_ring : Property
@@ -37,7 +46,7 @@ parse_ring = property $ do
   [a1,a2,b1] <- forAll $ np [atom,atom,bond]
   let str = "\{a1}\{b1}1.\{a2}1"
   footnote "Encoded: \{str}"
-  parse str === Right (mkGraph [0 :> a1, 1 :> a2] [0 <> 1 :> b1])
+  parse' str === Right (mkGraph [0 :> a1, 1 :> a2] [0 <> 1 :> b1])
 
 --------------------------------------------------------------------------------
 --          props
