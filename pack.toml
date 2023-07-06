@@ -24,14 +24,14 @@ type   = "local"
 path   = "profile"
 ipkg   = "profile.ipkg"
 
-[custom.all.graph]
+[custom.all.array]
 type   = "git"
-url    = "https://github.com/stefan-hoeck/idris2-graph"
+url    = "https://github.com/stefan-hoeck/idris2-array"
 commit = "latest:main"
-ipkg   = "graph.ipkg"
+ipkg   = "array.ipkg"
 
-[custom.all.quantifiers-extra]
+[custom.all.indexed-graph]
 type   = "git"
-url    = "https://github.com/stefan-hoeck/idris2-quantifiers-extra"
+url    = "https://github.com/stefan-hoeck/idris2-indexed-graph"
 commit = "latest:main"
-ipkg   = "quantifiers-extra.ipkg"
+ipkg   = "indexed-graph.ipkg"
