@@ -79,7 +79,7 @@ ring = [| R ringNr (maybe bond) |]
 
 export
 atomToken : Gen SmilesToken
-atomToken = [| TA atom (list (linear 0 3) ring) |]
+atomToken = [| TA atom (([<] <><) <$> list (linear 0 3) ring) |]
 
 export
 token : Gen SmilesToken

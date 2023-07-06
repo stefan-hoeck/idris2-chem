@@ -63,7 +63,7 @@ data SmilesToken : Type where
   PC  : SmilesToken -- ')'
   Dot : SmilesToken
   TB  : Bond -> SmilesToken
-  TA  : Atom -> List Ring -> SmilesToken
+  TA  : Atom -> SnocList Ring -> SmilesToken
 
 %runElab derive "SmilesToken" [Show,Eq]
 
@@ -73,7 +73,7 @@ Interpolation SmilesToken where
   interpolate PC        = ")"
   interpolate Dot       = "."
   interpolate (TB x)    = "\{x}"
-  interpolate (TA x rs) = "\{x}\{fastConcat $ map interpolate rs}"
+  interpolate (TA x rs) = "\{x}\{fastConcat $ map interpolate (rs <>> [])}"
 
 public export
 0 LexErr : Type
@@ -97,11 +97,11 @@ bounds t k = BS (P 0 k) (P 0 $ k + length "\{t}")
 
 %inline
 subset : (e : Elem) -> {auto 0 _ : ValidSubset e False} -> SmilesToken
-subset e = TA (SubsetAtom e False) []
+subset e = TA (SubsetAtom e False) [<]
 
 %inline
 subsetA : (e : Elem) -> {auto 0 _ : ValidSubset e True} -> SmilesToken
-subsetA e = TA (SubsetAtom e True) []
+subsetA e = TA (SubsetAtom e True) [<]
 
 --------------------------------------------------------------------------------
 --          Atoms
@@ -236,7 +236,7 @@ tok st c ('B'::'r'::t) (SA r) = tok (st :< (subset Br,c)) (c+2) t r
 tok st c ('B'     ::t) (SA r) = tok (st :< (subset B,c))  (c+1) t r
 tok st c ('b'     ::t) (SA r) = tok (st :< (subsetA B,c)) (c+1) t r
 tok st c ('['     ::t) (SA r) = case bracket {orig = '[' :: t} t of
-  Succ a ys @{p}  => tok (st :< (TA a [], c)) (c + toNat p) ys r
+  Succ a ys @{p}  => tok (st :< (TA a [<], c)) (c + toNat p) ys r
   Fail s _ @{q} r =>
     let c1 := c + toNat s
         c2 := c1 + toNat q
@@ -271,9 +271,9 @@ tok st c (x       ::t) (SA r) = Left $ unknownChars [x] c
 tok st c []               _   = Right (st <>> [])
 
 rng (st :< (TA a rs,x)) c rn cs acc =
-  tok (st :< (TA a (R rn Nothing :: rs),x)) c cs acc
+  tok (st :< (TA a (rs :< R rn Nothing),x)) c cs acc
 rng (st :< (TA a rs,x):< (TB b, y)) c rn cs acc =
-  tok (st :< (TA a (R rn (Just b) :: rs),x)) c cs acc
+  tok (st :< (TA a (rs :< R rn (Just b)),x)) c cs acc
 rng st c rn cs acc = Left (unexpectedRing c rn)
 
 public export

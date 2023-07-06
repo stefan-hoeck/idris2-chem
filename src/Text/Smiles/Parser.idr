@@ -132,7 +132,7 @@ rings :
      {k : _}
   -> (column : Nat)
   -> Atom
-  -> List Ring
+  -> SnocList Ring
   -> Stack k
   -> Rings k
   -> Rings (S k)
@@ -188,8 +188,8 @@ chain o a s r as bs ((x,c)::xs) = case x of
     ((t,c)::_)     => custom (bounds t c) ExpectedAtom
     []             => eoi
 
-rings c a []            s wr r as bs ts = chain last a (wstack s) r (a::as) bs ts
-rings c a (R rn mb::xs) s wr r as bs ts =
+rings c a [<]             s wr r as bs ts = chain last a (wstack s) r (a::as) bs ts
+rings c a (xs :< R rn mb) s wr r as bs ts =
   let c1 := c + ringChars (R rn mb)
    in case lookupRing rn wr of
         Nothing => rings c1 a xs s wr (insert rn (R last a mb c1) r) as bs ts
@@ -199,7 +199,7 @@ rings c a (R rn mb::xs) s wr r as bs ts =
            in rings c1 a xs s wr r2 as (addBond n b bs) ts
 
 start : List (SmilesToken,Nat) -> Either (Bounded Err) Mol
-start ((TA a rs,c) :: xs) = rings c a rs [] [] [] [a] [] xs
+start ((TA a rs,c) :: xs) = rings c a rs [] [] [] [] [] xs
 start []                  = Right (G 0 empty)
 start ((t,c) :: _)        = custom (bounds t c) ExpectedAtom
 
