@@ -16,14 +16,14 @@ import Data.List.Quantifiers.Extra
 
 public export
 data HErr : Type where
-  ImplHErr :
-       Elem
-    -> (valence : Nat)
-    -> (arom : Bool)
-    -> (bonds : Nat)
-    -> HErr
+  HE : Node -> Elem -> (bonds : Nat) -> HErr
 
 %runElab derive "HErr" [Eq,Show]
+
+export
+Interpolation HErr where
+  interpolate (HE n el bs) =
+    "Valence exceeded for \{el}: \{show bs} bond equivalents found at node \{show n}"
 
 --------------------------------------------------------------------------------
 --          Utilities
@@ -57,107 +57,67 @@ org : Elem -> HCount -> Atom Chirality
 org e h = MkAtom e False Nothing 0 None h
 
 -- creates an atom from an aromatic subset element
-orgArom :
-     (e : Elem)
-  -> {auto 0 prf : ValidAromatic e True}
-  -> HCount
-  -> Atom Chirality
+orgArom : (e : Elem) -> (0 _ : ValidAromatic e True) => HCount -> Atom Chirality
 orgArom e h = MkAtom e True Nothing 0 None h
 
-toImplH :
-     Has HErr es
-  => (val : Nat)
-  -> (bonds : Nat)
-  -> (elem : Elem)
-  -> ChemRes es HCount
-toImplH val bonds e = case refineHCount (cast val - cast bonds) of
-  Nothing => Left $ inject $ ImplHErr e val False bonds
-  Just x  => Right x
+toImplH : (val : Nat) -> (bonds : Nat) -> Maybe HCount
+toImplH val bonds = refineHCount (cast val - cast bonds)
 
--- maybe create implement an interface for 'Alternative Either'
-subset :
-     Has HErr es
-  => (e : Elem)
-  -> {auto 0 prf : ValidSubset e False}
-  -> Nat
-  -> ChemRes es HCount
-subset C n  = toImplH 4 n C
-subset O n  = toImplH 2 n O
-subset N n  = case toImplH 3 n N of --<|> toImplH 5 n
-  Left x => toImplH 5 n N
-  x      => x
-subset B n  = toImplH 3 n B
-subset F n  = toImplH 1 n F
-subset P n  = case toImplH 3 n P of --<|> toImplH 5 n
-  Left x => toImplH 5 n P
-  x      => x
-subset S n  = case toImplH 2 n S of --<|> toImplH 4 n <|> toImplH 6 n
-  Left x => case toImplH 4 n S of
-    Left y => toImplH 6 n S
-    y      => y
-  x      => x
-subset Cl n = toImplH 1 n Cl
-subset Br n = toImplH 1 n Br
-subset I n  = toImplH 1 n I
+subset : (e : Elem) -> {auto 0 _ : ValidSubset e False} -> Nat -> Maybe HCount
+subset C n  = toImplH 4 n
+subset O n  = toImplH 2 n
+subset N n  = toImplH 3 n <|> toImplH 5 n
+subset B n  = toImplH 3 n
+subset F n  = toImplH 1 n
+subset P n  = toImplH 3 n <|> toImplH 5 n
+subset S n  = toImplH 2 n <|> toImplH 4 n <|> toImplH 6 n
+subset Cl n = toImplH 1 n
+subset Br n = toImplH 1 n
+subset I n  = toImplH 1 n
 
-subsetArom :
-     Has HErr es
-  => (e : Elem)
-  -> {auto 0 prf : ValidSubset e True}
-  -> (List Bond, Nat)
-  -> ChemRes es HCount
-subsetArom C ([], 2)      = Right 1
-subsetArom C ([], 3)      = Right 0
-subsetArom C ([Sngl], 2)  = Right 0
-subsetArom C ([Dbl], 2)   = Right 0
-subsetArom C (l, n)       = Left $ inject $ ImplHErr C 4 True (length l + n)
-subsetArom N ([], 3)      = Right 0
-subsetArom N ([], 2)      = Right 0
-subsetArom N ([Sngl], 2)  = Right 0
-subsetArom N (l, n)       = Left $ inject $ ImplHErr N 3 True (length l + n)
-subsetArom O ([], 2)      = Right 0
-subsetArom O (l, n)       = Left $ inject $ ImplHErr O 2 True (length l + n)
-subsetArom B ([], 3)      = Right 0
-subsetArom B ([], 2)      = Right 0
-subsetArom B ([Sngl], 2)  = Right 0
-subsetArom B (l, n)       = Left $ inject $ ImplHErr B 3 True (length l + n)
-subsetArom S ([], 2)      = Right 0
-subsetArom S (l, n)       = Left $ inject $ ImplHErr S 2 True (length l + n)
-subsetArom P ([], 3)      = Right 0
-subsetArom P ([], 2)      = Right 0
-subsetArom P (l, n)       = Left $ inject $ ImplHErr P 3 True (length l + n)
+arom : (e : Elem) -> (0 _ : ValidSubset e True) => List Bond -> Nat -> Maybe HCount
+arom C [] 2      = Just 1
+arom C [] 3      = Just 0
+arom C [Sngl] 2  = Just 0
+arom C [Dbl] 2   = Just 0
+arom C l n       = Nothing
+arom N [] 3      = Just 0
+arom N [] 2      = Just 0
+arom N [Sngl] 2  = Just 0
+arom N l n       = Nothing
+arom O [] 2      = Just 0
+arom O l n       = Nothing
+arom B [] 3      = Just 0
+arom B [] 2      = Just 0
+arom B [Sngl] 2  = Just 0
+arom B l n       = Nothing
+arom S [] 2      = Just 0
+arom S l n       = Nothing
+arom P [] 3      = Just 0
+arom P [] 2      = Just 0
+arom P l n       = Nothing
 
-export
-toAtom :
-     Has HErr es
-  => Atom
-  -> List Bond
-  -> ChemRes es (Atom Chirality)
-toAtom (SubsetAtom e False) xs = org e <$> subset e (bondTotal xs)
-toAtom (SubsetAtom e True) xs  = orgArom e <$> subsetArom e (aromBonds xs)
-toAtom (Bracket _ e a _ h c) _ = Right $ MkAtom e a Nothing c None h
+parameters {auto has : Has HErr es}
 
-export
-adjToAtom :
-     Has HErr es
-  => Adj Bond Atom
-  -> ChemRes es (Adj Bond (Atom Chirality))
-adjToAtom (MkAdj e ns) =
-  map (`MkAdj` ns) (toAtom e (values ns))
+  adjToAtom : Node -> Adj Bond Atom -> ChemRes es (Adj Bond (Atom Chirality))
+  adjToAtom n (MkAdj se ns) = case se of
+    SubsetAtom e False =>
+      let bnds := bondTotal $ values ns
+       in case subset e bnds of
+            Just h  => Right (MkAdj (org e h) ns)
+            Nothing => Left $ inject (HE n e bnds)
+    SubsetAtom e True  =>
+      let (ys,bnds) := aromBonds $ values ns
+       in case arom e ys bnds of
+            Just h  => Right (MkAdj (orgArom e h) ns)
+            Nothing => Left $ inject (HE n e bnds)
+    Bracket _ e a _ h c => Right $ MkAdj (MkAtom e a Nothing c None h) ns
 
-
--- TODO: Track 2
--- Define a proper error type for this and return an `Either`
--- in case implicit hydrogen perception did not work.
--- Implement a conversion function to display errors as strings
 
 ---------------------------------------------------------------------
 -- Main function
 ---------------------------------------------------------------------
-public export
-graphWithH :
-     Has HErr es
-  => Graph Bond Atom
-  -> ChemRes es (Graph Bond (Atom Chirality))
-graphWithH (MkGraph graph) =
-  map MkGraph (traverse adjToAtom graph)
+
+  export
+  graphWithH : Graph Bond Atom -> ChemRes es (Graph Bond (Atom Chirality))
+  graphWithH (MkGraph g) = map MkGraph (traverseWithKey adjToAtom g)
