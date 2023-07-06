@@ -5,7 +5,6 @@ import Chem.Types
 import Text.Smiles
 import Derive.Prelude
 import System
-import Data.Graph.Util
 import Data.List.Quantifiers.Extra
 
 %language ElabReflection
@@ -39,14 +38,14 @@ Monoid Bonds where
 ||| Folds a list of Bond's to Bonds
 ||| Caution: Quad-Bond's counts as 0!
 public export
-toBonds : Smiles.Types.Bond -> Bonds
-toBonds Sngl = BS 1 0 0
-toBonds Arom = BS 1 0 0
-toBonds Dbl  = BS 0 1 0
-toBonds FW   = BS 0 1 0
-toBonds BW   = BS 0 1 0
-toBonds Trpl = BS 0 0 1
-toBonds Quad = BS 0 0 0
+addBond : Bonds -> Smiles.Types.Bond -> Bonds
+addBond bs Sngl = {single $= S} bs
+addBond bs Arom = {single $= S} bs
+addBond bs Dbl  = {double $= S} bs
+addBond bs FW   = {double $= S} bs
+addBond bs BW   = {double $= S} bs
+addBond bs Trpl = {triple $= S} bs
+addBond bs Quad = bs
 
 public export
 hCountToBonds : HCount -> Bonds
@@ -218,7 +217,7 @@ atomTypes = [
 
 public export
 data ATErr : Type where
-  Missing  : (nodeNr : Bits32) -> ATArgs -> ATErr
+  Missing  : (nodeNr : Nat) -> ATArgs -> ATErr
 
 %runElab derive "ATErr" [Eq,Show]
 
@@ -249,23 +248,28 @@ isPiBond BW   = True
 isPiBond Trpl = True
 isPiBond Quad = False -- hock: not sure about this
 
-parameters (n     : Node)
-           (adj   : Adj Bond (Atom l, List (Atom l,Bond)))
+-- parameters (n     : Node)
+--            (adj   : Adj Bond (Atom l, List (Atom l,Bond)))
+
+parameters {k   : Nat}
+           (g   : IGraph k Bond (Atom l))
+           (n   : Fin k)
+           (adj : Adj k Bond (Atom l))
 
   doubleTo : Elem -> Nat
-  doubleTo e = count isDoubleTo (snd adj.label)
-    where isDoubleTo : (Atom l,Bond) -> Bool
-          isDoubleTo (a,Dbl) = e == a.elem
+  doubleTo e = count isDoubleTo (lneighbours g n)
+    where isDoubleTo : (Bond,Atom l) -> Bool
+          isDoubleTo (Dbl,a) = e == a.elem
           isDoubleTo _       = False
 
   aromNeighbour : Bool
-  aromNeighbour = any (\x => arom $ fst x) (snd adj.label)
+  aromNeighbour = any (arom . snd) (lneighbours g n)
 
   implH : Nat
-  implH = (cast . value . hydrogen . fst) (adj.label)
+  implH = (cast . value . hydrogen) adj.label
 
   inPiSystem : Bool
-  inPiSystem = any (\x => any isPiBond (map snd x)) (map snd adj)
+  inPiSystem = any isPiBond adj.neighbours
 
   refine : AtomType -> AtomType
   -- Carbon
@@ -298,99 +302,74 @@ parameters (n     : Node)
 
   atArgs : ATArgs
   atArgs =
-    let MkAtom el ar _ ch _ h := label (map fst adj)
-        bs := foldMap (foldMap (toBonds . snd)) (map snd adj) <+> BS (cast h.value) 0 0
+    let MkAtom el ar _ ch _ h := lab g n
+        bs := foldl addBond (BS (cast h.value) 0 0) adj.neighbours
      in AA el ar ch bs
 
   -- Wrap-up the new atom type with the existing adjacency information
-  relabel : AtomType -> Adj Bond (Atom (l,AtomType), List (Atom l,Bond))
-  relabel aa = map (\x => (x,snd $ label adj)) $ (map . map) (,aa) (map fst adj)
+  relabel : AtomType -> Atom (l,AtomType)
+  relabel aa = map (,aa) adj.label
 
   -- Helper funtion to determine all needed arguments to lookup the AtomType
-  adj : {0 es : List Type} -> Has ATErr es => ChemRes es (Adj Bond (Atom (l,AtomType), List (Atom l,Bond)))
-  adj =
-    case lookup atArgs atomTypes of
-      Nothing => Left $ inject $ Missing n atArgs
-      Just x  => Right $ relabel $ refine x
-
+  adj : Has ATErr es => ChemRes es (Atom (l,AtomType))
+  adj = case lookup atArgs atomTypes of
+    Nothing => Left $ inject $ Missing (finToNat n) atArgs
+    Just x  => Right $ relabel $ refine x
 
 -- Determines the AtomType if possible
 firstAtomTypes :
-     {0 es : List Type}
-  -> Has ATErr es
-  => Graph Bond (Atom l, List (Atom l,Bond))
-  -> ChemRes es (Graph Bond (Atom (l,AtomType), List (Atom l,Bond)))
-firstAtomTypes g = MkGraph <$> (traverseWithKey (\x,y => adj x y) $ graph g)
-
-
--- Changes the addition information from neighbour atoms with their bonds
--- or their AtomTypes to the new neighbour atoms
-neighboursWithAT :
-     Graph Bond (Atom (l,AtomType), _)  --List (Atom l,Bond))
-  -> Graph Bond (Atom (l,AtomType), List (Atom (l,AtomType)))
-neighboursWithAT g =
-  pairWithNeighbours' (map fst g)
+     {auto has : Has ATErr es}
+  -> {k : _}
+  -> IGraph k Bond (Atom l)
+  -> ChemRes es (IGraph k Bond (Atom (l,AtomType)))
+firstAtomTypes g = traverseWithCtxt (\k,a => adj g k a) g
 
 -------------------------------------------------------------------------------
 -- Second Refinement
 
-secondRefine : AtomType -> List AtomType -> AtomType
+refine2 : AtomType -> List AtomType -> AtomType
 -- Oxygen
-secondRefine O_sp3 xs =
+refine2 O_sp3 xs =
   if elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_snglB
   else if elem C_aldehyde xs || elem C_carbonyl xs then O_ester
   else O_sp3
-secondRefine O_sp3_hydroxyl xs =
+refine2 O_sp3_hydroxyl xs =
   if elem C_carbonyl xs || elem C_sp2_arom xs || elem C_sp2 xs then O_sp2_hydroxyl else O_sp3_hydroxyl
-secondRefine O_sp2_hydroxyl [C_sp2_arom] =
+refine2 O_sp2_hydroxyl [C_sp2_arom] =
   O_sp2_phenol
-secondRefine O_sp2 xs =
+refine2 O_sp2 xs =
   if elem C_carbonyl xs || elem C_aldehyde xs then O_carbonyl else O_sp2
-secondRefine O_sp2_plus xs =
+refine2 O_sp2_plus xs =
   if elem C_carbonyl xs then O_carbonyl_plus
   else O_sp2_plus
-secondRefine O_sp3_hydroxyl_plus xs =
+refine2 O_sp3_hydroxyl_plus xs =
   if elem C_sp2 xs then O_sp2_hydroxyl_plus else O_sp3_hydroxyl_plus  -- not only C_sp2 -> all kind of atoms with sp2
-secondRefine O_carbonyl xs =
+refine2 O_carbonyl xs =
   if length xs >= 2 then O_carbonyl_plus else O_carbonyl
-secondRefine O_sp3_minus xs =
+refine2 O_sp3_minus xs =
   if elem C_sp2 xs then O_sp2_minus else O_sp3_minus  -- not only C_sp2 -> all kind of atoms with sp2
 
 -- Carbon
-secondRefine C_carbonyl xs =
+refine2 C_carbonyl xs =
   if   (elem O_carbonyl xs || elem O_carbonyl_plus xs)
     && (elem O_sp2_hydroxyl xs || elem O_sp3_hydroxyl_plus xs)
     then C_carboxyl
   else if elem O_ester xs then C_ester
   else C_carbonyl
-secondRefine C_aldehyde xs =
+refine2 C_aldehyde xs =
   if elem O_ester xs then C_ester else C_aldehyde
-secondRefine x xs = x
-
-
--- helper function for a clearer representation
-secondAT' :
-     (Atom (l,AtomType), List (Atom (l,AtomType)))
-  -> (Atom (l,AtomType), List (Atom (l,AtomType)))
-secondAT' (a, li) =
-  let newAT := secondRefine (snd a.label) (map (snd . label) li)
-  in (map (\(lab,_) => (lab,newAT)) a, li)
-
--- second determination of the atom types
-secondAT :
-     Graph Bond (Atom (l,AtomType), List (Atom (l,AtomType)))
-  -> Graph Bond (Atom (l,AtomType), List (Atom (l,AtomType)))
-secondAT g =
-  neighboursWithAT $ MkGraph (map (map (secondAT')) (graph g))
+refine2 x xs = x
 
 -- just for looping the second refinement
 repeatRefine :
-  Graph Bond (Atom (l,AtomType) , List (Atom (l,AtomType)))
+     {k : _}
   -> (c : Nat)
-  -> Graph Bond (Atom (l,AtomType) , List (Atom (l,AtomType)))
-repeatRefine x 0 = x
-repeatRefine x (S k) = repeatRefine (secondAT x) k
-
+  -> IGraph k Bond (Atom (l,AtomType))
+  -> IGraph k Bond (Atom (l,AtomType))
+repeatRefine 0     g = g
+repeatRefine (S m) g =
+  let h := mapWithCtxt (\x,(A a ns) => map (map (`refine2` map (snd . label . lab g) (keys ns))) a) g
+   in repeatRefine m h
 
 -------------------------------------------------------------------------------
 -- Main function
@@ -403,13 +382,7 @@ atomType :
      Has ATErr es
   => Graph Bond (Atom l)
   -> ChemRes es $ Graph Bond (Atom (l,AtomType))
-atomType g =
-  let prepare := pairWithNeighbours g
-      first   := firstAtomTypes prepare
-  in case first of
-    Left x  => Left x
-    Right x => case pairWithNeighbours' $ map fst x of
-      v => Right $ map fst $ repeatRefine v 6
+atomType (G o g) = G o . repeatRefine 6 <$> firstAtomTypes g
 
 --- Test SMILES Parser
 

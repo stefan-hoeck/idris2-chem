@@ -167,7 +167,7 @@ bonds :
   -> (nbonds, line : Nat)
   -> (lines        : List String)
   -> Either (Bounded Error) (IGraph k (Bond k) Atom)
-bonds as bs 0     l ss      = properties (mkGraphV as bs) [] l ss
+bonds as bs 0     l ss      = properties (mkGraphRev as bs) [] l ss
 bonds as bs (S k) l (s::ss) = case lineTok l bond s of
   Right e  => bonds as (e :: bs) k (S l) ss
   Left err => Left err

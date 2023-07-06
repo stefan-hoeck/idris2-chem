@@ -10,25 +10,82 @@ import Text.Smiles.Types
 
 %language ElabReflection
 
+--------------------------------------------------------------------------------
+--          Types
+--------------------------------------------------------------------------------
+
+public export
+data SmilesErr : Type where
+  ExpectedAtom       : SmilesErr
+  ExpectedAtomOrRing : SmilesErr
+  ExpectedAtomOrBond : SmilesErr
+  EmptyParen         : SmilesErr
+  UnexpectedRing     : SmilesErr
+  RingBondMismatch   : SmilesErr
+  UnclosedRing       : SmilesErr
+
+export
+Interpolation SmilesErr where
+  interpolate ExpectedAtom = "Expected an atom"
+  interpolate ExpectedAtomOrRing = "Expected an atom or ring bond"
+  interpolate ExpectedAtomOrBond = "Expected an atom or a bond"
+  interpolate EmptyParen = "Empty parens"
+  interpolate UnexpectedRing = "Unexpected ring token"
+  interpolate RingBondMismatch = "Ring bonds do not match"
+  interpolate UnclosedRing = "Unclosed ring"
+
+%runElab derive "SmilesErr" [Eq,Show]
+
+public export
+record Ring where
+  constructor R
+  ring   : RingNr
+  bond   : Maybe Bond
+
+%runElab derive "Ring" [Show,Eq]
+
+public export
+rnChars : RingNr -> Nat
+rnChars rn = if rn < 10 then 1 else 3
+
+public export
+ringChars : Ring -> Nat
+ringChars (R rn mb) = rnChars rn + maybe 0 (const 1) mb
+
+export
+Interpolation Ring where
+  interpolate (R r (Just b)) = "\{b}\{r}"
+  interpolate (R r Nothing)  = "\{r}"
+
 public export
 data SmilesToken : Type where
   PO  : SmilesToken -- '('
   PC  : SmilesToken -- ')'
   Dot : SmilesToken
   TB  : Bond -> SmilesToken
-  TR  : RingNr -> SmilesToken
-  TA  : Atom -> SmilesToken
+  TA  : Atom -> List Ring -> SmilesToken
 
 %runElab derive "SmilesToken" [Show,Eq]
 
 export
 Interpolation SmilesToken where
-  interpolate PO  = "("
-  interpolate PC  = ")"
-  interpolate Dot = "."
-  interpolate (TB x) = "\{x}"
-  interpolate (TR x) = "\{x}"
-  interpolate (TA x) = "\{x}"
+  interpolate PO        = "("
+  interpolate PC        = ")"
+  interpolate Dot       = "."
+  interpolate (TB x)    = "\{x}"
+  interpolate (TA x rs) = "\{x}\{fastConcat $ map interpolate rs}"
+
+public export
+0 LexErr : Type
+LexErr = ParseError Void SmilesErr
+
+public export
+0 Err : Type
+Err = ParseError SmilesToken SmilesErr
+
+public export
+ringBounds : Nat -> RingNr -> Bounds
+ringBounds k rn = BS (P 0 $ k `minus` rnChars rn) (P 0 k)
 
 -- TODO: This is not perfect since there are different encodings
 --       for the same bracket atom. A better option would perhaps
@@ -40,11 +97,11 @@ bounds t k = BS (P 0 k) (P 0 $ k + length "\{t}")
 
 %inline
 subset : (e : Elem) -> {auto 0 _ : ValidSubset e False} -> SmilesToken
-subset e = TA $ SubsetAtom e False
+subset e = TA (SubsetAtom e False) []
 
 %inline
 subsetA : (e : Elem) -> {auto 0 _ : ValidSubset e True} -> SmilesToken
-subsetA e = TA $ SubsetAtom e True
+subsetA e = TA (SubsetAtom e True) []
 
 --------------------------------------------------------------------------------
 --          Atoms
@@ -144,13 +201,24 @@ unknownChars : List Char -> (start : Nat) -> Bounded (ParseError e t)
 unknownChars cs s =
   B (Unknown . Left $ pack cs) $ BS (P 0 s) (P 0 $ s + length cs)
 
+unexpectedRing : (end : Nat) -> RingNr -> Bounded LexErr
+unexpectedRing s rn = B (Custom UnexpectedRing) $ ringBounds s rn
+
+rng :
+     SnocList (SmilesToken,Nat)
+  -> (column     : Nat)
+  -> (ringNr     : RingNr)
+  -> (cs : List Char)
+  -> (0 acc : SuffixAcc cs)
+  -> Either (Bounded LexErr) (List (SmilesToken,Nat))
+
 public export
 tok :
      SnocList (SmilesToken,Nat)
   -> (column : Nat)
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
-  -> Either (Bounded $ ParseError Void e) (List (SmilesToken,Nat))
+  -> Either (Bounded LexErr) (List (SmilesToken,Nat))
 tok st c ('C'::'l'::t) (SA r) = tok (st :< (subset Cl,c)) (c+2) t r
 tok st c ('C'     ::t) (SA r) = tok (st :< (subset C,c))  (c+1) t r
 tok st c ('c'     ::t) (SA r) = tok (st :< (subsetA C,c)) (c+1) t r
@@ -168,7 +236,7 @@ tok st c ('B'::'r'::t) (SA r) = tok (st :< (subset Br,c)) (c+2) t r
 tok st c ('B'     ::t) (SA r) = tok (st :< (subset B,c))  (c+1) t r
 tok st c ('b'     ::t) (SA r) = tok (st :< (subsetA B,c)) (c+1) t r
 tok st c ('['     ::t) (SA r) = case bracket {orig = '[' :: t} t of
-  Succ a ys @{p}  => tok (st :< (TA a, c)) (c + toNat p) ys r
+  Succ a ys @{p}  => tok (st :< (TA a [], c)) (c + toNat p) ys r
   Fail s _ @{q} r =>
     let c1 := c + toNat s
         c2 := c1 + toNat q
@@ -183,25 +251,31 @@ tok st c (':'     ::t) (SA r) = tok (st :< (TB Arom,c)) (c+1) t r
 tok st c ('.'     ::t) (SA r) = tok (st :< (Dot,c)) (c+1) t r
 tok st c ('/'     ::t) (SA r) = tok (st :< (TB FW,c)) (c+1) t r
 tok st c ('\\'    ::t) (SA r) = tok (st :< (TB BW,c)) (c+1) t r
-tok st c ('0'     ::t) (SA r) = tok (st :< (TR 0,c)) (c+1) t r
-tok st c ('1'     ::t) (SA r) = tok (st :< (TR 1,c)) (c+1) t r
-tok st c ('2'     ::t) (SA r) = tok (st :< (TR 2,c)) (c+1) t r
-tok st c ('3'     ::t) (SA r) = tok (st :< (TR 3,c)) (c+1) t r
-tok st c ('4'     ::t) (SA r) = tok (st :< (TR 4,c)) (c+1) t r
-tok st c ('5'     ::t) (SA r) = tok (st :< (TR 5,c)) (c+1) t r
-tok st c ('6'     ::t) (SA r) = tok (st :< (TR 6,c)) (c+1) t r
-tok st c ('7'     ::t) (SA r) = tok (st :< (TR 7,c)) (c+1) t r
-tok st c ('8'     ::t) (SA r) = tok (st :< (TR 8,c)) (c+1) t r
-tok st c ('9'     ::t) (SA r) = tok (st :< (TR 9,c)) (c+1) t r
+tok st c ('0'     ::t) (SA r) = rng st (c+1) 0 t r
+tok st c ('1'     ::t) (SA r) = rng st (c+1) 1 t r
+tok st c ('2'     ::t) (SA r) = rng st (c+1) 2 t r
+tok st c ('3'     ::t) (SA r) = rng st (c+1) 3 t r
+tok st c ('4'     ::t) (SA r) = rng st (c+1) 4 t r
+tok st c ('5'     ::t) (SA r) = rng st (c+1) 5 t r
+tok st c ('6'     ::t) (SA r) = rng st (c+1) 6 t r
+tok st c ('7'     ::t) (SA r) = rng st (c+1) 7 t r
+tok st c ('8'     ::t) (SA r) = rng st (c+1) 8 t r
+tok st c ('9'     ::t) (SA r) = rng st (c+1) 9 t r
 tok st c ('%'::x::y::t) (SA r) =
   if isDigit x && isDigit y then
     case refineRingNr (cast $ digit x * 10 + digit y) of
-      Just rn => tok (st :< (TR rn, c)) (c+3) t r
+      Just rn => rng st (c+3) rn t r
       Nothing => Left $ unknownChars ['%',x,y] c
   else Left $ unknownChars ['%',x] c
 tok st c (x       ::t) (SA r) = Left $ unknownChars [x] c
 tok st c []               _   = Right (st <>> [])
 
+rng (st :< (TA a rs,x)) c rn cs acc =
+  tok (st :< (TA a (R rn Nothing :: rs),x)) c cs acc
+rng (st :< (TA a rs,x):< (TB b, y)) c rn cs acc =
+  tok (st :< (TA a (R rn (Just b) :: rs),x)) c cs acc
+rng st c rn cs acc = Left (unexpectedRing c rn)
+
 public export
-lexSmiles : String -> Either (Bounded $ ParseError Void e) (List (SmilesToken,Nat))
+lexSmiles : String -> Either (Bounded LexErr) (List (SmilesToken,Nat))
 lexSmiles s = tok [<] 0 (unpack s) suffixAcc

@@ -26,10 +26,10 @@ All (Show . f) ts => Show (Any f ts) where
 
 calcAtomTypes : String -> ChemRes [HErr, ATErr, SmilesParseErr] (List AtomType)
 calcAtomTypes str = do
-  g1 <- parse str
-  g2 <- graphWithH g1
-  g3 <- atomType g2
-  pure $ snd . label . label <$> sortBy (comparing node) (labNodes g3)
+  g1     <- parse str
+  g2     <- graphWithH g1
+  G _ g3 <- atomType g2
+  pure $ snd . label . snd <$> labNodes g3
 
 prop : (String,List AtomType) -> (PropertyName,Property)
 prop (s,ats) =

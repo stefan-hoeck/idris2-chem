@@ -10,8 +10,7 @@ import Test.Text.Smiles.Lexer
 import Test.Text.Smiles.Parser
 
 main : IO ()
-main = test [ Graph.props
-            , Lex.Element.props
+main = test [ Lex.Element.props
             , Chem.Element.props
             , Smiles.Lexer.props
             , Smiles.Parser.props

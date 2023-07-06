@@ -74,10 +74,17 @@ ringNr : Gen RingNr
 ringNr = fromMaybe 0 . refineRingNr <$> bits8 (linear 0 99)
 
 export
+ring : Gen Ring
+ring = [| R ringNr (maybe bond) |]
+
+export
+atomToken : Gen SmilesToken
+atomToken = [| TA atom (list (linear 0 3) ring) |]
+
+export
 token : Gen SmilesToken
 token = frequency
-  [ (5, TA <$> atom)
+  [ (5, atomToken)
   , (3, TB <$> bond)
-  , (1, TR <$> ringNr)
   , (1, element [PO, PC, Dot])
   ]

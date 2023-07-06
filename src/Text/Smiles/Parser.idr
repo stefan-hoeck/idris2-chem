@@ -2,8 +2,6 @@ module Text.Smiles.Parser
 
 import Chem
 import Data.List.Quantifiers.Extra
-import Data.Refined.Bits32
-import Data.SortedMap
 import Derive.Prelude
 import Text.Parse.Manual
 import Text.Smiles.Lexer
@@ -15,30 +13,6 @@ import Text.Smiles.Types
 --------------------------------------------------------------------------------
 --          Types
 --------------------------------------------------------------------------------
-
-public export
-data SmilesErr : Type where
-  ExpectedAtom       : SmilesErr
-  ExpectedAtomOrRing : SmilesErr
-  ExpectedAtomOrBond : SmilesErr
-  EmptyParen         : SmilesErr
-  RingBondMismatch   : SmilesErr
-  UnclosedRing       : SmilesErr
-
-export
-Interpolation SmilesErr where
-  interpolate ExpectedAtom = "Expected an atom"
-  interpolate ExpectedAtomOrRing = "Expected an atom or ring bond"
-  interpolate ExpectedAtomOrBond = "Expected an atom or a bond"
-  interpolate EmptyParen = "Empty parens"
-  interpolate RingBondMismatch = "Ring bonds do not match"
-  interpolate UnclosedRing = "Unclosed ring"
-
-public export
-0 Err : Type
-Err = ParseError SmilesToken SmilesErr
-
-%runElab derive "SmilesErr" [Eq,Show]
 
 public export
 record SmilesParseErr where
@@ -57,42 +31,90 @@ export
 Interpolation SmilesParseErr where
   interpolate (SPE s c e) = printParseError s c e
 
-record RingInfo where
+record RingInfo (k : Nat) where
   constructor R
-  orig   : Node
+  orig   : Fin k
   atom   : Atom
   bond   : Maybe Bond
   column : Nat
 
-record AtomInfo where
+record AtomInfo (k : Nat) where
   constructor A
-  orig   : Node
+  orig   : Fin k
   atom   : Atom
   column : Nat
 
-0 Rings : Type
-Rings = SortedMap RingNr RingInfo
+0 Atoms : Nat -> Type
+Atoms k = Vect k Atom
+
+0 Rings : Nat -> Type
+Rings k = List (RingNr, RingInfo k)
+
+0 Bonds : Nat -> Type
+Bonds k = List (Edge k Bond)
+
+0 Stack : Nat -> Type
+Stack = List . AtomInfo
 
 public export
 0 Mol : Type
 Mol = Graph Bond Atom
 
--- hopefully, we know what we are doing...
-%inline
-unsafeEdge : Node -> Node -> Edge
-unsafeEdge x y = MkEdge x y (mkLT $ believe_me (Builtin.Refl {x = True}))
+lookupRing : RingNr -> Rings k -> Maybe (RingInfo k)
+lookupRing r []        = Nothing
+lookupRing r (x :: xs) = case compare r (fst x) of
+  LT => lookupRing r xs
+  EQ => Just (snd x)
+  GT => Nothing
 
-%inline
-addBond : Node -> Node -> Bond -> Mol -> Mol
-addBond n1 n2 b = insEdge $ MkLEdge (unsafeEdge n1 n2) b
+insert : RingNr -> RingInfo k -> Rings k -> Rings k
+insert r i []        = [(r,i)]
+insert r i (x :: xs) = case compare r (fst x) of
+  LT => (r,i) :: x :: xs
+  _  => x :: insert r i xs
 
-%inline
-addAtom : Node -> Atom -> Mol -> Mol
-addAtom = insNode
+delete : RingNr -> Rings k -> Rings k
+delete r []        = []
+delete r (x :: xs) = case compare r (fst x) of
+  LT => x :: delete r xs
+  _  => xs
+
+--------------------------------------------------------------------------------
+--          Weakenings
+--------------------------------------------------------------------------------
+
+-- All weakening functions should be optimized away by the
+-- Idris compiler. It is paramount to test this by parsing a
+-- huge SMILES string, to make sure the SMILES parser runs in
+-- linear time.
+
+wring : RingInfo k -> RingInfo (S k)
+wring (R o a b c) = R (weaken o) a b c
+
+watom : AtomInfo k -> AtomInfo (S k)
+watom (A o a b) = A (weaken o) a b
+
+wrings : Rings k -> Rings (S k)
+wrings []     = []
+wrings ((n,h)::t) = (n, wring h) :: wrings t
+
+wbonds : Bonds k -> Bonds (S k)
+wbonds []         = []
+wbonds (h::t) = weakenEdge h :: wbonds t
+
+wstack : Stack k -> Stack (S k)
+wstack []     = []
+wstack (h::t) = watom h :: wstack t
 
 --------------------------------------------------------------------------------
 --          Parser
 --------------------------------------------------------------------------------
+
+addBond : {k : _} -> Fin k -> Bond -> Bonds (S k) -> Bonds (S k)
+addBond n1 b es = edge n1 b :: es
+
+waddBond : {k : _} -> Fin k -> Bond -> Bonds k -> Bonds (S k)
+waddBond n1 b es = addBond n1 b (wbonds es)
 
 bond : Atom -> Atom -> Bond
 bond x y = if isArom x && isArom y then Arom else Sngl
@@ -104,83 +126,82 @@ ringBond (Just x) Nothing  _ _ = Just x
 ringBond (Just x) (Just y) _ _ = if x == y then Just x else Nothing
 
 bondError : (column : Nat) -> RingNr -> Either (Bounded Err) a
-bondError c x = custom (bounds (TR x) c) RingBondMismatch
+bondError c rn = custom (ringBounds c rn) RingBondMismatch
 
-ring :
-     (col : Nat)
-  -> RingNr
-  -> Maybe Bond
-  -> Node
+rings :
+     {k : _}
+  -> (column : Nat)
   -> Atom
-  -> Rings
-  -> Mol
-  -> Either (Bounded Err) (Rings,Mol)
-ring col2 r mb2 n2 a2 rs m = case lookup r rs of
-  Nothing => Right (insert r (R n2 a2 mb2 col2) rs, m)
-  Just (R n a mb c) =>
-    let Just b := ringBond mb mb2 a a2 | Nothing => bondError col2 r
-        rs2    := delete r rs
-        edge   := MkLEdge (unsafeEdge n n2) b
-     in Right (rs2, addBond n n2 b m)
+  -> List Ring
+  -> Stack k
+  -> Rings k
+  -> Rings (S k)
+  -> Atoms k
+  -> Bonds (S k)
+  -> (ts   : List (SmilesToken,Nat))
+  -> Either (Bounded Err) Mol
 
--- TODO: We should validate if atoms are aromatic in case of
---       an aromatic bond. But perhaps it is better to do that
---       in the main parser?
-%inline
-bondTo : Bond -> Node -> Node -> Atom -> Mol -> Mol
-bondTo b n1 n2 a2 = addBond n1 n2 b . addAtom n2 a2
-
-finalize : List AtomInfo -> Rings -> Mol -> Either (Bounded Err) Mol
-finalize (A _ _ c :: xs) _ _ = unclosed (oneChar (P 0 c)) PO
-finalize [] rs m = case SortedMap.toList rs of
-  []                 => Right m
-  (r,R _ _ _ c) :: _ => custom (bounds (TR r) c) UnclosedRing
+finalize :
+     {k : _}
+  -> Stack k
+  -> Rings k
+  -> Atoms k
+  -> Bonds k
+  -> Either (Bounded Err) Mol
+finalize (A _ _ c :: xs) _       _  _  = unclosed (oneChar (P 0 c)) PO
+finalize [] ((r,R _ _ _ c) :: _) _  _  = custom (ringBounds c r) UnclosedRing
+finalize [] []                   as bs = Right $ G k (mkGraphRev as bs)
 
 -- We just got a fresh atom. Now come the optional ring bonds and branches.
 -- branched_atom ::= atom ringbond* branch*
 chain :
-     (orig : Node)          -- the node we bind to
+     {k    : Nat}
+  -> (orig : Fin k)         -- the node we bind to
   -> (a    : Atom)          -- the atom we bind to
-  -> (s    : List AtomInfo) -- stack of open branches
-  -> (r    : Rings)         -- list of opened ring bonds
-  -> (m    : Mol)           -- accumulated molecule
-  -> (n    : Node)          -- current node
+  -> (s    : Stack k)       -- stack of open branches
+  -> (r    : Rings k)       -- list of opened ring bonds
+  -> (as   : Atoms k)       -- accumulated atoms
+  -> (bs   : Bonds k)       -- accumulated bonds
   -> (ts   : List (SmilesToken,Nat))
   -> Either (Bounded Err) Mol
-chain o a s r m n [] = finalize s r m
-chain o a s r m n ((x,c)::xs) = case x of
-  TA a2 => chain n a2 s r (bondTo (bond a a2) o n a2 m) (n+1) xs
-  TB b  => case xs of
-    (TA a2,_) :: t => chain n a2 s r (bondTo b o n a2 m) (n+1) t
-    (TR ri,c) :: t => case ring c ri (Just b) o a r m of
-      Right (r2,m2) => chain o a s r2 m2 n t
-      Left err      => Left err
-    _ => custom (bounds x c) ExpectedAtomOrRing
-
-  PO => case xs of
-    (TB b, _) :: (TA a2,_) :: t =>
-      chain n a2 (A o a c :: s) r (bondTo b o n a2 m) (n+1) t
-    (TA a2,_) :: t =>
-      chain n a2 (A o a c :: s) r (bondTo (bond a a2) o n a2 m) (n+1) t
-    _ => custom (bounds x c) ExpectedAtomOrBond
+chain o a s r as bs [] = finalize s r as bs
+chain o a s r as bs ((x,c)::xs) = case x of
+  TA a2 rs => rings c a2 rs s r (wrings r) as (waddBond o (bond a a2) bs) xs
 
   PC => case s of
-    A o2 a2 _ :: t => chain o2 a2 t r m n xs
+    A o2 a2 _ :: t => chain o2 a2 t r as bs xs
     []             => unexpected (B PC $ bounds PC c)
 
-  TR ri => case ring c ri Nothing o a r m of
-      Right (r2,m2) => chain o a s r2 m2 n xs
-      Left err      => Left err
+  PO => case xs of
+    (TB b, _) :: (TA a2 rs,d) :: t =>
+      rings d a2 rs (A o a c :: s) r (wrings r) as (waddBond o b bs) t
+    (TA a2 rs,d) :: t =>
+      rings d a2 rs (A o a c :: s) r (wrings r) as (waddBond o (bond a a2) bs) t
+    _ => custom (bounds x c) ExpectedAtomOrBond
+
+  TB b  => case xs of
+    (TA a2 rs,d) :: t => rings d a2 rs s r (wrings r) as (waddBond o b bs) t
+    _ => custom (bounds x c) ExpectedAtomOrRing
 
   Dot => case xs of
-    (TA a2,_) :: t => chain n a2 s r (addAtom n a2 m) (n+1) t
+    (TA a2 rs,d) :: t => rings d a2 rs s r (wrings r) as (wbonds bs) t
     ((t,c)::_)     => custom (bounds t c) ExpectedAtom
     []             => eoi
 
+rings c a []            s wr r as bs ts = chain last a (wstack s) r (a::as) bs ts
+rings c a (R rn mb::xs) s wr r as bs ts =
+  let c1 := c + ringChars (R rn mb)
+   in case lookupRing rn wr of
+        Nothing => rings c1 a xs s wr (insert rn (R last a mb c1) r) as bs ts
+        Just (R n a2 mb2 c2) =>
+          let Just b := ringBond mb mb2 a a2 | Nothing => bondError c1 rn
+              r2     := delete rn r
+           in rings c1 a xs s wr r2 as (addBond n b bs) ts
+
 start : List (SmilesToken,Nat) -> Either (Bounded Err) Mol
-start ((TA a,_) :: xs) = chain 0 a [] empty (addAtom 0 a empty) 1 xs
-start []               = Right empty
-start ((t,c) :: _)     = custom (bounds t c) ExpectedAtom
+start ((TA a rs,c) :: xs) = rings c a rs [] [] [] [a] [] xs
+start []                  = Right (G 0 empty)
+start ((t,c) :: _)        = custom (bounds t c) ExpectedAtom
 
 export
 parseFrom : Has SmilesParseErr es => Origin -> String -> ChemRes es Mol

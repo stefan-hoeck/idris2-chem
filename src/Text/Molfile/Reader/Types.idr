@@ -23,13 +23,13 @@ chiralFlag sc     = customPack sc EChiralFlag
 
 export %inline
 node : {k : _} -> (n : Nat) -> Tok False MolFileError (Fin k)
-node n = nat n tryNatToFin
+node n = nat n (tryNatToFin . pred)
 
 export
 maybeNode : {k : _} -> (n : Nat) -> Tok False MolFileError (Maybe $ Fin k)
 maybeNode n = nat n $ \case
-  0 => Just Nothing
-  n => Just <$> tryNatToFin n
+  0   => Just Nothing
+  S n => Just <$> tryNatToFin n
 
 export %inline
 count : Tok False MolFileError Nat
