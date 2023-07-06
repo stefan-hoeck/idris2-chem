@@ -19,8 +19,8 @@ main : IO ()
 main = do
   select <- fromArgs <$> getArgs
   runDefault select Table show $ Group "all"
-    [ Element.bench
-    , Smiles.bench
+    [ -- Element.bench
+      Smiles.bench
     , Molfile.bench
     , AtomType.bench
     ]

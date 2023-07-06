@@ -63,9 +63,9 @@ Mol = Graph Bond Atom
 lookupRing : RingNr -> Rings k -> Maybe (RingInfo k)
 lookupRing r []        = Nothing
 lookupRing r (x :: xs) = case compare r (fst x) of
-  LT => lookupRing r xs
+  LT => Nothing
   EQ => Just (snd x)
-  GT => Nothing
+  GT => lookupRing r xs
 
 insert : RingNr -> RingInfo k -> Rings k -> Rings k
 insert r i []        = [(r,i)]
@@ -77,7 +77,8 @@ delete : RingNr -> Rings k -> Rings k
 delete r []        = []
 delete r (x :: xs) = case compare r (fst x) of
   LT => x :: delete r xs
-  _  => xs
+  EQ => xs
+  GT => x :: delete r xs
 
 --------------------------------------------------------------------------------
 --          Weakenings
