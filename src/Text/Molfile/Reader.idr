@@ -124,7 +124,7 @@ atom = Tok.do
 |||
 |||   xxx is not used and ignored
 export
-bond : {k : _} -> Tok False MolFileError (Edge k (Bond k))
+bond : {k : _} -> Tok False MolFileError (Edge k Bond)
 bond = Tok.do
   x  <- node {k} 3
   y  <- node {k} 3
@@ -133,7 +133,7 @@ bond = Tok.do
   drop 3
   r  <- trim 3 bondTopo
   drop 3
-  edge x y $ MkBond x y t s r
+  edge x y $ MkBond (x < y) t s r
 
 export
 lineTok :
@@ -163,10 +163,10 @@ properties g ps l (s        :: ss) = case lineTok l (property ps) s of
 bonds :
      {k : _}
   -> Vect k Atom
-  -> List (Edge k $ Bond k)
+  -> List (Edge k Bond)
   -> (nbonds, line : Nat)
   -> (lines        : List String)
-  -> Either (Bounded Error) (IGraph k (Bond k) Atom)
+  -> Either (Bounded Error) (IGraph k Bond Atom)
 bonds as bs 0     l ss      = properties (mkGraphRev as bs) [] l ss
 bonds as bs (S k) l (s::ss) = case lineTok l bond s of
   Right e  => bonds as (e :: bs) k (S l) ss
@@ -178,7 +178,7 @@ atoms :
   -> Vect k Atom
   -> (natoms, nbonds, line : Nat)
   -> (lines        : List String)
-  -> Either (Bounded Error) (IGraph (k + natoms) (Bond $ k + natoms) Atom)
+  -> Either (Bounded Error) (IGraph (k + natoms) Bond Atom)
 atoms as 0     bs l ss      =
   rewrite plusZeroRightNeutral k in bonds as [] bs l ss
 atoms as (S v) bs l (s::ss) = case lineTok l atom s of

@@ -37,6 +37,8 @@ atom (MkAtom cs a _ c s h b v h0) =
 ||| General format:
 |||   111222tttsssxxxrrrccc
 export
-bond : Edge k (Bond k) -> String
-bond (E _ _ $ MkBond x y t s r) =
-  fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s, fill 6 r]
+bond : Edge k Bond -> String
+bond (E x y $ MkBond True t s r) =
+ fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s, fill 6 r]
+bond (E x y $ MkBond False t s r) =
+ fastConcat [ fill 3 y, fill 3 x, fill 3 t, fill 3 s, fill 6 r]
