@@ -105,15 +105,12 @@ bondTopo : Gen BondTopo
 bondTopo = element [AnyTopology,Ring,Chain]
 
 export
-bond : Gen (Bond 999)
-bond = [| MkBond (pure FZ) (pure FZ) bondType bondStereo bondTopo |]
+bond : Gen Bond
+bond = [| MkBond bool bondType bondStereo bondTopo |]
 
 export
-bondEdge : Gen (Edge 999 $ Bond 999)
-bondEdge = adj <$> edge bond
-  where
-    adj : Edge 999 (Bond 999) -> Edge 999 (Bond 999)
-    adj (E x y $ MkBond _ _ t s f) = (E x y $ MkBond x y t s f)
+bondEdge : Gen (Edge 999 Bond)
+bondEdge = edge bond
 
 export
 radical : Gen Radical

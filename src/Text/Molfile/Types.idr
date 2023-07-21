@@ -305,25 +305,20 @@ Interpolation BondTopo where
 %runElab derive "BondTopo" [Eq,Show,Ord]
 
 public export
-record Bond (k : Nat) where
+record Bond where
   constructor MkBond
-  fst                  : Fin k
-  snd                  : Fin k
-  type                 : BondType
-  stereo               : BondStereo
-  topology             : BondTopo
+  ||| Flag indicating whether the bond goes from the
+  ||| atom with the smaller index to the one with the larger index
+  ||| or vice versa.
+  |||
+  ||| We need this to figure out in which direction wedged bonds should
+  ||| point.
+  firstSmaller : Bool
+  type         : BondType
+  stereo       : BondStereo
+  topology     : BondTopo
 
-%runElab deriveIndexed "Bond" [Eq,Show]
-
-||| This is the identity function. It will not appear at runtime.
-export
-weakenBond : Bond k -> Bond (S k)
-weakenBond (MkBond f s t st tp) = MkBond (weaken f) (weaken s) t st tp
-
-||| This is the identity function. It will not appear at runtime.
-export
-weakenBondN : (0 m : Nat) -> Bond k -> Bond (k + m)
-weakenBondN m (MkBond f s t st tp) = MkBond (weakenN m f) (weakenN m s) t st tp
+%runElab derive "Bond" [Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Properties
@@ -371,6 +366,6 @@ record MolFile where
   info    : MolLine
   comment : MolLine
   order   : Nat
-  graph   : IGraph order (Bond order) Atom
+  graph   : IGraph order Bond Atom
 
 %runElab derive "MolFile" [Show]

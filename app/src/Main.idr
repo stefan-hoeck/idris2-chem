@@ -29,7 +29,7 @@ app = do
     "q" => cputStr "Goodbye!"
     _   => do
       handleAll @{handlers} $ do
-        graph <- liftEither $ smilesToAtomType s
+        G _ graph <- liftEither $ smilesToAtomType s
         cputStrLn (pretty interpolate printAtom graph)
         cputStrLn ""
       app
