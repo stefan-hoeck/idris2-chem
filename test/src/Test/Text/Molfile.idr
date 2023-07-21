@@ -71,9 +71,9 @@ export
 hydrogenCount : Gen HydrogenCount
 hydrogenCount = fromMaybe 0 . refineHydrogenCount <$> bits8 (linear 0 5)
 
-export
-node : Gen Node
-node = bits32 (linear 1 999)
+-- export
+-- node : Gen Node
+-- node = bits32 (linear 1 999)
 
 export
 coordinate : Gen Coordinate
@@ -105,16 +105,15 @@ bondTopo : Gen BondTopo
 bondTopo = element [AnyTopology,Ring,Chain]
 
 export
-bond : Gen Bond
-bond = [| MkBond (pure 0) (pure 0) bondType bondStereo bondTopo |]
+bond : Gen (Bond 999)
+bond = [| MkBond (pure FZ) (pure FZ) bondType bondStereo bondTopo |]
 
 export
-bondEdge : Gen (LEdge Bond)
-bondEdge = adj <$> edge 998 bond
+bondEdge : Gen (Edge 999 $ Bond 999)
+bondEdge = adj <$> edge bond
   where
-    adj : LEdge Bond -> LEdge Bond
-    adj (MkLEdge e@(MkEdge n1 n2 prf) (MkBond _ _ t s x)) =
-      MkLEdge e (MkBond n1 n2 t s x)
+    adj : Edge 999 (Bond 999) -> Edge 999 (Bond 999)
+    adj (E x y $ MkBond _ _ t s f) = (E x y $ MkBond x y t s f)
 
 export
 radical : Gen Radical

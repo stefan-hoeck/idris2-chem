@@ -16,7 +16,7 @@ import Data.List.Quantifiers.Extra
 
 public export
 data HErr : Type where
-  HE : Node -> Elem -> (bonds : Nat) -> HErr
+  HE : Nat -> Elem -> (bonds : Nat) -> HErr
 
 %runElab derive "HErr" [Eq,Show]
 
@@ -99,20 +99,19 @@ arom P l n       = Nothing
 
 parameters {auto has : Has HErr es}
 
-  adjToAtom : Node -> Adj Bond Atom -> ChemRes es (Adj Bond (Atom Chirality))
-  adjToAtom n (MkAdj se ns) = case se of
+  adjToAtom : Fin k -> Adj k Bond Atom -> ChemRes es (Atom Chirality)
+  adjToAtom n (A se ns) = case se of
     SubsetAtom e False =>
       let bnds := bondTotal $ values ns
        in case subset e bnds of
-            Just h  => Right (MkAdj (org e h) ns)
-            Nothing => Left $ inject (HE n e bnds)
+            Just h  => Right (org e h)
+            Nothing => Left $ inject (HE (finToNat n) e bnds)
     SubsetAtom e True  =>
       let (ys,bnds) := aromBonds $ values ns
        in case arom e ys bnds of
-            Just h  => Right (MkAdj (orgArom e h) ns)
-            Nothing => Left $ inject (HE n e bnds)
-    Bracket _ e a _ h c => Right $ MkAdj (MkAtom e a Nothing c None h) ns
-
+            Just h  => Right (orgArom e h)
+            Nothing => Left $ inject (HE (finToNat n) e bnds)
+    Bracket _ e a _ h c => Right $ MkAtom e a Nothing c None h
 
 ---------------------------------------------------------------------
 -- Main function
@@ -120,4 +119,4 @@ parameters {auto has : Has HErr es}
 
   export
   graphWithH : Graph Bond Atom -> ChemRes es (Graph Bond (Atom Chirality))
-  graphWithH (MkGraph g) = map MkGraph (traverseWithKey adjToAtom g)
+  graphWithH (G s g) = map (G s) (traverseWithCtxt adjToAtom g)

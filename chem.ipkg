@@ -7,7 +7,7 @@ depends    = base         >= 0.5.1
            , elab-util
            , refined
            , parser
-           , graph
+           , indexed-graph
            , quantifiers-extra
 
 modules = Chem

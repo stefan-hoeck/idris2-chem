@@ -15,7 +15,7 @@ lexSingle as f = property $ do
   v <- forAll as
   let enc := interpolate v
   footnote "Encoded: \{enc}"
-  (map fst <$> lexSmiles {e = Void} enc) === Right [f v]
+  (map fst <$> lexSmiles enc) === Right [f v]
 
 lexMany :
      Show a
@@ -28,16 +28,13 @@ lexMany as f = property $ do
   vs <- forAll (list (linear 0 100) as)
   let enc := concatMap interpolate vs
   footnote "Encoded: \{enc}"
-  (map fst <$> lexSmiles {e = Void} enc) === Right (map f vs)
+  (map fst <$> lexSmiles enc) === Right (map f vs)
 
 prop_bond : Property
 prop_bond = lexSingle bond TB
 
 prop_atom : Property
-prop_atom = lexSingle atom TA
-
-prop_ringNr : Property
-prop_ringNr = lexSingle ringNr TR
+prop_atom = lexSingle atomToken id
 
 prop_token : Property
 prop_token = lexSingle token id
@@ -46,10 +43,7 @@ prop_bonds : Property
 prop_bonds = lexMany bond TB
 
 prop_atoms : Property
-prop_atoms = lexMany atom TA
-
-prop_ringNrs : Property
-prop_ringNrs = lexMany ringNr TR
+prop_atoms = lexMany atomToken id
 
 prop_tokens : Property
 prop_tokens = lexMany token id
@@ -59,10 +53,8 @@ props : Group
 props = MkGroup "Text.Smiles.Lexer"
   [("prop_bond", prop_bond)
   ,("prop_atom", prop_atom)
-  ,("prop_ringNr", prop_ringNr)
   ,("prop_token", prop_token)
   ,("prop_bonds", prop_bonds)
   ,("prop_atoms", prop_atoms)
-  ,("prop_ringNrs", prop_ringNrs)
   ,("prop_tokens", prop_tokens)
   ]

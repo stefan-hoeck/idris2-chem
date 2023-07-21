@@ -2,6 +2,7 @@ module Profile.Chem.AtomType
 
 import Chem
 import Chem.AtomType
+import Data.List.Quantifiers.Extra
 import Data.Maybe
 import Data.String
 import Profile
@@ -9,11 +10,12 @@ import Profile.Text.Smiles
 import System.File
 import Text.Smiles
 
+0 Errs : List Type
+Errs = [HErr, ATErr, SmilesParseErr]
+
 calcAtomTypes : String -> Maybe (Graph Bond (Atom (Chirality,AtomType)))
-calcAtomTypes str = do
-  g1 <- either (const Nothing) Just $ parse str
-  g2 <- graphWithH g1
-  toAtomTypes g2
+calcAtomTypes str =
+  either (const Nothing) Just $ smilesToAtomType {es = Errs} str
 
 parseLines : Integer -> File -> IO (Either FileError ())
 parseLines n f = do

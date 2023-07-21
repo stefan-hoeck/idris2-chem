@@ -305,15 +305,25 @@ Interpolation BondTopo where
 %runElab derive "BondTopo" [Eq,Show,Ord]
 
 public export
-record Bond where
+record Bond (k : Nat) where
   constructor MkBond
-  fst                  : Node
-  snd                  : Node
+  fst                  : Fin k
+  snd                  : Fin k
   type                 : BondType
   stereo               : BondStereo
   topology             : BondTopo
 
-%runElab derive "Bond" [Eq,Show]
+%runElab deriveIndexed "Bond" [Eq,Show]
+
+||| This is the identity function. It will not appear at runtime.
+export
+weakenBond : Bond k -> Bond (S k)
+weakenBond (MkBond f s t st tp) = MkBond (weaken f) (weaken s) t st tp
+
+||| This is the identity function. It will not appear at runtime.
+export
+weakenBondN : (0 m : Nat) -> Bond k -> Bond (k + m)
+weakenBondN m (MkBond f s t st tp) = MkBond (weakenN m f) (weakenN m s) t st tp
 
 --------------------------------------------------------------------------------
 --          Properties
@@ -360,6 +370,7 @@ record MolFile where
   name    : MolLine
   info    : MolLine
   comment : MolLine
-  graph   : Graph Bond Atom
+  order   : Nat
+  graph   : IGraph order (Bond order) Atom
 
-%runElab derive "MolFile" [Show,Eq]
+%runElab derive "MolFile" [Show]

@@ -21,21 +21,15 @@ chiralFlag [<'0'] = Right NonChiral
 chiralFlag [<'1'] = Right Chiral
 chiralFlag sc     = customPack sc EChiralFlag
 
--- Atom references go from 1 to 999, which means the corresponding
--- nodes go from 0 to 998.
-toAtomRef : Nat -> Maybe Node
-toAtomRef (S k) = if k < 999 then Just $ cast k else Nothing
-toAtomRef 0     = Nothing
-
 export %inline
-node : (n : Nat) -> Tok False MolFileError Node
-node n = nat n toAtomRef
+node : {k : _} -> (n : Nat) -> Tok False MolFileError (Fin k)
+node n = nat n (tryNatToFin . pred)
 
 export
-maybeNode : (n : Nat) -> Tok False MolFileError (Maybe Node)
+maybeNode : {k : _} -> (n : Nat) -> Tok False MolFileError (Maybe $ Fin k)
 maybeNode n = nat n $ \case
-  0 => Just Nothing
-  n => Just <$> toAtomRef n
+  0   => Just Nothing
+  S n => Just <$> tryNatToFin n
 
 export %inline
 count : Tok False MolFileError Nat
@@ -130,7 +124,7 @@ bondTopo [<'2'] = Right Chain
 bondTopo sc     = customPack sc EBondTopo
 
 export
-edge : (x,y : Node) -> Tok False MolFileError Edge
-edge x y cs = case mkEdge x y of
+edge : (x,y : Fin k) -> a -> Tok False MolFileError (Edge k a)
+edge x y z cs = case mkEdge x y z of
   Just v  => Succ v cs
   Nothing => Fail Same cs (Custom EEdge)

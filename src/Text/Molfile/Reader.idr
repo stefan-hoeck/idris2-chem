@@ -12,38 +12,50 @@ import public Text.Molfile.Reader.Types
 --          Properties
 --------------------------------------------------------------------------------
 
+0 Prop : Nat -> Type
+Prop k = (Fin k, Atom -> Atom)
 
-repeat : Nat -> (a -> Tok b MolFileError a) -> a -> Tok False MolFileError a
-repeat 0     f x cs = Succ x cs
-repeat (S k) f x cs = case f x cs of
-  Succ x2 cs2 @{p} => weaken $ trans (repeat k f x2 cs2) p
+0 Props : Nat -> Type
+Props = List . Prop
+
+applyProps : Props k -> Fin k -> Atom -> Atom
+applyProps []            _ a = a
+applyProps ((x,f) :: ps) y a =
+  let a' := if heqFin x y then f a else a
+   in applyProps ps y a'
+
+modGraph : {k : _} -> Props k -> IGraph k b Atom -> IGraph k b Atom
+modGraph [] x      = x
+modGraph ps (IG x) = IG $ mapWithIndex (map . applyProps ps) x
+
+repeat : Nat -> Tok b MolFileError a -> List a -> Tok False MolFileError (List a)
+repeat 0     f xs cs = Succ xs cs
+repeat (S k) f xs cs = case f cs of
+  Succ x2 cs2 @{p} => weaken $ trans (repeat k f (x2 :: xs) cs2) p
   Fail x y z       => Fail x y z
 
-charge : Graph Bond Atom -> Tok False MolFileError (Graph Bond Atom)
-charge (MkGraph g) = Tok.do
-  n <- node 4
+charge : {k : _} -> Tok False MolFileError (Prop k)
+charge = Tok.do
+  n <- node {k} 4
   c <- nat 4 (refineCharge . cast)
-  pure $ MkGraph $ update n (map {charge := c}) g
+  pure $ (n, {charge := c})
 
-iso : Graph Bond Atom -> Tok False MolFileError (Graph Bond Atom)
-iso (MkGraph g) = Tok.do
-  n <- node 4
+iso : {k : _} -> Tok False MolFileError (Prop k)
+iso = Tok.do
+  n <- node {k} 4
   v <- nat 4 (refineMassNr . cast)
-  pure $ MkGraph $ update n (map {massNr := Just v}) g
+  pure $ (n, {massNr := Just v})
 
-n8 :
-     Graph Bond Atom
-  -> (Graph Bond Atom -> Tok False MolFileError (Graph Bond Atom))
-  -> Tok False MolFileError (Graph Bond Atom)
-n8 g f = Tok.do
+n8 : List a -> Tok False MolFileError a -> Tok False MolFileError (List a)
+n8 xs f = Tok.do
   n  <- nat 3 (\n => if 1 <= n && n <= 8 then Just n else Nothing)
-  g2 <- repeat n f g
+  g2 <- repeat n f xs
   pure g2
 
-property : Graph Bond Atom -> Tok False MolFileError (Graph Bond Atom)
-property g ('M'::' '::' '::'C'::'H'::'G'::t) = succF $ n8 g charge t
-property g ('M'::' '::' '::'I'::'S'::'O'::t) = succF $ n8 g iso t
-property g cs = fail Same
+property : {k : _} -> Props k -> Tok False MolFileError (Props k)
+property ps ('M'::' '::' '::'C'::'H'::'G'::t) = succF $ n8 ps charge t
+property ps ('M'::' '::' '::'I'::'S'::'O'::t) = succF $ n8 ps iso t
+property ps cs = fail Same
 
 --------------------------------------------------------------------------------
 --          Reading
@@ -112,17 +124,16 @@ atom = Tok.do
 |||
 |||   xxx is not used and ignored
 export
-bond : Tok False MolFileError (LEdge Bond)
+bond : {k : _} -> Tok False MolFileError (Edge k (Bond k))
 bond = Tok.do
-  x  <- node 3
-  y  <- node 3
-  ed <- edge x y
+  x  <- node {k} 3
+  y  <- node {k} 3
   t  <- trim 3 bondType
   s  <- trim 3 bondStereo
   drop 3
   r  <- trim 3 bondTopo
   drop 3
-  pure $ MkLEdge ed $ MkBond x y t s r
+  edge x y $ MkBond x y t s r
 
 export
 lineTok :
@@ -137,38 +148,44 @@ lineTok l f s = case f (unpack s) of
   Fail x y z  => Left $ boundedErr (P l 0) x y z
 
 properties :
-     Graph Bond Atom
+     {k : _}
+  -> IGraph k b Atom
+  -> Props k
   -> (line  : Nat)
   -> (lines : List String)
-  -> Either (Bounded Error) (Graph Bond Atom)
-properties g l []               = Right g
-properties g l ("M  END" :: ss) = Right g
-properties g l (s        :: ss) = case lineTok l (property g) s of
-  Right g2 => properties g2 (S l) ss
-  Left err => Left err
+  -> Either (Bounded Error) (IGraph k b Atom)
+properties g ps l []               = Right (modGraph ps g)
+properties g ps l ("M  END" :: ss) = Right (modGraph ps g)
+properties g ps l (s        :: ss) = case lineTok l (property ps) s of
+  Right ps2 => properties g ps2 (S l) ss
+  Left err  => Left err
 
 bonds :
-     Graph Bond Atom
+     {k : _}
+  -> Vect k Atom
+  -> List (Edge k $ Bond k)
   -> (nbonds, line : Nat)
   -> (lines        : List String)
-  -> Either (Bounded Error) (Graph Bond Atom)
-bonds g 0     l ss      = properties g l ss
-bonds g (S k) l (s::ss) = case lineTok l bond s of
-  Right e  => bonds (insEdge e g) k (S l) ss
+  -> Either (Bounded Error) (IGraph k (Bond k) Atom)
+bonds as bs 0     l ss      = properties (mkGraphRev as bs) [] l ss
+bonds as bs (S k) l (s::ss) = case lineTok l bond s of
+  Right e  => bonds as (e :: bs) k (S l) ss
   Left err => Left err
-bonds g (S k) l [] = Left (oneChar EOI $ P l 0)
+bonds _ _ (S k) l [] = Left (oneChar EOI $ P l 0)
 
 atoms :
-     Graph Bond Atom
+     {k : _}
+  -> Vect k Atom
   -> (natoms, nbonds, line : Nat)
-  -> (node         : Node)
   -> (lines        : List String)
-  -> Either (Bounded Error) (Graph Bond Atom)
-atoms g 0     bs l n ss      = bonds g bs l ss
-atoms g (S k) bs l n (s::ss) = case lineTok l atom s of
-  Right a  => atoms (insNode n a g) k bs (S l) (n+1) ss
+  -> Either (Bounded Error) (IGraph (k + natoms) (Bond $ k + natoms) Atom)
+atoms as 0     bs l ss      =
+  rewrite plusZeroRightNeutral k in bonds as [] bs l ss
+atoms as (S v) bs l (s::ss) = case lineTok l atom s of
+  Right a  =>
+    rewrite sym (plusSuccRightSucc k v) in atoms (a :: as) v bs (S l) ss
   Left err => Left err
-atoms g (S k) bs l n [] = Left (oneChar EOI $ P l 0)
+atoms as (S k) bs l [] = Left (oneChar EOI $ P l 0)
 
 readMol' : (ls : List String) -> Either (Bounded Error) MolFile
 readMol' (h1::h2::h3::cs::t) = do
@@ -176,8 +193,8 @@ readMol' (h1::h2::h3::cs::t) = do
   info    <- lineTok 1 molLine h2
   comment <- lineTok 2 molLine h3
   counts  <- lineTok 3 counts cs
-  g       <- atoms empty counts.atoms counts.bonds 4 0 t
-  pure $ MkMolFile name info comment g
+  g       <- atoms [] counts.atoms counts.bonds 4 t
+  pure $ MkMolFile name info comment counts.atoms g
 readMol' ls = Left (B (Custom EHeader) $ BS begin (P (length ls) 0))
 
 export %inline

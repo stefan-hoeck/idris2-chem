@@ -11,7 +11,7 @@ import Text.Molfile.Types
 Interpolation Nat where interpolate = show
 
 %inline
-Interpolation Node where interpolate = show . (+1)
+Interpolation (Fin n) where interpolate = show . S . finToNat
 
 export
 fill : Interpolation a => Nat -> a -> String
@@ -37,6 +37,6 @@ atom (MkAtom cs a _ c s h b v h0) =
 ||| General format:
 |||   111222tttsssxxxrrrccc
 export
-bond : LEdge Bond -> String
-bond (MkLEdge _ $ MkBond x y t s r) =
+bond : Edge k (Bond k) -> String
+bond (E _ _ $ MkBond x y t s r) =
   fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s, fill 6 r]
