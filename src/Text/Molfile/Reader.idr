@@ -21,7 +21,7 @@ Props = List . Prop
 applyProps : Props k -> Fin k -> Atom -> Atom
 applyProps []            _ a = a
 applyProps ((x,f) :: ps) y a =
-  let a' := if heqFin x y then f a else a
+  let a' := if x == y then f a else a
    in applyProps ps y a'
 
 modGraph : {k : _} -> Props k -> IGraph k b Atom -> IGraph k b Atom
