@@ -1,7 +1,7 @@
 module Text.Molfile.Reader.Error
 
 import Derive.Prelude
-import Text.ParseError
+import Text.Parse.Manual
 
 %default total
 
@@ -49,3 +49,20 @@ custom = Left . Custom
 export
 customPack : SnocList Char -> (String -> MolFileError) -> Either Error a
 customPack sc f = custom (f . pack $ sc <>> [])
+
+public export
+record MolParseErr where
+  constructor MPE
+  mol     : String
+  context : FileContext
+  error   : Error
+
+export
+fromBounded : String -> Origin -> Bounded Error -> MolParseErr
+fromBounded s o (B v bs) = MPE s (FC o bs) v
+
+%runElab derive "MolParseErr" [Eq,Show]
+
+export
+Interpolation MolParseErr where
+  interpolate (MPE s c e) = printParseError s c e

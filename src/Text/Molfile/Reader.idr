@@ -1,5 +1,6 @@
 module Text.Molfile.Reader
 
+import Data.List.Quantifiers.Extra
 import Data.Nat
 import Data.String
 import Data.Vect
@@ -198,5 +199,5 @@ readMol' (h1::h2::h3::cs::t) = do
 readMol' ls = Left (B (Custom EHeader) $ BS begin (P (length ls) 0))
 
 export %inline
-readMol : Origin -> String -> Either (FileContext,Error) MolFile
-readMol o = mapFst (fromBounded o) . readMol' . lines
+readMol : Has MolParseErr es => Origin -> String -> ChemRes es MolFile
+readMol o s = mapFst (inject . fromBounded s o) . readMol' $ lines s
