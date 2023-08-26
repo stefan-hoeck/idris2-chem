@@ -8,31 +8,43 @@ import Derive.Prelude
 
 %default total
 
+||| Utility for ordering elements according to Hill notation.
 public export %inline
 hill : Elem -> String
 hill C = ""
 hill H = " "
 hill e = symbol e
 
+||| Alias for `Upper (<)`: Used as a proof that the first
+||| string comes before the second or that the second
+||| value equals `Nothing`.
 public export
 0 (<): Maybe String -> Maybe String -> Type
 (<) = Upper (<)
 
+||| A proof that the first string is less than or equal
+||| to the second string. A `Nothing` is treated as being
+||| greater than all `Just`s.
 public export
 0 (<=): Maybe String -> Maybe String -> Type
 m1 <= m2 = Either (m1 < m2) (m1 === m2)
 
 ||| A provably sorted, normalized representation
-||| of molecular formulae.
+||| of molecular formulae as a list of element-count
+||| pairs.
+|||
+||| This is indexed by the Hill-string of the head element
+||| (if any) to help with the proof of the list being properly
+||| sorted.
 public export
 data Repr : (ix : Maybe String) -> Type where
   Nil : Repr Nothing
   (::) :  {0 ix : _}
        -> (p     : (Elem,Nat))
        -> (ps    : Repr ix)
-       -> (0 prf : Just (hill $ fst p) < ix)
-       => (0 nz  : IsSucc (snd p))
-       => Repr (Just $ hill $ fst p)
+       -> {auto 0 prf : Just (hill $ fst p) < ix}
+       -> {auto 0 nz  : IsSucc (snd p)}
+       -> Repr (Just $ hill $ fst p)
 
 --------------------------------------------------------------------------------
 --          Merging Formulae
@@ -91,7 +103,9 @@ prepEQ p eq (MR ps prf) =
 plusSucc (S k) n = ItIsSucc
 plusSucc 0 n impossible
 
-||| Merges to molecular formulae
+||| Merges to molecular formulae making sure by design that the
+||| result ist still normalized, that is, entries are ordered
+||| according to Hill notation, and all counts are positive.
 export
 merge : Repr h1 -> Repr h2 -> MergeRes h1 h2
 merge (p :: ps) (q :: qs) = case comp (hill $ fst p) (hill $ fst q) of
@@ -103,6 +117,7 @@ merge (p :: ps) (q :: qs) = case comp (hill $ fst p) (hill $ fst q) of
 merge y [] = MR y (Left Refl)
 merge [] y = MR y (Right Refl)
 
+||| Extract the key-value pairs from a molecular formula.
 export
 pairs : Repr h1 -> List (Elem,Nat)
 pairs (h :: t) = h :: pairs t
@@ -112,7 +127,7 @@ pairs []       = []
 --          Comparisons
 --------------------------------------------------------------------------------
 
-||| Heterogeneous comparison
+||| Heterogeneous comparison of molecular formulae
 public export
 hcomp : Repr h1 -> Repr h2 -> Ordering
 hcomp (p :: ps) (q :: qs) = case compare (hill $ fst p) (hill $ fst q) of
@@ -124,7 +139,7 @@ hcomp []        []        = EQ
 hcomp []        _         = LT
 hcomp _         []        = GT
 
-||| Heterogeneous equality
+||| Heterogeneous equality between molecular formulae
 public export
 heq : Repr h1 -> Repr h2 -> Bool
 heq x y = hcomp x y == EQ
@@ -144,6 +159,10 @@ contains_ [] _  = False
 --          Formula
 --------------------------------------------------------------------------------
 
+||| A provably normalized molecular formula.
+|||
+||| This is just a wrapper around `Repr mx`, the representation of a
+||| molecular formula as a provably sorted list of pairs.
 public export
 record Formula where
   constructor F
@@ -178,10 +197,14 @@ export %inline
 Monoid Formula where
   neutral = F []
 
+||| Creates a molecular formula with the given element and count.
 export %inline
 singleton : Elem -> (n : Nat) -> (0 prf : IsSucc n) => Formula
 singleton e n = F [(e,n)]
 
+||| True, if the first `Formula` contains at least the atoms listed
+||| in the second formula, that is, all elements in the second formula
+||| apear at the same or a higher count in the first.
 export %inline
 contains : Formula -> Formula -> Bool
 contains (F x) (F y) = contains_ x y
