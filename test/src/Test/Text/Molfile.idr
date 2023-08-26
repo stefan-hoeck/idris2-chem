@@ -1,6 +1,7 @@
 module Test.Text.Molfile
 
 import Chem
+import Data.List.Quantifiers.Extra
 import Data.Maybe
 import Data.Refined
 import Data.Vect
@@ -136,9 +137,9 @@ rw gen tok wt = property $ do
   lineTok 0 tok str === Right v
 
 propRead : String -> Property
-propRead s = property1 $ case readMol Virtual s of
-  Right v       => pure ()
-  Left (fc,err) => failWith Nothing $ printParseError s fc err
+propRead s = property1 $ case readMol {es = [MolParseErr]} Virtual s of
+  Right v         => pure ()
+  Left (Here err) => failWith Nothing "\{err}"
 
 export
 props : Group
