@@ -109,6 +109,9 @@ Interpolation AtomSymbol where
 
 %runElab derive "AtomSymbol" [Show, Eq]
 
+public export %inline
+Cast Elem AtomSymbol where cast = El
+
 
 ------------------------------
 -- StereoParity
@@ -239,6 +242,21 @@ record Atom where
   h0designator     : H0Designator
 
 %runElab derive "Atom" [Eq,Show]
+
+public export
+Cast Elem Atom where
+  cast el =
+    MkAtom
+      { position      = [0,0,0]
+      , symbol        = cast el
+      , massNr        = Nothing
+      , charge        = 0
+      , stereoParity  = NoStereo
+      , hydrogenCount = 0
+      , stereoCareBox = IgnoreStereo
+      , valence       = 0
+      , h0designator  = H0NotSpecified
+      }
 
 --------------------------------------------------------------------------------
 --          Bonds
