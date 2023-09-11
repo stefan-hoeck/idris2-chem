@@ -1,6 +1,7 @@
 module Test.Chem.Element
 
 import Chem
+import Data.Finite
 import Test.Chem.Types
 
 import Hedgehog
@@ -11,10 +12,10 @@ element = fromAtomicNr <$> atomicNr
 
 prop_elements : Property
 prop_elements = withTests 1 $ property $
-  map (value . atomicNr) elements === [the Bits8 1..118]
+  map (value . atomicNr) values === [the Bits8 1..118]
 
 prop_atomicNr_roundTrip : Property
-prop_atomicNr_roundTrip = withTests 1 . property . for_ elements $ \e =>
+prop_atomicNr_roundTrip = withTests 1 . property . for_ values $ \e =>
   fromAtomicNr (atomicNr e) === e
 
 export
