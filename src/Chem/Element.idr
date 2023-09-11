@@ -4,6 +4,7 @@ import public Data.Refined
 import public Data.Refined.Bits8
 import Derive.Prelude
 import Derive.Refined
+import Derive.Finite
 
 %language ElabReflection
 %default total
@@ -49,7 +50,7 @@ data Elem =
             | Bk | Cf | Es | Fm | Md | No | Lr
                  | Rf | Db | Sg | Bh | Hs | Mt | Ds | Rg | Cn | Nh | Fl | Mc | Lv | Ts | Og
 
-%runElab derive "Elem" [Show, Eq, Ord]
+%runElab derive "Elem" [Show, Eq, Ord, Finite]
 
 export %inline
 Interpolation Elem where
