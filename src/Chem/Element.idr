@@ -322,7 +322,9 @@ fromAtomicNr x   =
   idris_crash "fromAtomicNr called with invalid AtomicNr: \{show x}"
 
 ||| The list of elements sorted by atomic number
-public export
+|||
+||| deprecated: Use `values` instead
+public export %deprecate
 elements : List Elem
 elements = maybe H fromAtomicNr . refineAtomicNr <$> [1..118]
 

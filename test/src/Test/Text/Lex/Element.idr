@@ -1,6 +1,7 @@
 module Test.Text.Lex.Element
 
 import Chem
+import Data.Finite
 import Text.Lex.Element
 import Hedgehog
 
@@ -8,7 +9,7 @@ import Hedgehog
 
 prop_lexElement : Property
 prop_lexElement =
-  withTests 1 . property . for_ elements $ \e =>
+  withTests 1 . property . for_ values $ \e =>
     readElement (symbol e) === Just e
 
 export
