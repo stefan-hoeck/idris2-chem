@@ -9,6 +9,7 @@ depends    = base         >= 0.5.1
            , parser
            , indexed-graph
            , quantifiers-extra
+           , finite
 
 modules = Chem
         , Chem.Element
