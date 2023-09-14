@@ -72,10 +72,6 @@ export
 hydrogenCount : Gen HydrogenCount
 hydrogenCount = fromMaybe 0 . refineHydrogenCount <$> bits8 (linear 0 5)
 
--- export
--- node : Gen Node
--- node = bits32 (linear 1 999)
-
 export
 coordinate : Gen Coordinate
 coordinate =
@@ -117,6 +113,16 @@ export
 radical : Gen Radical
 radical = element [NoRadical, Singlet, Doublet, Triplet]
 
+export
+molFile : Gen MolFile
+molFile =
+  [| MkMolFile
+       molLine
+       molLine
+       molLine
+       (lgraph (linear 0 30) (linear 0 30) bond atom)
+  |]
+
 --------------------------------------------------------------------------------
 --          Properties
 --------------------------------------------------------------------------------
@@ -141,6 +147,11 @@ propRead s = property1 $ case readMol {es = [MolParseErr]} Virtual s of
   Right v         => pure ()
   Left (Here err) => failWith Nothing "\{err}"
 
+propReadRoundTrip : Property
+propReadRoundTrip = property $ do
+  m <- forAll molFile
+  Right m === readMol {es = [MolParseErr]} Virtual (writeMol m)
+
 export
 props : Group
 props = MkGroup "Molfile Properties"
@@ -149,4 +160,5 @@ props = MkGroup "Molfile Properties"
   , ("prop_bond",  rw bondEdge bond bond)
   , ("prop_large",  propRead mfLarge)
   , ("prop_medium",  propRead mfMedium)
+  , ("prop_readRoundTrip",  propReadRoundTrip)
   ]

@@ -383,7 +383,6 @@ record MolFile where
   name    : MolLine
   info    : MolLine
   comment : MolLine
-  order   : Nat
-  graph   : IGraph order Bond Atom
+  graph   : Graph Bond Atom
 
-%runElab derive "MolFile" [Show]
+%runElab derive "MolFile" [Show,Eq]

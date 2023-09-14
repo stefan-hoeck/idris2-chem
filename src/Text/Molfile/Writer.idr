@@ -42,3 +42,12 @@ bond (E x y $ MkBond True t s r) =
  fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s, fill 6 r]
 bond (E x y $ MkBond False t s r) =
  fastConcat [ fill 3 y, fill 3 x, fill 3 t, fill 3 s, fill 6 r]
+
+export
+writeMol : MolFile -> String
+writeMol (MkMolFile n i c $ G o g) =
+  let es := map bond (edges g)
+      as := foldr (\a,ls => atom a.label :: ls) es g.graph
+      cs := MkCounts o (length es) NonChiral V2000
+   in fastUnlines $
+      n.value :: i.value :: c.value :: counts cs :: as ++ ["M  END"]
