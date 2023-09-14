@@ -199,8 +199,9 @@ Monoid Formula where
 
 ||| Creates a molecular formula with the given element and count.
 export %inline
-singleton : Elem -> (n : Nat) -> (0 prf : IsSucc n) => Formula
-singleton e n = F [(e,n)]
+singleton : Elem -> (n : Nat) -> Formula
+singleton e 0     = F []
+singleton e (S n) = F [(e,S n)]
 
 ||| True, if the first `Formula` contains at least the atoms listed
 ||| in the second formula, that is, all elements in the second formula

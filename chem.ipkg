@@ -27,6 +27,7 @@ modules = Chem
         , Text.Molfile.Writer
 
         , Text.Lex.Element
+        , Text.Lex.Formula
 
         , Text.Smiles
         , Text.Smiles.Lexer

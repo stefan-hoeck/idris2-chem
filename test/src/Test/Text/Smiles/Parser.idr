@@ -6,11 +6,6 @@ import Test.Text.Smiles.Generators
 
 %default total
 
--- TODO: This must go to quantifiers-extra
-All (Show . f) ts => Show (Any f ts) where
-  showPrec @{_ :: _} p (Here v)  = showCon p "Here" (showArg v)
-  showPrec @{_ :: _} p (There v) = showCon p "There" (showArg v)
-
 parse' : String -> ChemRes [SmilesParseErr] Mol
 parse' s = parse s
 
