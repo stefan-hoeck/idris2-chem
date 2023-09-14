@@ -195,7 +195,7 @@ readMol' (h1::h2::h3::cs::t) = do
   comment <- lineTok 2 molLine h3
   counts  <- lineTok 3 counts cs
   g       <- atoms [] counts.atoms counts.bonds 4 t
-  pure $ MkMolFile name info comment counts.atoms g
+  pure $ MkMolFile name info comment (G counts.atoms g)
 readMol' ls = Left (B (Custom EHeader) $ BS begin (P (length ls) 0))
 
 export %inline
