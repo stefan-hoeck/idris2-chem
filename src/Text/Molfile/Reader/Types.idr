@@ -56,18 +56,20 @@ coords : Tok False MolFileError (Vect 3 Coordinate)
 coords = Tok.[| (\x,y,z => [x,y,z]) coord coord coord |]
 
 export
-atomSymbol : SnocList Char -> Either Error AtomSymbol
+atomSymbol : SnocList Char -> Either Error (Maybe MassNr, AtomSymbol)
 atomSymbol sc =
   let cs := sc <>> []
    in case lexElement {e = Void} cs @{Same} of
-        Succ e [] => Right (El e)
+        Succ e [] => Right (Nothing, El e)
         _      => case pack cs of
-          "L"  => Right L
-          "A"  => Right A
-          "Q"  => Right Q
-          "*"  => Right Ast
-          "LP" => Right LP
-          "R#" => Right RSharp
+          "D"  => Right (Just 2, El H)
+          "T"  => Right (Just 3, El H)
+          "L"  => Right (Nothing, L)
+          "A"  => Right (Nothing, A)
+          "Q"  => Right (Nothing, Q)
+          "*"  => Right (Nothing, Ast)
+          "LP" => Right (Nothing, LP)
+          "R#" => Right (Nothing, RSharp)
           v    => custom $ ESymbol v
 
 export
