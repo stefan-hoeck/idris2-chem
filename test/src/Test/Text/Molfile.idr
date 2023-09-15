@@ -158,7 +158,5 @@ props = MkGroup "Molfile Properties"
   [ ("prop_count", rw counts counts counts)
   , ("prop_atom",  rw atom atom atom)
   , ("prop_bond",  rw bondEdge bond bond)
-  , ("prop_large",  propRead mfLarge)
-  , ("prop_medium",  propRead mfMedium)
-  , ("prop_readRoundTrip",  propReadRoundTrip)
+  , ("prop_sg1",   propRead sg1)
   ]
