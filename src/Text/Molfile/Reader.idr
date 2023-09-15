@@ -38,7 +38,7 @@ repeat (S k) f xs cs = case f cs of
 charge : {k : _} -> Tok False MolFileError (Prop k)
 charge = Tok.do
   n <- node {k} 4
-  c <- nat 4 (refineCharge . cast)
+  c <- int 4 (refineCharge . cast)
   pure $ (n, {charge := c})
 
 iso : {k : _} -> Tok False MolFileError (Prop k)
