@@ -159,7 +159,7 @@ properties g ps l []               = Right (modGraph ps g)
 properties g ps l ("M  END" :: ss) = Right (modGraph ps g)
 properties g ps l (s        :: ss) = case lineTok l (property ps) s of
   Right ps2 => properties g ps2 (S l) ss
-  Left err  => Left err
+  Left err  => properties g ps (S l) ss
 
 bonds :
      {k : _}
