@@ -102,17 +102,17 @@ counts = Tok.do
 export
 atom : Tok False MolFileError Atom
 atom = Tok.do
-  cs <- coords
-  a  <- (trim 4 atomSymbol)
+  cs    <- coords
+  (m,a) <- (trim 4 atomSymbol)
   drop 2
-  c  <- nat 3 $ refineCharge . cast
-  s  <- trim 3 stereoParity
-  h  <- nat 3 $ refineHydrogenCount . cast
-  b  <- trim 3 stereoCareBox
-  v  <- nat 3 $ refineValence. cast
-  h0 <- trim 3 h0designator
+  c     <- nat 3 $ refineCharge . cast
+  s     <- trim 3 stereoParity
+  h     <- nat 3 $ refineHydrogenCount . cast
+  b     <- trim 3 stereoCareBox
+  v     <- nat 3 $ refineValence. cast
+  h0    <- trim 3 h0designator
   drop 15
-  pure $ MkAtom cs a Nothing c s h b v h0
+  pure $ MkAtom cs a m c s h b v h0
 
 ||| General format:
 |||   111222tttsssxxxrrrccc
