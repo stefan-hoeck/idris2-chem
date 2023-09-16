@@ -1,8 +1,8 @@
-module Test.Text.Lex.Element
+module Test.Text.Lex.Elem
 
 import Chem
 import Data.Finite
-import Text.Lex.Element
+import Text.Lex.Elem
 import Hedgehog
 
 %default total

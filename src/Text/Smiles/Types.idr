@@ -104,6 +104,25 @@ data SmilesAtom : Type where
 
 %runElab derive "SmilesAtom" [Show,Eq]
 
+export
+Cast SmilesAtom Elem where
+  cast (SubsetAtom elem arom) = elem
+  cast (Bracket x)            = cast x.elem
+
+export
+Cast SmilesAtom Isotope where
+  cast (SubsetAtom elem arom) = MkI elem Nothing
+  cast (Bracket x)            = cast x.elem
+
+export
+Cast SmilesAtom AromIsotope where
+  cast (SubsetAtom elem arom) = MkAI elem Nothing arom
+  cast (Bracket x)            = x.elem
+
+export %inline
+Cast SmilesAtom AromElem where
+  cast = cast . cast {to = AromIsotope}
+
 export %inline
 bracket : AromIsotope -> Chirality -> HCount -> Charge -> SmilesAtom
 bracket a c h ch = Bracket (MkAtom a ch () () h () c ())

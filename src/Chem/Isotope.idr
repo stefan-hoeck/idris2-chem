@@ -25,6 +25,12 @@ Cast Isotope Elem where cast = elem
 export %inline
 Cast Elem Isotope where cast e = MkI e Nothing
 
+export %inline
+Cast Isotope AromElem where cast (MkI e _) = cast e
+
+export %inline
+Cast AromElem Isotope where cast (MkAE e _) = cast e
+
 ||| An element paired with an optional mass number plus a
 ||| boolean flag representing aromaticity.
 |||
@@ -51,3 +57,9 @@ Cast AromIsotope AromElem where cast (MkAI e m a) = MkAE e a
 
 export %inline
 Cast AromElem AromIsotope where cast (MkAE e a) = MkAI e Nothing a
+
+export %inline
+Cast AromIsotope Isotope where cast (MkAI e m a) = MkI e m
+
+export %inline
+Cast Isotope AromIsotope where cast (MkI e m) = MkAI e m False

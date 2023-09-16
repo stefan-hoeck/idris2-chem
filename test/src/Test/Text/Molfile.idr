@@ -1,7 +1,6 @@
 module Test.Text.Molfile
 
 import Chem
-import Data.List.Quantifiers.Extra
 import Data.Maybe
 import Data.Refined
 import Data.Vect
@@ -9,7 +8,9 @@ import Data.Refined.Bits32
 import Data.Refined.Int32
 import Data.Refined.Integer
 import Hedgehog
-import Test.Chem.Element
+import Test.Chem.Elem
+import Test.Chem.Isotope
+import Test.Chem.Types
 import Test.Data.Graph
 import Test.Text.Molfile.Examples
 import Text.Molfile
@@ -46,13 +47,6 @@ smallCounts : Gen Counts
 smallCounts = [| MkCounts smallCount smallCount chiralFlag molVersion |]
 
 export
-atomSymbol : Gen AtomSymbol
-atomSymbol = frequency
-  [ (10, map El element)
-  , (1,  element [L,A,Q,Ast,LP,RSharp])
-  ]
-
-export
 stereoParity : Gen StereoParity
 stereoParity = element [NoStereo, OddStereo, EvenStereo, AnyStereo]
 
@@ -81,17 +75,16 @@ export
 coords : Gen (Vect 3 Coordinate)
 coords = vect 3 coordinate
 
+u : Gen ()
+u = pure ()
+
 export
-atom : Gen Atom
-atom =
-  [| MkAtom coords atomSymbol (pure Nothing) (pure $ the Charge 0)
-            stereoParity hydrogenCount stereoCareBox valence
-            h0Designator |]
+atom : Gen MolAtom
+atom = [| MkAtom isotope charge coords radical u u u u |]
 
 export
 bondType : Gen BondType
-bondType = element [Single,Dbl,Triple,Aromatic,SngOrDbl
-                   ,SngOrAromatic,DblOrAromatic,AnyBond]
+bondType = element [Single,Dbl,Triple,Arom]
 
 export
 bondStereo : Gen BondStereo
@@ -102,21 +95,17 @@ bondTopo : Gen BondTopo
 bondTopo = element [AnyTopology,Ring,Chain]
 
 export
-bond : Gen Bond
-bond = [| MkBond bool bondType bondStereo bondTopo |]
+bond : Gen MolBond
+bond = [| MkBond bool bondType bondStereo |]
 
 export
-bondEdge : Gen (Edge 999 Bond)
+bondEdge : Gen (Edge 999 MolBond)
 bondEdge = edge bond
 
 export
-radical : Gen Radical
-radical = element [NoRadical, Singlet, Doublet, Triplet]
-
-export
-molFile : Gen MolFile
+molFile : Gen Molfile
 molFile =
-  [| MkMolFile
+  [| MkMolfile
        molLine
        molLine
        molLine

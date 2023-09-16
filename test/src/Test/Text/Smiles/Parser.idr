@@ -6,8 +6,8 @@ import Test.Text.Smiles.Generators
 
 %default total
 
-parse' : String -> ChemRes [SmilesParseErr] Mol
-parse' s = parse s
+parse' : String -> ChemRes [SmilesParseErr] SmilesMol
+parse' s = readSmiles s
 
 --------------------------------------------------------------------------------
 --          Properties
