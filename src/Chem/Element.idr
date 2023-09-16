@@ -1,39 +1,18 @@
 module Chem.Element
 
-import public Data.Refined
-import public Data.Refined.Bits8
+import public Chem.Types
+import Derive.Finite
 import Derive.Prelude
 import Derive.Refined
-import Derive.Finite
 
 %language ElabReflection
 %default total
 
 --------------------------------------------------------------------------------
---          Atomic Number
---------------------------------------------------------------------------------
-
-public export
-0 IsAtomicNr : Bits8 -> Type
-IsAtomicNr = FromTo 1 118
-
-0 test : IsAtomicNr 2
-test = %search
-
-
-public export
-record AtomicNr where
-  constructor MkAtomicNr
-  value : Bits8
-  {auto 0 prf : IsAtomicNr value}
-
-namespace AtomicNr
-  %runElab derive "AtomicNr" [Show,Eq,Ord,RefinedInteger]
-
---------------------------------------------------------------------------------
 --          The Elements
 --------------------------------------------------------------------------------
 
+||| The chemical elements encoded as an enum type
 public export
 data Elem =
     H                                                                                  | He
@@ -64,6 +43,104 @@ Interpolation Elem where
 ||| from each element's index
 export
 0 indexLemma : (e : Elem) -> IsAtomicNr (conIndexElem e + 1)
+
+||| Compute the atomic number of an element
+public export %inline
+atomicNr : Elem -> AtomicNr
+atomicNr e = MkAtomicNr (conIndexElem e + 1) @{indexLemma e}
+
+||| Compute the element from an atomic number
+public export
+fromAtomicNr : AtomicNr -> Elem
+
+||| Return the chemical symbol of an element.
+public export %inline
+symbol : Elem -> String
+symbol = show
+
+--------------------------------------------------------------------------------
+--          Aromaticity
+--------------------------------------------------------------------------------
+
+||| Proof that only valid elements are marked as aromatic
+public export
+data ValidAromatic : Elem -> Bool -> Type where
+  VAB    : ValidAromatic B  True
+  VAC    : ValidAromatic C  True
+  VAN    : ValidAromatic N  True
+  VAO    : ValidAromatic O  True
+  VAP    : ValidAromatic P  True
+  VAS    : ValidAromatic S  True
+  VASe   : ValidAromatic Se True
+  VAAs   : ValidAromatic As True
+  VARest : ValidAromatic e False
+
+||| An element paired with a boolean flag indicating whether the atom
+||| in question is part of an aromatic system.
+public export
+record AromElem where
+  constructor MkAE
+  elem : Elem
+  arom : Bool
+  {auto 0 prf : ValidAromatic elem arom}
+
+%runElab derive "AromElem" [Show,Eq]
+
+export
+Interpolation AromElem where
+  interpolate (MkAE e b) = if b then toLower (show e) else show e
+
+export %inline
+Cast AromElem Elem where cast = elem
+
+--------------------------------------------------------------------------------
+--          Isotope
+--------------------------------------------------------------------------------
+
+||| An element paired with an optional mass number.
+|||
+||| If the mass number is `Nothing`, a value of this type represents
+||| a natural mixture of isotopes.
+public export
+record Isotope where
+  constructor MkI
+  elem : Elem
+  mass : Maybe MassNr
+
+%runElab derive "Isotope" [Show,Eq]
+
+export %inline
+Cast Isotope Elem where cast = elem
+
+||| An element paired with an optional mass number plus a
+||| boolean flag representing aromaticity.
+|||
+||| If the mass number is `Nothing`, a value of this type represents
+||| a natural mixture of isotopes.
+public export
+record AromIsotope where
+  constructor MkAI
+  elem : Elem
+  mass : Maybe MassNr
+  arom : Bool
+  {auto 0 prf : ValidAromatic elem arom}
+
+%runElab derive "AromIsotope" [Show,Eq]
+
+export %inline
+Cast AromIsotope Elem where cast = elem
+
+export %inline
+Cast AromIsotope AromElem where cast (MkAI e m a) = MkAE e a
+
+--------------------------------------------------------------------------------
+--          Implementations
+--------------------------------------------------------------------------------
+
+-- the following lengthy and not very interesting implementations
+-- are kept at the end of the file to get a better overview over the
+-- exported functions and types
+
 indexLemma H  = %search
 indexLemma He = %search
 indexLemma Li = %search
@@ -183,12 +260,6 @@ indexLemma Lv = %search
 indexLemma Ts = %search
 indexLemma Og = %search
 
-public export %inline
-atomicNr : Elem -> AtomicNr
-atomicNr e = MkAtomicNr (conIndexElem e + 1) @{indexLemma e}
-
-public export
-fromAtomicNr : AtomicNr -> Elem
 fromAtomicNr 6   = C
 fromAtomicNr 8   = O
 fromAtomicNr 7   = N
@@ -320,37 +391,3 @@ fromAtomicNr (MkAtomicNr 119 prf) impossible
 fromAtomicNr x   =
   assert_total $
   idris_crash "fromAtomicNr called with invalid AtomicNr: \{show x}"
-
-||| The list of elements sorted by atomic number
-|||
-||| deprecated: Use `values` instead
-public export %deprecate
-elements : List Elem
-elements = maybe H fromAtomicNr . refineAtomicNr <$> [1..118]
-
-public export %inline
-symbol : Elem -> String
-symbol = show
-
---------------------------------------------------------------------------------
---          Aromaticity
---------------------------------------------------------------------------------
-
-public export
-data ValidAromatic : Elem -> Bool -> Type where
-  VAB    : ValidAromatic B b
-  VAC    : ValidAromatic C b
-  VAN    : ValidAromatic N b
-  VAO    : ValidAromatic O b
-  VAP    : ValidAromatic P b
-  VAS    : ValidAromatic S b
-  VASe   : ValidAromatic Se b
-  VAAs   : ValidAromatic As b
-  VARest : ValidAromatic _ False
-
-public export
-record ValidElem where
-  constructor VE
-  elem : Elem
-  arom : Bool
-  {auto 0 prf : ValidAromatic elem arom}

@@ -12,11 +12,12 @@ depends    = base         >= 0.5.1
            , finite
 
 modules = Chem
-        , Chem.Element
-        , Chem.Formula
-        , Chem.Types
         , Chem.Atom
         , Chem.AtomType
+        , Chem.Element
+        , Chem.Formula
+        , Chem.Hydrogen
+        , Chem.Types
 
         , Text.Molfile
         , Text.Molfile.Reader

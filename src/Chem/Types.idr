@@ -1,15 +1,34 @@
 module Chem.Types
 
+import public Data.List.Quantifiers.Extra
 import public Data.Refined
 import public Data.Refined.Bits16
 import public Data.Refined.Bits8
 import public Data.Refined.Int8
 import Derive.Prelude
 import Derive.Refined
-import Data.List.Quantifiers.Extra
 
 %default total
 %language ElabReflection
+
+--------------------------------------------------------------------------------
+--          Atomic Number
+--------------------------------------------------------------------------------
+
+||| Proof that a number is in the range [1,118]
+public export
+0 IsAtomicNr : Bits8 -> Type
+IsAtomicNr = FromTo 1 118
+
+||| A refined integer in the range [1,118]
+public export
+record AtomicNr where
+  constructor MkAtomicNr
+  value : Bits8
+  {auto 0 prf : IsAtomicNr value}
+
+namespace AtomicNr
+  %runElab derive "AtomicNr" [Show,Eq,Ord,RefinedInteger]
 
 --------------------------------------------------------------------------------
 --          Mass Number
@@ -193,4 +212,3 @@ namespace HCount
 public export
 0 ChemRes : List Type -> Type -> Type
 ChemRes es x = Either (HSum es) x
-
