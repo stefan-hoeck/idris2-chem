@@ -5,6 +5,7 @@ import public Data.Refined
 import public Data.Refined.Bits16
 import public Data.Refined.Bits8
 import public Data.Refined.Int8
+import Derive.Finite
 import Derive.Prelude
 import Derive.Refined
 
@@ -204,6 +205,33 @@ Interpolation HCount where
 
 namespace HCount
   %runElab derive "HCount" [Show,Eq,Ord,RefinedInteger]
+
+--------------------------------------------------------------------------------
+--          Radicals
+--------------------------------------------------------------------------------
+
+||| Type of radical if any.
+public export
+data Radical = NoRadical | Singlet | Doublet | Triplet
+
+%runElab derive "Radical" [Show,Eq,Ord]
+
+--------------------------------------------------------------------------------
+--          Hybridization
+--------------------------------------------------------------------------------
+
+||| Kinds of hybridization
+public export
+data Hybridization : Type where
+  None       : Hybridization
+  Planar     : Hybridization
+  SP         : Hybridization
+  SP2        : Hybridization
+  SP3        : Hybridization
+  SP3D1      : Hybridization
+  Octahedral : Hybridization
+
+%runElab derive "Hybridization" [Show,Eq,Ord,Finite]
 
 --------------------------------------------------------------------------------
 --          Error Type

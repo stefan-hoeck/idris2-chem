@@ -34,31 +34,27 @@ Interpolation SmilesParseErr where
 record RingInfo (k : Nat) where
   constructor R
   orig   : Fin k
-  atom   : Atom
-  bond   : Maybe Bond
+  atom   : SmilesAtom
+  bond   : Maybe SmilesBond
   column : Nat
 
 record AtomInfo (k : Nat) where
   constructor A
   orig   : Fin k
-  atom   : Atom
+  atom   : SmilesAtom
   column : Nat
 
 0 Atoms : Nat -> Type
-Atoms k = Vect k Atom
+Atoms k = Vect k SmilesAtom
 
 0 Rings : Nat -> Type
 Rings k = List (RingNr, RingInfo k)
 
 0 Bonds : Nat -> Type
-Bonds k = List (Edge k Bond)
+Bonds k = List (Edge k SmilesBond)
 
 0 Stack : Nat -> Type
 Stack = List . AtomInfo
-
-public export
-0 Mol : Type
-Mol = Graph Bond Atom
 
 lookupRing : RingNr -> Rings k -> Maybe (RingInfo k)
 lookupRing r []        = Nothing
@@ -111,16 +107,16 @@ wstack (h::t) = watom h :: wstack t
 --          Parser
 --------------------------------------------------------------------------------
 
-addBond : {k : _} -> Fin k -> Bond -> Bonds (S k) -> Bonds (S k)
+addBond : {k : _} -> Fin k -> SmilesBond -> Bonds (S k) -> Bonds (S k)
 addBond n1 b es = edge n1 b :: es
 
-waddBond : {k : _} -> Fin k -> Bond -> Bonds k -> Bonds (S k)
+waddBond : {k : _} -> Fin k -> SmilesBond -> Bonds k -> Bonds (S k)
 waddBond n1 b es = addBond n1 b (wbonds es)
 
-bond : Atom -> Atom -> Bond
+bond : SmilesAtom -> SmilesAtom -> SmilesBond
 bond x y = if isArom x && isArom y then Arom else Sngl
 
-ringBond : Maybe Bond -> Maybe Bond -> Atom -> Atom -> Maybe Bond
+ringBond : (b,c : Maybe SmilesBond) -> (x,y : SmilesAtom) -> Maybe SmilesBond
 ringBond Nothing Nothing   x y = Just $ bond x y
 ringBond Nothing (Just x)  _ _ = Just x
 ringBond (Just x) Nothing  _ _ = Just x
@@ -132,7 +128,7 @@ bondError c rn = custom (ringBounds c rn) RingBondMismatch
 rings :
      {k : _}
   -> (column : Nat)
-  -> Atom
+  -> SmilesAtom
   -> SnocList Ring
   -> Stack k
   -> Rings k
@@ -140,7 +136,7 @@ rings :
   -> Atoms k
   -> Bonds (S k)
   -> (ts   : List (SmilesToken,Nat))
-  -> Either (Bounded Err) Mol
+  -> Either (Bounded Err) SmilesMol
 
 finalize :
      {k : _}
@@ -148,7 +144,7 @@ finalize :
   -> Rings k
   -> Atoms k
   -> Bonds k
-  -> Either (Bounded Err) Mol
+  -> Either (Bounded Err) SmilesMol
 finalize (A _ _ c :: xs) _       _  _  = unclosed (oneChar (P 0 c)) PO
 finalize [] ((r,R _ _ _ c) :: _) _  _  = custom (ringBounds c r) UnclosedRing
 finalize [] []                   as bs = Right $ G k (mkGraphRev as bs)
@@ -158,13 +154,13 @@ finalize [] []                   as bs = Right $ G k (mkGraphRev as bs)
 chain :
      {k    : Nat}
   -> (orig : Fin k)         -- the node we bind to
-  -> (a    : Atom)          -- the atom we bind to
+  -> (a    : SmilesAtom)    -- the atom we bind to
   -> (s    : Stack k)       -- stack of open branches
   -> (r    : Rings k)       -- list of opened ring bonds
   -> (as   : Atoms k)       -- accumulated atoms
   -> (bs   : Bonds k)       -- accumulated bonds
   -> (ts   : List (SmilesToken,Nat))
-  -> Either (Bounded Err) Mol
+  -> Either (Bounded Err) SmilesMol
 chain o a s r as bs [] = finalize s r as bs
 chain o a s r as bs ((x,c)::xs) = case x of
   TA a2 rs => rings c a2 rs s r (wrings r) as (waddBond o (bond a a2) bs) xs
@@ -199,14 +195,14 @@ rings c a (xs :< R rn mb) s wr r as bs ts =
               r2     := delete rn r
            in rings c1 a xs s wr r2 as (addBond n b bs) ts
 
-start : List (SmilesToken,Nat) -> Either (Bounded Err) Mol
+start : List (SmilesToken,Nat) -> Either (Bounded Err) SmilesMol
 start ((TA a rs,c) :: xs) = rings c a rs [] [] [] [] [] xs
 start []                  = Right (G 0 empty)
 start ((t,c) :: _)        = custom (bounds t c) ExpectedAtom
 
 export
-parseFrom : Has SmilesParseErr es => Origin -> String -> ChemRes es Mol
-parseFrom o s =
+readSmilesFrom : Has SmilesParseErr es => Origin -> String -> ChemRes es SmilesMol
+readSmilesFrom o s =
   let Right ts := lexSmiles s
         | Left e => Left $ inject (fromBounded s o (voidLeft <$> e))
       Right m  := start ts
@@ -214,5 +210,5 @@ parseFrom o s =
    in Right m
 
 export %inline
-parse : Has SmilesParseErr es => String -> ChemRes es Mol
-parse = parseFrom Virtual
+readSmiles : Has SmilesParseErr es => String -> ChemRes es SmilesMol
+readSmiles = readSmilesFrom Virtual

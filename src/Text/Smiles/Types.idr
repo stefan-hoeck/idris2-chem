@@ -100,9 +100,13 @@ data SmilesAtom : Type where
     -> (arom       : Bool)
     -> {auto 0 prf : ValidSubset elem arom}
     -> SmilesAtom
-  Bracket : Atom' AromIsotope () () HCount () Chirality () -> SmilesAtom
+  Bracket : Atom AromIsotope Charge () () HCount () Chirality () -> SmilesAtom
 
 %runElab derive "SmilesAtom" [Show,Eq]
+
+export %inline
+bracket : AromIsotope -> Chirality -> HCount -> Charge -> SmilesAtom
+bracket a c h ch = Bracket (MkAtom a ch () () h () c ())
 
 export %inline
 isArom : SmilesAtom -> Bool
@@ -156,10 +160,10 @@ namespace RingNr
 
 ||| A bond in a SMILES string
 public export
-data Bond = Sngl | Arom | Dbl | Trpl | Quad | FW | BW
+data SmilesBond = Sngl | Arom | Dbl | Trpl | Quad | FW | BW
 
 export %inline
-Interpolation Bond where
+Interpolation SmilesBond where
   interpolate Sngl = "-"
   interpolate Arom = ":"
   interpolate Dbl  = "="
@@ -168,8 +172,8 @@ Interpolation Bond where
   interpolate FW   = "/"
   interpolate BW   = "\\"
 
-%runElab derive "Bond" [Show,Eq,Ord]
+%runElab derive "SmilesBond" [Show,Eq,Ord]
 
 public export
 SmilesMol : Type
-SmilesMol = Graph Bond SmilesAtom
+SmilesMol = Graph SmilesBond SmilesAtom

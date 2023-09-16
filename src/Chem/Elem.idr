@@ -1,4 +1,4 @@
-module Chem.Element
+module Chem.Elem
 
 import public Chem.Types
 import Derive.Finite
@@ -93,45 +93,8 @@ Interpolation AromElem where
 export %inline
 Cast AromElem Elem where cast = elem
 
---------------------------------------------------------------------------------
---          Isotope
---------------------------------------------------------------------------------
-
-||| An element paired with an optional mass number.
-|||
-||| If the mass number is `Nothing`, a value of this type represents
-||| a natural mixture of isotopes.
-public export
-record Isotope where
-  constructor MkI
-  elem : Elem
-  mass : Maybe MassNr
-
-%runElab derive "Isotope" [Show,Eq]
-
 export %inline
-Cast Isotope Elem where cast = elem
-
-||| An element paired with an optional mass number plus a
-||| boolean flag representing aromaticity.
-|||
-||| If the mass number is `Nothing`, a value of this type represents
-||| a natural mixture of isotopes.
-public export
-record AromIsotope where
-  constructor MkAI
-  elem : Elem
-  mass : Maybe MassNr
-  arom : Bool
-  {auto 0 prf : ValidAromatic elem arom}
-
-%runElab derive "AromIsotope" [Show,Eq]
-
-export %inline
-Cast AromIsotope Elem where cast = elem
-
-export %inline
-Cast AromIsotope AromElem where cast (MkAI e m a) = MkAE e a
+Cast Elem AromElem where cast e = MkAE e False
 
 --------------------------------------------------------------------------------
 --          Implementations

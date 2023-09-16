@@ -14,9 +14,10 @@ depends    = base         >= 0.5.1
 modules = Chem
         , Chem.Atom
         , Chem.AtomType
-        , Chem.Element
+        , Chem.Elem
         , Chem.Formula
         , Chem.Hydrogen
+        , Chem.Isotope
         , Chem.Types
 
         , Text.Molfile
@@ -27,7 +28,7 @@ modules = Chem
         , Text.Molfile.Types
         , Text.Molfile.Writer
 
-        , Text.Lex.Element
+        , Text.Lex.Elem
         , Text.Lex.Formula
 
         , Text.Smiles

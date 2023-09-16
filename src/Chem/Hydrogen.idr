@@ -1,7 +1,7 @@
 module Chem.Hydrogen
 
 import Chem.Atom
-import Chem.Element
+import Chem.Elem
 import Chem.Types
 import Derive.Prelude
 

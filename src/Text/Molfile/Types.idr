@@ -7,7 +7,6 @@ import Derive.Refined
 import public Data.Refined.String
 import public Data.Refined.Integer
 import public Chem
-import public Data.List.Quantifiers
 import public Data.Nat
 import public Data.String
 import public Data.Vect
@@ -227,36 +226,18 @@ Interpolation Coordinate where
 namespace Coordinate
   %runElab derive "Coordinate" [Show,Eq,Ord,RefinedInteger]
 
-||| Data on a single V2000 Atom Line
+||| Regular atom loaded from a .mol file.
+|||
+||| Note: .mol files support additional atom symbols
+||| (for instance, for queries), but for real-world molecules,
+||| this is the type to use.
 public export
-record Atom where
-  constructor MkAtom
-  position         : Vect 3 Coordinate
-  symbol           : AtomSymbol
-  massNr           : Maybe MassNr
-  charge           : Charge
-  stereoParity     : StereoParity
-  hydrogenCount    : HydrogenCount
-  stereoCareBox    : StereoCareBox
-  valence          : Valence
-  h0designator     : H0Designator
-
-%runElab derive "Atom" [Eq,Show]
+0 MolAtom : Type
+MolAtom = Atom Isotope Charge (Vect 3 Coordinate) Radical () () () ()
 
 public export
-Cast Elem Atom where
-  cast el =
-    MkAtom
-      { position      = [0,0,0]
-      , symbol        = cast el
-      , massNr        = Nothing
-      , charge        = 0
-      , stereoParity  = NoStereo
-      , hydrogenCount = 0
-      , stereoCareBox = IgnoreStereo
-      , valence       = 0
-      , h0designator  = H0NotSpecified
-      }
+Cast Elem MolAtom where
+  cast el = MkAtom (cast el) 0 [0,0,0] NoRadical () () () ()
 
 --------------------------------------------------------------------------------
 --          Bonds
@@ -265,30 +246,35 @@ Cast Elem Atom where
 ------------------------------
 -- BondType
 
-||| 4 to 8 only for SSS queries
 public export
-data BondType =
-    Single
-  | Dbl
-  | Triple
-  | Aromatic
-  | SngOrDbl
-  | SngOrAromatic
-  | DblOrAromatic
-  | AnyBond
+data BondType = Single | Dbl | Triple | Arom
 
 export %inline
 Interpolation BondType where
   interpolate Single        = "1"
   interpolate Dbl           = "2"
   interpolate Triple        = "3"
-  interpolate Aromatic      = "4"
+  interpolate Arom          = "4"
+
+%runElab derive "BondType" [Eq,Show,Ord]
+
+public export
+data QueryBondType : Type where
+  BT            : BondType -> QueryBondType
+  SngOrDbl      : QueryBondType
+  SngOrAromatic : QueryBondType
+  DblOrAromatic : QueryBondType
+  AnyBond       : QueryBondType
+
+export %inline
+Interpolation QueryBondType where
+  interpolate (BT b)        = interpolate b
   interpolate SngOrDbl      = "5"
   interpolate SngOrAromatic = "6"
   interpolate DblOrAromatic = "7"
   interpolate AnyBond       = "8"
 
-%runElab derive "BondType" [Eq,Show,Ord]
+%runElab derive "QueryBondType" [Eq,Show,Ord]
 
 ------------------------------
 -- BondStereo
@@ -323,7 +309,7 @@ Interpolation BondTopo where
 %runElab derive "BondTopo" [Eq,Show,Ord]
 
 public export
-record Bond where
+record MolBond where
   constructor MkBond
   ||| Flag indicating whether the bond goes from the
   ||| atom with the smaller index to the one with the larger index
@@ -334,9 +320,8 @@ record Bond where
   firstSmaller : Bool
   type         : BondType
   stereo       : BondStereo
-  topology     : BondTopo
 
-%runElab derive "Bond" [Eq,Show]
+%runElab derive "MolBond" [Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Properties
@@ -358,31 +343,20 @@ Interpolation N8 where
 namespace N8
   %runElab derive "N8" [Show,Eq,Ord,RefinedInteger]
 
-------------------------------
--- Radical
-
-public export
-data Radical = NoRadical | Singlet | Doublet | Triplet
-
-export %inline
-Interpolation Radical where
-  interpolate NoRadical = "0"
-  interpolate Singlet   = "1"
-  interpolate Doublet   = "2"
-  interpolate Triplet   = "3"
-
-%runElab derive "Radical" [Show,Eq,Ord]
-
 --------------------------------------------------------------------------------
 --          MolFile
 --------------------------------------------------------------------------------
 
 public export
-record MolFile where
-  constructor MkMolFile
+0 MolfileMol : Type
+MolfileMol = Graph MolBond MolAtom
+
+public export
+record Molfile where
+  constructor MkMolfile
   name    : MolLine
   info    : MolLine
   comment : MolLine
-  graph   : Graph Bond Atom
+  graph   : MolfileMol
 
-%runElab derive "MolFile" [Show,Eq]
+%runElab derive "Molfile" [Show,Eq]

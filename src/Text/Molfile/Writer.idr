@@ -25,27 +25,30 @@ counts (MkCounts na nb c v) =
 coords : Vect 3 Coordinate -> String
 coords [x,y,z] = fastConcat [fill 10 x, fill 10 y, fill 10 z]
 
+[IP_ISO] Interpolation Isotope where
+  interpolate (MkI H $ Just 2) = "D"
+  interpolate (MkI H $ Just 3) = "T"
+  interpolate (MkI e _)        = symbol e
+
 ||| General format:
 |||   xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
 export
-atom : Atom -> String
-atom (MkAtom cs a _ c s h b v h0) =
-  fastConcat
-    [ coords cs, fill 4 a, fill 5 c, fill 3 s, fill 3 h
-    , fill 3 b, fill 3 v, fill 3 h0]
+atom : MolAtom -> String
+atom (MkAtom a c pos _ () () () ()) =
+  fastConcat [ coords pos, fill @{IP_ISO} 4 a, fill 5 c]
 
 ||| General format:
 |||   111222tttsssxxxrrrccc
 export
-bond : Edge k Bond -> String
-bond (E x y $ MkBond True t s r) =
- fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s, fill 6 r]
-bond (E x y $ MkBond False t s r) =
- fastConcat [ fill 3 y, fill 3 x, fill 3 t, fill 3 s, fill 6 r]
+bond : Edge k MolBond -> String
+bond (E x y $ MkBond True t s) =
+ fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s]
+bond (E x y $ MkBond False t s) =
+ fastConcat [ fill 3 y, fill 3 x, fill 3 t, fill 3 s]
 
 export
-writeMol : MolFile -> String
-writeMol (MkMolFile n i c $ G o g) =
+writeMol : Molfile -> String
+writeMol (MkMolfile n i c $ G o g) =
   let es := map bond (edges g)
       as := foldr (\a,ls => atom a.label :: ls) es g.graph
       cs := MkCounts o (length es) NonChiral V2000

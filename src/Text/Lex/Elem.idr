@@ -1,6 +1,6 @@
-module Text.Lex.Element
+module Text.Lex.Elem
 
-import Chem.Element
+import Chem.Elem
 import Text.Bounds
 import Text.FC
 import Text.Lex.Manual

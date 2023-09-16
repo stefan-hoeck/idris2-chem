@@ -1,9 +1,8 @@
 module Chem.AtomType
 
-import Chem
 import Chem.Atom
+import Chem.Elem
 import Chem.Types
-import Derive.Finite
 import Derive.Prelude
 
 %language ElabReflection
@@ -12,31 +11,6 @@ import Derive.Prelude
 --------------------------------------------------------------------------------
 --          Types
 --------------------------------------------------------------------------------
-
-||| Type of radical if any.
-public export
-data Radical = NoRadical | Singlet | Doublet | Triplet
-
-%runElab derive "Radical" [Show,Eq,Ord]
-
-||| Kinds of hybridization
-public export
-data Hybridization : Type where
-  None       : Hybridization
-  Planar     : Hybridization
-  SP         : Hybridization
-  SP2        : Hybridization
-  SP3        : Hybridization
-  SP3D1      : Hybridization
-  Octahedral : Hybridization
-
-%runElab derive "Hybridization" [Show,Eq,Ord,Finite]
-
-||| Order of a chemical bond
-public export
-data BondOrder = B1 | B2 | B3
-
-%runElab derive "BondOrder" [Eq,Ord,Show,Finite]
 
 ||| Counts of bond types connected to an atom
 public export
@@ -104,6 +78,10 @@ record AtomType where
   {bonds         : Bonds}
   type           : AType lonePairCount hybridization bonds
 
+public export
+record ATErr where
+  constructor MkATErr
+
 -- Utility for those cases where the number of implict hydrogens
 -- is explicitly given. Some atom types can only be distinguished,
 -- in this case.
@@ -120,6 +98,12 @@ radical : Radical -> Elem -> Charge -> Bonds -> Lazy Bool -> Maybe AtomType
 --
 -- implementation is at the end of this source file
 atype : Elem -> Charge -> Bonds -> Lazy Bool -> Maybe AtomType
+
+-- export
+-- perceiveMol :
+--      {auto has : Has ATErr es}
+--   -> Graph Bond (Atom Isotope p Radical () () c l)
+--   -> ChemRes es (Graph MolBond $ Atom Isotope p Radical HCount AtomType c l)
 
 --------------------------------------------------------------------------------
 --          Implementations
