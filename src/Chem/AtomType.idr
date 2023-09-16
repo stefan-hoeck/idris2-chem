@@ -20,6 +20,20 @@ record Bonds where
   double : Nat
   triple : Nat
 
+%runElab derive "Bonds" [Show,Eq]
+
+export
+hasPiBonds : Bonds -> Bool
+hasPiBonds (BS _ d t) = d > 0 || t > 0
+
+export
+Semigroup Bonds where
+  BS s1 d1 t1 <+> BS s2 d2 t2 = BS (s1 + s2) (d1 + d2) (t1 + t2)
+
+export
+Monoid Bonds where
+  neutral = BS 0 0 0
+
 ||| The atom types we distinguish indexed by the number of lone pair,
 ||| hybridization and types of connected bonds.
 public export
@@ -67,6 +81,9 @@ data AType : (lonPairs : Nat) -> Hybridization -> Bonds -> Type where
   Te_3             : AType 2 SP3        (BS 2 0 0)
   Te_4plus         : AType 1 None       (BS 0 0 0)
 
+  ||| Placeholder for unknown atom types
+  X                : AType 0 None       (BS 0 0 0)
+
 %runElab deriveIndexed "AType" [Show]
 
 ||| Existential wrapper around `AType`.
@@ -78,32 +95,36 @@ record AtomType where
   {bonds         : Bonds}
   type           : AType lonePairCount hybridization bonds
 
-public export
-record ATErr where
-  constructor MkATErr
+||| Compute the number of implicit hydrogen atoms from
+||| an atom type and a count of bond types.
+|||
+||| If the number of single bonds at the atom exceeds the
+||| number of single bonds of the atom type, this returns
+||| atom type `X` (unknown) together with a hydrogen count
+||| of zero.
+export
+hcount : AtomType -> Bonds -> (HCount, AtomType)
+hcount at bs =
+  case refineHCount (cast $ at.bonds.single `minus` bs.single) of
+    Just h  => (h,at)
+    Nothing => (0, AT X)
 
--- Utility for those cases where the number of implict hydrogens
--- is explicitly given. Some atom types can only be distinguished,
--- in this case.
---
--- implementation is at the end of this source file
-atypeH : Elem -> Charge -> HCount -> Bonds -> Maybe AtomType
+||| Utility for those cases where the number of implict hydrogens
+||| (if any) is already included in the number of bonds.
+||| in this case.
+export
+atypeH : Elem -> Charge -> Bonds -> Lazy Bool -> AtomType
 
--- Perceiving radical for those cases where such information is available.
---
--- implementation is at the end of this source file
-radical : Radical -> Elem -> Charge -> Bonds -> Lazy Bool -> Maybe AtomType
+||| Perceiving radicals for those cases where such information is available.
+export
+radical : Radical -> Elem -> Charge -> Bonds -> Lazy Bool -> AtomType
 
--- General purpose atom type perception
---
--- implementation is at the end of this source file
-atype : Elem -> Charge -> Bonds -> Lazy Bool -> Maybe AtomType
-
--- export
--- perceiveMol :
---      {auto has : Has ATErr es}
---   -> Graph Bond (Atom Isotope p Radical () () c l)
---   -> ChemRes es (Graph MolBond $ Atom Isotope p Radical HCount AtomType c l)
+||| General purpose atom type perception
+|||
+||| This is to be used if no implicit hydrogen atoms are given
+||| and these should be perceived from the atom type as well.
+export
+atype : Elem -> Charge -> Bonds -> Lazy Bool -> AtomType
 
 --------------------------------------------------------------------------------
 --          Implementations
@@ -112,60 +133,63 @@ atype : Elem -> Charge -> Bonds -> Lazy Bool -> Maybe AtomType
 atype C  c bs co =
   case c of
     0    => case bs of
-      BS _ 0 0 => Just (AT C_sp3)
-      BS _ 1 0 => Just (AT C_sp2)
-      BS _ 2 0 => Just (AT C_allene)
-      BS _ 0 1 => Just (AT C_sp)
-      _        => Nothing
+      BS _ 0 0 => AT C_sp3
+      BS _ 1 0 => AT C_sp2
+      BS _ 2 0 => AT C_allene
+      BS _ 0 1 => AT C_sp
+      _        => AT X
     1    => case bs of
-      BS _ 0 0 => Just (AT C_plus_planar)
-      BS _ 1 0 => Just (AT C_plus_sp2)
-      BS 0 0 1 => Just (AT C_plus_sp)
-      _        => Nothing
+      BS _ 0 0 => AT C_plus_planar
+      BS _ 1 0 => AT C_plus_sp2
+      BS 0 0 1 => AT C_plus_sp
+      _        => AT X
     (-1) => case bs of
-      BS _ 0 0 => if co then Just (AT C_minus_planar) else Just (AT C_minus_sp3)
-      BS _ 1 0 => Just (AT C_minus_sp2)
-      BS 0 0 1 => Just (AT C_minus_sp)
-      _        => Nothing
-    _    => Nothing
+      BS _ 0 0 => if co then AT C_minus_planar else AT C_minus_sp3
+      BS _ 1 0 => AT C_minus_sp2
+      BS 0 0 1 => AT C_minus_sp
+      _        => AT X
+    _    => AT X
 
 atype B  c bs co =
   case c of
-    0    => Just (AT B)
-    (-1) => Just (AT B_minus)
-    3    => Just (AT B_3plus)
-    _    => Nothing
+    0    => AT B
+    (-1) => AT B_minus
+    3    => AT B_3plus
+    _    => AT X
 
 atype Se c bs co = -- TODO Se_2
   case c of
-    1    => Just (AT Se_plus_3)
-    4    => Just (AT Se_4plus)
-    (-2) => Just (AT Se_2minus)
+    1    => AT Se_plus_3
+    4    => AT Se_4plus
+    (-2) => AT Se_2minus
     0    =>
       case bs.double of
-        0 => if bs.single > 2 then Just (AT Se_sp3d1_4) else Just (AT Se_3)
+        0 => if bs.single > 2 then AT Se_sp3d1_4 else AT Se_3
         1 =>
-          if      bs.single > 2 then Just (AT Se_5)
-          else if bs.single > 0 then Just (AT Se_sp3_3)
-          else                       Just (AT Se_1)
-        2 => if bs.single > 0 then Just (AT Se_sp3_4) else Just (AT Se_sp2_2)
-        _ => Nothing
-    _    => Nothing
+          if      bs.single > 2 then AT Se_5
+          else if bs.single > 0 then AT Se_sp3_3
+          else                       AT Se_1
+        2 => if bs.single > 0 then AT Se_sp3_4 else AT Se_sp2_2
+        _ => AT X
+    _    => AT X
 
-atype Be c bs co = if c == 0 then Just (AT Be_neutral) else Just (AT Be_2minus)
-atype Ga c bs co = if c == 0 then Just (AT Ga) else Just (AT Ga_3plus)
-atype Ge c bs co = if bs.double == 1 then Just (AT Ge_3) else Just (AT Ge)
-atype Te c bs co = if c == 0 then Just (AT Te_3) else Just (AT Te_4plus)
-atype _  _ _  _ = Nothing
+atype Be c bs co = if c == 0 then AT Be_neutral else AT Be_2minus
+atype Ga c bs co = if c == 0 then AT Ga else AT Ga_3plus
+atype Ge c bs co = if bs.double == 1 then AT Ge_3 else AT Ge
+atype Te c bs co = if c == 0 then AT Te_3 else AT Te_4plus
+atype _  _ _  _ = AT X
 
 radical NoRadical e c bs co = atype e c bs co
 radical Singlet   C 0 bs co =
-  if      bs.triple == 1 then Just (AT C_radical_sp)
-  else if bs.double == 1 then Just (AT C_radical_sp2)
-  else                        Just (AT C_radical_planar)
-radical _         e c bs co = Nothing
+  if      bs.triple == 1 then AT C_radical_sp
+  else if bs.double == 1 then AT C_radical_sp2
+  else                        AT C_radical_planar
+radical _         e c bs co = AT X
 
---
+atypeH e c bs co =
+  let at := atype e c bs co
+   in if at.bonds == bs then at else AT X
+
 --     private IAtomType perceiveOxygenRadicals(IAtomContainer atomContainer, IAtom atom) throws CDKException {
 --         if (isCharge(atom, 0)) {
 --             if (atomContainer.getConnectedBondsCount(atom) <= 1) {

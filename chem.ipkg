@@ -21,6 +21,7 @@ modules = Chem
         , Chem.Types
 
         , Text.Molfile
+        , Text.Molfile.AtomType
         , Text.Molfile.Reader
         , Text.Molfile.Reader.Error
         , Text.Molfile.Reader.Types
@@ -32,7 +33,7 @@ modules = Chem
         , Text.Lex.Formula
 
         , Text.Smiles
+        , Text.Smiles.AtomType
         , Text.Smiles.Lexer
         , Text.Smiles.Parser
         , Text.Smiles.Types
-        , Text.Smiles.ImplH

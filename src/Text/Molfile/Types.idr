@@ -247,20 +247,20 @@ Cast Elem MolAtom where
 -- BondType
 
 public export
-data BondType = Single | Dbl | Triple | Arom
+data BondType = Single | Dbl | Triple
 
 export %inline
 Interpolation BondType where
   interpolate Single        = "1"
   interpolate Dbl           = "2"
   interpolate Triple        = "3"
-  interpolate Arom          = "4"
 
 %runElab derive "BondType" [Eq,Show,Ord]
 
 public export
 data QueryBondType : Type where
   BT            : BondType -> QueryBondType
+  Arom          : QueryBondType
   SngOrDbl      : QueryBondType
   SngOrAromatic : QueryBondType
   DblOrAromatic : QueryBondType
@@ -269,6 +269,7 @@ data QueryBondType : Type where
 export %inline
 Interpolation QueryBondType where
   interpolate (BT b)        = interpolate b
+  interpolate Arom          = "4"
   interpolate SngOrDbl      = "5"
   interpolate SngOrAromatic = "6"
   interpolate DblOrAromatic = "7"
@@ -348,8 +349,8 @@ namespace N8
 --------------------------------------------------------------------------------
 
 public export
-0 MolfileMol : Type
-MolfileMol = Graph MolBond MolAtom
+0 MolGraph : Type
+MolGraph = Graph MolBond MolAtom
 
 public export
 record Molfile where
@@ -357,6 +358,6 @@ record Molfile where
   name    : MolLine
   info    : MolLine
   comment : MolLine
-  graph   : MolfileMol
+  graph   : MolGraph
 
 %runElab derive "Molfile" [Show,Eq]

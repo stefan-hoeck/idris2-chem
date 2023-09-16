@@ -1,33 +1,10 @@
-module Text.Smiles.ImplH
+module Text.Smiles.AtomType
 
--- TODO: This should got to AtomType perception
+import Chem
+import Text.Smiles.Types
 
--- import Chem
--- import Data.Maybe
--- import Data.List
--- import Derive.Prelude
--- import Text.Smiles.Types
--- import Data.List.Quantifiers.Extra
---
--- %language ElabReflection
--- %default total
---
--- ---------------------------------------------------------------------
--- -- Error type
--- ---------------------------------------------------------------------
---
--- public export
--- data HErr : Type where
---   HE : Nat -> Elem -> (bonds : Nat) -> HErr
---
--- %runElab derive "HErr" [Eq,Show]
---
--- export
--- Interpolation HErr where
---   interpolate (HE n el bs) =
---     "Valence exceeded for \{el}: \{show bs} bond equivalents found at node \{show n}"
---
---
+%default total
+
 -- -- generates a pair with a list of non aromatic bonds and a
 -- -- aromatic bond counter
 -- aromBonds : List Bond -> (List Bond, Nat)

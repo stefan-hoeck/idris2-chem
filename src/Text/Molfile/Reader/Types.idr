@@ -94,11 +94,11 @@ bondType : SnocList Char -> Either Error BondType
 bondType [<'1'] = Right Single
 bondType [<'2'] = Right Dbl
 bondType [<'3'] = Right Triple
-bondType [<'4'] = Right Arom
 bondType sc     = customPack sc EBondType
 
 export
 queryBondType : SnocList Char -> Either Error QueryBondType
+queryBondType [<'4'] = Right Arom
 queryBondType [<'5'] = Right SngOrDbl
 queryBondType [<'6'] = Right SngOrAromatic
 queryBondType [<'7'] = Right DblOrAromatic

@@ -84,7 +84,7 @@ atom = [| MkAtom isotope charge coords radical u u u u |]
 
 export
 bondType : Gen BondType
-bondType = element [Single,Dbl,Triple,Arom]
+bondType = element [Single,Dbl,Triple]
 
 export
 bondStereo : Gen BondStereo
