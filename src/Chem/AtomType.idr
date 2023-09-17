@@ -3,6 +3,8 @@ module Chem.AtomType
 import Chem.Atom
 import Chem.Elem
 import Chem.Types
+import Data.Maybe
+import Data.SortedMap
 import Derive.Prelude
 
 %language ElabReflection
@@ -12,6 +14,17 @@ import Derive.Prelude
 --          Types
 --------------------------------------------------------------------------------
 
+||| CDK atom types
+public export
+record AtomType where
+  constructor AT
+  name          : String
+  lonePairCount : Nat
+  hybridization : Hybridization
+  single        : Nat
+  double        : Nat
+  triple        : Nat
+
 ||| Counts of bond types connected to an atom
 public export
 record Bonds where
@@ -20,7 +33,17 @@ record Bonds where
   double : Nat
   triple : Nat
 
-%runElab derive "Bonds" [Show,Eq]
+%runElab derive "Bonds" [Show,Eq,Ord]
+
+||| Placeholder for unknown atom types
+|||
+||| We use this instead of returning an error type such
+||| as a `Maybe` or an `Either` because it facilitates
+||| writing algorithms with a certain tolerance for invalid
+||| molecules
+export
+unknown : AtomType
+unknown = AT "unknown" 0 None 0 0 0
 
 export
 hasPiBonds : Bonds -> Bool
@@ -34,67 +57,6 @@ export
 Monoid Bonds where
   neutral = BS 0 0 0
 
-||| The atom types we distinguish indexed by the number of lone pair,
-||| hybridization and types of connected bonds.
-public export
-data AType : (lonPairs : Nat) -> Hybridization -> Bonds -> Type where
-  C_sp3            : AType 0 SP3        (BS 4 0 0)
-  C_sp2            : AType 0 SP2        (BS 2 1 0)
-  C_sp             : AType 0 SP         (BS 1 0 1)
-  C_allene         : AType 0 SP         (BS 0 2 0)
-  C_minus_sp       : AType 1 SP         (BS 0 0 1)
-  C_minus_sp2      : AType 1 SP2        (BS 1 1 0)
-  C_minus_sp3      : AType 1 SP3        (BS 3 0 0)
-  C_minus_planar   : AType 1 Planar     (BS 3 0 0)
-  C_plus_sp        : AType 0 SP         (BS 0 0 1)
-  C_plus_sp2       : AType 0 SP2        (BS 1 1 0)
-  C_plus_planar    : AType 0 Planar     (BS 3 0 0)
-  C_radical_sp     : AType 0 SP         (BS 0 0 1)
-  C_radical_sp2    : AType 0 SP2        (BS 1 1 0)
-  C_radical_planar : AType 0 Planar     (BS 3 0 0)
-
-  B                : AType 0 SP3        (BS 3 0 0)
-  B_minus          : AType 0 SP3        (BS 4 0 0)
-  B_3plus          : AType 0 SP3        (BS 4 0 0)
-
-  Be_2minus        : AType 0 SP3        (BS 4 0 0)
-  Be_neutral       : AType 0 None       (BS 0 0 0)
-
-  Ga               : AType 0 Octahedral (BS 3 0 0)
-  Ga_3plus         : AType 0 Octahedral (BS 0 0 0)
-
-  Ge               : AType 0 SP3        (BS 4 0 0)
-  Ge_3             : AType 0 SP2        (BS 2 1 0)
-
-  Se_3             : AType 2 SP3        (BS 2 0 0)
-  Se_sp2_2         : AType 1 SP2        (BS 0 2 0)
-  Se_sp3d1_4       : AType 1 SP3D1      (BS 4 0 0)
-  Se_sp3_4         : AType 0 SP3        (BS 2 2 0)
-  Se_1             : AType 2 SP2        (BS 0 1 0)
-  Se_sp3_3         : AType 1 SP3        (BS 2 1 0)
-  Se_4plus         : AType 0 None       (BS 0 0 0)
-  Se_2minus        : AType 4 None       (BS 0 0 0)
-  Se_plus_3        : AType 1 SP3        (BS 3 0 0)
-  Se_5             : AType 0 SP3D1      (BS 4 1 0)
-  Se_2             : AType 0 None       (BS 0 0 0)
-
-  Te_3             : AType 2 SP3        (BS 2 0 0)
-  Te_4plus         : AType 1 None       (BS 0 0 0)
-
-  ||| Placeholder for unknown atom types
-  X                : AType 0 None       (BS 0 0 0)
-
-%runElab deriveIndexed "AType" [Show]
-
-||| Existential wrapper around `AType`.
-public export
-record AtomType where
-  constructor AT
-  {lonePairCount : Nat}
-  {hybridization : Hybridization}
-  {bonds         : Bonds}
-  type           : AType lonePairCount hybridization bonds
-
 ||| Compute the number of implicit hydrogen atoms from
 ||| an atom type and a count of bond types.
 |||
@@ -105,1974 +67,327 @@ record AtomType where
 export
 hcount : AtomType -> Bonds -> (HCount, AtomType)
 hcount at bs =
-  case refineHCount (cast $ at.bonds.single `minus` bs.single) of
-    Just h  => (h,at)
-    Nothing => (0, AT X)
-
-||| Utility for those cases where the number of implict hydrogens
-||| (if any) is already included in the number of bonds.
-||| in this case.
-export
-atypeH : Elem -> Charge -> Bonds -> Lazy Bool -> AtomType
+  case refineHCount (cast $ at.single `minus` bs.single) of
+    Just h  => (h, at)
+    Nothing => (0, unknown)
 
 ||| Perceiving radicals for those cases where such information is available.
 export
-radical : Radical -> Elem -> Charge -> Bonds -> Lazy Bool -> AtomType
+radical : Elem -> Radical -> Charge -> Bonds -> AtomType
 
 ||| General purpose atom type perception
 |||
 ||| This is to be used if no implicit hydrogen atoms are given
 ||| and these should be perceived from the atom type as well.
+export %inline
+atype : Elem -> Charge -> Bonds -> AtomType
+atype e = radical e NoRadical
+
+||| Utility for those cases where the number of implict hydrogens
+||| (if any) is already included in the number of bonds.
+||| in this case.
 export
-atype : Elem -> Charge -> Bonds -> Lazy Bool -> AtomType
+atypeH : Elem -> Charge -> Bonds -> AtomType
+atypeH e c bs =
+  let at := atype e c bs
+   in if at.single == bs.single then at else unknown
 
 --------------------------------------------------------------------------------
---          Implementations
+--          Implementation
 --------------------------------------------------------------------------------
 
-atype C  c bs co =
-  case c of
-    0    => case bs of
-      BS _ 0 0 => AT C_sp3
-      BS _ 1 0 => AT C_sp2
-      BS _ 2 0 => AT C_allene
-      BS _ 0 1 => AT C_sp
-      _        => AT X
-    1    => case bs of
-      BS _ 0 0 => AT C_plus_planar
-      BS _ 1 0 => AT C_plus_sp2
-      BS 0 0 1 => AT C_plus_sp
-      _        => AT X
-    (-1) => case bs of
-      BS _ 0 0 => if co then AT C_minus_planar else AT C_minus_sp3
-      BS _ 1 0 => AT C_minus_sp2
-      BS 0 0 1 => AT C_minus_sp
-      _        => AT X
-    _    => AT X
+hash : Elem -> Charge -> Radical -> (double,triple : Nat) -> Bits32
+hash e c r d t =
+  let he := cast (conIndexElem e)      * 100
+      hc := (he + cast (c.value + 15)) * 1000
+      ht := hc + cast (d * 100 + t * 10) + cast (conIndexRadical r)
+   in ht
 
-atype B  c bs co =
-  case c of
-    0    => AT B
-    (-1) => AT B_minus
-    3    => AT B_3plus
-    _    => AT X
+-- convert information about an atom type to a hash for fast lookup
+-- in a dictionary, plus the atom type itself
+pair :
+     (name      : String)
+  -> (elem      : Elem)
+  -> (charge    : Charge)
+  -> (radical   : Radical)
+  -> (bonds     : Bonds)
+  -> (hybr      : Hybridization)
+  -> (lonePairs : Nat)
+  -> (Bits32,AtomType)
+pair n e c r (BS s d t) h l = (hash e c r d t, AT n l h s d t)
 
-atype Se c bs co = -- TODO Se_2
-  case c of
-    1    => AT Se_plus_3
-    4    => AT Se_4plus
-    (-2) => AT Se_2minus
-    0    =>
-      case bs.double of
-        0 => if bs.single > 2 then AT Se_sp3d1_4 else AT Se_3
-        1 =>
-          if      bs.single > 2 then AT Se_5
-          else if bs.single > 0 then AT Se_sp3_3
-          else                       AT Se_1
-        2 => if bs.single > 0 then AT Se_sp3_4 else AT Se_sp2_2
-        _ => AT X
-    _    => AT X
+-- sorted map from hash to atom type
+atMap : SortedMap Bits32 AtomType
+atMap =
+  SortedMap.fromList
+    [ pair "Ag.neutral"             Ag 0    NoRadical (BS 0 0 0) None        0
+    , pair "Ag.1"                   Ag 0    NoRadical (BS 1 0 0) None        0
+    , pair "Ag.plus"                Ag 1    NoRadical (BS 0 0 0) None        0
+    , pair "Al.3minus"              Al (-3) NoRadical (BS 6 0 0) None        0
+    , pair "Al"                     Al 0    NoRadical (BS 3 0 0) SP3         0
+    , pair "Al.3plus"               Al 3    NoRadical (BS 0 0 0) S           0
+    , pair "Ar"                     Ar 0    NoRadical (BS 0 0 0) SP3         4
+    , pair "As.minus"               As (-1) NoRadical (BS 6 0 0) None        0
+    , pair "As.2"                   As 0    NoRadical (BS 1 1 0) SP2         1
+    , pair "As"                     As 0    NoRadical (BS 3 0 0) SP3         1
+    , pair "As.5"                   As 0    NoRadical (BS 3 1 0) SP3         0
+    , pair "As.plus"                As 1    NoRadical (BS 4 0 0) SP3         0
+    , pair "As.3plus"               As 3    NoRadical (BS 0 0 0) None        0
+    , pair "Au.1"                   Au 0    NoRadical (BS 1 0 0) None        0
+    , pair "B.minus"                B  (-1) NoRadical (BS 4 0 0) SP3         0
+    , pair "B"                      B  0    NoRadical (BS 3 0 0) SP3         0
+    , pair "B.3plus"                B  3    NoRadical (BS 4 0 0) SP3         0
+    , pair "Ba.2plus"               Ba 2    NoRadical (BS 0 0 0) None        0
+    , pair "Be.2minus"              Be (-2) NoRadical (BS 4 0 0) SP3         0
+    , pair "Be.neutral"             Be 0    NoRadical (BS 0 0 0) None        0
+    , pair "Br.minus"               Br (-1) NoRadical (BS 0 0 0) SP3         4
+    , pair "Br"                     Br 0    NoRadical (BS 1 0 0) SP3         3
+    , pair "Br.3"                   Br 0    NoRadical (BS 1 2 0) SP3         1
+    , pair "Br.radical"             Br 0    Singlet   (BS 0 0 0) SP3         3
+    , pair "Br.plus.sp2"            Br 1    NoRadical (BS 0 1 0) SP2         2
+    , pair "Br.plus.sp3"            Br 1    NoRadical (BS 2 0 0) SP3         2
+    , pair "Br.plus.radical"        Br 1    Singlet   (BS 1 0 0) SP3         2
+    , pair "C.minus.sp1"            C  (-1) NoRadical (BS 0 0 1) SP          1
+    , pair "C.minus.sp2"            C  (-1) NoRadical (BS 1 1 0) SP2         1
+    , pair "C.minus.sp3"            C  (-1) NoRadical (BS 3 0 0) SP3         1
+    , pair "C.minus.planar"         C  (-1) NoRadical (BS 3 0 0) Planar      1
+    , pair "C.allene"               C  0    NoRadical (BS 0 2 0) SP          0
+    , pair "C.sp"                   C  0    NoRadical (BS 1 0 1) SP          0
+    , pair "C.sp2"                  C  0    NoRadical (BS 2 1 0) SP2         0
+    , pair "C.sp3"                  C  0    NoRadical (BS 4 0 0) SP3         0
+    , pair "C.radical.sp1"          C  0    Singlet   (BS 0 0 1) SP          0
+    , pair "C.radical.sp2"          C  0    Singlet   (BS 1 1 0) SP2         0
+    , pair "C.radical.planar"       C  0    Singlet   (BS 3 0 0) Planar      0
+    , pair "C.plus.sp1"             C  1    NoRadical (BS 0 0 1) SP          0
+    , pair "C.plus.sp2"             C  1    NoRadical (BS 1 1 0) SP2         0
+    , pair "C.plus.planar"          C  1    NoRadical (BS 3 0 0) Planar      0
+    , pair "Ca.1"                   Ca 0    NoRadical (BS 0 1 0) None        0
+    , pair "Ca.2"                   Ca 0    NoRadical (BS 2 0 0) None        0
+    , pair "Ca.2plus"               Ca 2    NoRadical (BS 0 0 0) S           0
+    , pair "Cd.metallic"            Cd 0    NoRadical (BS 0 0 0) None        0
+    , pair "Cd.2"                   Cd 0    NoRadical (BS 2 0 0) SP          0
+    , pair "Cd.2plus"               Cd 2    NoRadical (BS 0 0 0) None        0
+    , pair "Cl.minus"               Cl (-1) NoRadical (BS 0 0 0) SP3         4
+    , pair "Cl"                     Cl 0    NoRadical (BS 1 0 0) SP3         3
+    , pair "Cl.2"                   Cl 0    NoRadical (BS 1 1 0) SP3         2
+    , pair "Cl.chlorate"            Cl 0    NoRadical (BS 1 2 0) SP2         0
+    , pair "Cl.perchlorate"         Cl 0    NoRadical (BS 1 3 0) SP3         0
+    , pair "Cl.radical"             Cl 0    Singlet   (BS 0 0 0) SP3         3
+    , pair "Cl.plus.sp2"            Cl 1    NoRadical (BS 0 1 0) SP2         2
+    , pair "Cl.plus.sp3"            Cl 1    NoRadical (BS 2 0 0) SP3         2
+    , pair "Cl.plus.radical"        Cl 1    Singlet   (BS 1 0 0) SP3         2
+    , pair "Cl.perchlorate.charged" Cl 3    NoRadical (BS 4 0 0) SP3         0
+    , pair "Co.metallic"            Co 0    NoRadical (BS 0 0 0) None        0
+    , pair "Co.1"                   Co 0    NoRadical (BS 1 0 0) None        0
+    , pair "Co.2"                   Co 0    NoRadical (BS 2 0 0) None        0
+    , pair "Co.4"                   Co 0    NoRadical (BS 4 0 0) None        0
+    , pair "Co.6"                   Co 0    NoRadical (BS 6 0 0) None        0
+    , pair "Co.plus"                Co 1    NoRadical (BS 0 0 0) None        0
+    , pair "Co.plus.1"              Co 1    NoRadical (BS 1 0 0) None        0
+    , pair "Co.plus.2"              Co 1    NoRadical (BS 2 0 0) None        0
+    , pair "Co.plus.4"              Co 1    NoRadical (BS 4 0 0) None        0
+    , pair "Co.plus.5"              Co 1    NoRadical (BS 5 0 0) None        0
+    , pair "Co.plus.6"              Co 1    NoRadical (BS 6 0 0) None        0
+    , pair "Co.2plus"               Co 2    NoRadical (BS 0 0 0) None        0
+    , pair "Co.3plus"               Co 3    NoRadical (BS 0 0 0) None        0
+    , pair "Cr.neutral"             Cr 0    NoRadical (BS 0 0 0) None        0
+    , pair "Cr.4"                   Cr 0    NoRadical (BS 2 2 0) SP3         0
+    , pair "Cr"                     Cr 0    NoRadical (BS 6 0 0) Octahedral  0
+    , pair "Cr.3plus"               Cr 3    NoRadical (BS 0 0 0) None        0
+    , pair "Cr.6plus"               Cr 6    NoRadical (BS 0 0 0) None        0
+    , pair "Cu.metallic"            Cu 0    NoRadical (BS 0 0 0) None        0
+    , pair "Cu.1"                   Cu 0    NoRadical (BS 1 0 0) None        0
+    , pair "Cu.plus"                Cu 1    NoRadical (BS 0 0 0) None        0
+    , pair "Cu.2plus"               Cu 2    NoRadical (BS 0 0 0) None        0
+    , pair "F.minus"                F  (-1) NoRadical (BS 0 0 0) SP3         4
+    , pair "F"                      F  0    NoRadical (BS 1 0 0) SP3         3
+    , pair "F.radical"              F  0    Singlet   (BS 0 0 0) SP3         3
+    , pair "F.plus.sp2"             F  1    NoRadical (BS 0 1 0) SP2         2
+    , pair "F.plus.sp3"             F  1    NoRadical (BS 2 0 0) SP3         2
+    , pair "F.plus.radical"         F  1    Singlet   (BS 1 0 0) SP3         2
+    , pair "Fe.4minus"              Fe (-4) NoRadical (BS 6 0 0) None        0
+    , pair "Fe.3minus"              Fe (-3) NoRadical (BS 6 0 0) None        0
+    , pair "Fe.2minus"              Fe (-2) NoRadical (BS 6 0 0) None        0
+    , pair "Fe.metallic"            Fe 0    NoRadical (BS 0 0 0) None        0
+    , pair "Fe.2"                   Fe 0    NoRadical (BS 2 0 0) None        0
+    , pair "Fe.3"                   Fe 0    NoRadical (BS 3 0 0) None        0
+    , pair "Fe.4"                   Fe 0    NoRadical (BS 4 0 0) None        0
+    , pair "Fe.5"                   Fe 0    NoRadical (BS 5 0 0) None        0
+    , pair "Fe.6"                   Fe 0    NoRadical (BS 6 0 0) None        0
+    , pair "Fe.plus"                Fe 1    NoRadical (BS 2 0 0) None        0
+    , pair "Fe.2plus"               Fe 2    NoRadical (BS 0 0 0) None        0
+    , pair "Fe.3plus"               Fe 3    NoRadical (BS 0 0 0) None        0
+    , pair "Ga"                     Ga 0    NoRadical (BS 3 0 0) Octahedral  0
+    , pair "Ga.3plus"               Ga 3    NoRadical (BS 0 0 0) Octahedral  0
+    , pair "Gd.3plus"               Gd 3    NoRadical (BS 0 0 0) None        0
+    , pair "Ge.3"                   Ge 0    NoRadical (BS 2 1 0) SP2         0
+    , pair "Ge"                     Ge 0    NoRadical (BS 4 0 0) SP3         0
+    , pair "H.minus"                H  (-1) NoRadical (BS 0 0 0) S           0
+    , pair "H"                      H  0    NoRadical (BS 1 0 0) S           0
+    , pair "H.radical"              H  0    Singlet   (BS 0 0 0) S           0
+    , pair "H.plus"                 H  1    NoRadical (BS 0 0 0) S           0
+    , pair "He"                     He 0    NoRadical (BS 0 0 0) S           1
+    , pair "Hg.minus"               Hg (-1) NoRadical (BS 2 0 0) None        0
+    , pair "Hg.metallic"            Hg 0    NoRadical (BS 0 0 0) None        0
+    , pair "Hg.1"                   Hg 0    NoRadical (BS 0 1 0) None        0
+    , pair "Hg.2"                   Hg 0    NoRadical (BS 2 0 0) None        0
+    , pair "Hg.plus"                Hg 1    NoRadical (BS 1 0 0) None        0
+    , pair "Hg.2plus"               Hg 2    NoRadical (BS 0 0 0) None        0
+    , pair "I.minus"                I  (-1) NoRadical (BS 0 0 0) SP3         4
+    , pair "I.minus.5"              I  (-1) NoRadical (BS 2 0 0) SP3D1       3
+    , pair "I"                      I  0    NoRadical (BS 1 0 0) SP3         3
+    , pair "I.3"                    I  0    NoRadical (BS 1 1 0) SP2         1
+    , pair "I.5"                    I  0    NoRadical (BS 1 2 0) SP2         0
+    , pair "I.sp3d2.3"              I  0    NoRadical (BS 3 0 0) SP3D2       2
+    , pair "I.radical"              I  0    Singlet   (BS 0 0 0) SP3         3
+    , pair "I.plus.sp2"             I  1    NoRadical (BS 0 1 0) SP2         2
+    , pair "I.plus.sp3"             I  1    NoRadical (BS 2 0 0) SP3         2
+    , pair "I.plus.radical"         I  1    Singlet   (BS 1 0 0) SP3         2
+    , pair "In"                     In 0    NoRadical (BS 0 0 0) None        0
+    , pair "In.1"                   In 0    NoRadical (BS 0 0 1) None        0
+    , pair "In.3"                   In 0    NoRadical (BS 3 0 0) None        0
+    , pair "In.3plus"               In 3    NoRadical (BS 0 0 0) None        0
+    , pair "K.metallic"             K  0    NoRadical (BS 0 0 0) None        0
+    , pair "K.neutral"              K  0    NoRadical (BS 1 0 0) None        0
+    , pair "K.plus"                 K  1    NoRadical (BS 0 0 0) S           0
+    , pair "Kr"                     Kr 0    NoRadical (BS 0 0 0) None        0
+    , pair "Li.neutral"             Li 0    NoRadical (BS 0 0 0) None        0
+    , pair "Li"                     Li 0    NoRadical (BS 1 0 0) S           0
+    , pair "Li.plus"                Li 1    NoRadical (BS 0 0 0) None        0
+    , pair "Mg.neutral.1"           Mg 0    NoRadical (BS 0 1 0) None        0
+    , pair "Mg.neutral.2"           Mg 0    NoRadical (BS 2 0 0) None        0
+    , pair "Mg.neutral"             Mg 0    NoRadical (BS 4 0 0) None        0
+    , pair "Mg.2plus"               Mg 2    NoRadical (BS 0 0 0) S           0
+    , pair "Mn.metallic"            Mn 0    NoRadical (BS 0 0 0) None        0
+    , pair "Mn.2"                   Mn 0    NoRadical (BS 2 0 0) None        0
+    , pair "Mn.2plus"               Mn 2    NoRadical (BS 0 0 0) None        0
+    , pair "Mn.3plus"               Mn 3    NoRadical (BS 0 0 0) None        0
+    , pair "Mo.metallic"            Mo 0    NoRadical (BS 0 0 0) None        0
+    , pair "Mo.4"                   Mo 0    NoRadical (BS 2 2 0) None        0
+    , pair "N.minus.sp2"            N  (-1) NoRadical (BS 0 1 0) SP2         2
+    , pair "N.minus.sp3"            N  (-1) NoRadical (BS 2 0 0) SP3         2
+    , pair "N.minus.planar3"        N  (-1) NoRadical (BS 2 0 0) Planar      2
+    , pair "N.sp1"                  N  0    NoRadical (BS 0 0 1) SP          1
+    , pair "N.sp1.2"                N  0    NoRadical (BS 0 1 1) SP          0
+    , pair "N.sp2"                  N  0    NoRadical (BS 1 1 0) SP2         1
+    , pair "N.sp2.3"                N  0    NoRadical (BS 1 2 0) SP2         0
+    , pair "N.nitro"                N  0    NoRadical (BS 1 2 0) Planar      0
+    , pair "N.amide"                N  0    NoRadical (BS 3 0 0) SP2         1
+    , pair "N.thioamide"            N  0    NoRadical (BS 3 0 0) SP2         1
+    , pair "N.sp3"                  N  0    NoRadical (BS 3 0 0) SP3         1
+    , pair "N.planar3"              N  0    NoRadical (BS 3 0 0) Planar      1
+    , pair "N.oxide"                N  0    NoRadical (BS 3 1 0) SP2         0
+    , pair "N.sp2.radical"          N  0    Singlet   (BS 0 1 0) SP2         1
+    , pair "N.sp3.radical"          N  0    Singlet   (BS 2 0 0) SP3         1
+    , pair "N.plus.sp1"             N  1    NoRadical (BS 1 0 1) SP          0
+    , pair "N.plus.sp2"             N  1    NoRadical (BS 2 1 0) SP2         0
+    , pair "N.plus"                 N  1    NoRadical (BS 4 0 0) SP3         0
+    , pair "N.plus.sp2.radical"     N  1    Singlet   (BS 1 1 0) SP2         0
+    , pair "N.plus.sp3.radical"     N  1    Singlet   (BS 3 0 0) SP3         0
+    , pair "Na.neutral"             Na 0    NoRadical (BS 0 0 0) None        0
+    , pair "Na"                     Na 0    NoRadical (BS 1 0 0) S           0
+    , pair "Na.plus"                Na 1    NoRadical (BS 0 0 0) S           0
+    , pair "Ne"                     Ne 0    NoRadical (BS 0 0 0) None        0
+    , pair "Ni.metallic"            Ni 0    NoRadical (BS 0 0 0) None        0
+    , pair "Ni"                     Ni 0    NoRadical (BS 2 0 0) None        0
+    , pair "Ni.plus"                Ni 1    NoRadical (BS 1 0 0) None        0
+    , pair "Ni.2plus"               Ni 2    NoRadical (BS 0 0 0) None        0
+    , pair "O.minus2"               O  (-2) NoRadical (BS 0 0 0) SP3         4
+    , pair "O.minus"                O  (-1) NoRadical (BS 1 0 0) SP3         3
+    , pair "O.minus.co2"            O  (-1) NoRadical (BS 1 0 0) SP3         3
+    , pair "O.sp2"                  O  0    NoRadical (BS 0 1 0) SP2         2
+    , pair "O.sp2.co2"              O  0    NoRadical (BS 0 1 0) SP2         2
+    , pair "O.sp3"                  O  0    NoRadical (BS 2 0 0) SP3         2
+    , pair "O.planar3"              O  0    NoRadical (BS 2 0 0) Planar      2
+    , pair "O.sp3.radical"          O  0    Singlet   (BS 1 0 0) SP3         2
+    , pair "O.plus.sp1"             O  1    NoRadical (BS 0 0 1) SP          1
+    , pair "O.plus.sp2"             O  1    NoRadical (BS 1 1 0) SP2         1
+    , pair "O.plus"                 O  1    NoRadical (BS 3 0 0) SP3         1
+    , pair "O.plus.sp2.radical"     O  1    Singlet   (BS 0 1 0) SP2         1
+    , pair "O.plus.radical"         O  1    Singlet   (BS 2 0 0) SP3         1
+    , pair "P.ide"                  P  0    NoRadical (BS 0 0 1) SP          1
+    , pair "P.irane"                P  0    NoRadical (BS 1 1 0) Planar      1
+    , pair "P.ine"                  P  0    NoRadical (BS 3 0 0) SP3         1
+    , pair "P.ate"                  P  0    NoRadical (BS 3 1 0) SP3         0
+    , pair "P.ane"                  P  0    NoRadical (BS 5 0 0) SP3D1       0
+    , pair "P.se.3"                 P  0    Singlet   (BS 0 0 0) SP3         0
+    , pair "P.sp1.plus"             P  1    NoRadical (BS 0 2 0) SP          0
+    , pair "P.anium"                P  1    NoRadical (BS 2 1 0) SP2         0
+    , pair "P.ate.charged"          P  1    NoRadical (BS 4 0 0) SP3         0
+    , pair "Pb.neutral"             Pb 0    NoRadical (BS 0 0 0) None        0
+    , pair "Pb.1"                   Pb 0    NoRadical (BS 0 1 0) SP          0
+    , pair "Pb.2plus"               Pb 2    NoRadical (BS 0 0 0) None        0
+    , pair "Po"                     Po 0    NoRadical (BS 2 0 0) None        0
+    , pair "Pt.2"                   Pt 0    NoRadical (BS 2 0 0) None        0
+    , pair "Pt.4"                   Pt 0    NoRadical (BS 4 0 0) None        0
+    , pair "Pt.6"                   Pt 0    NoRadical (BS 6 0 0) None        0
+    , pair "Pt.2plus"               Pt 2    NoRadical (BS 0 0 0) None        0
+    , pair "Pt.2plus.4"             Pt 2    NoRadical (BS 4 0 0) None        0
+    , pair "Pu"                     Pu 0    NoRadical (BS 0 0 0) None        0
+    , pair "Ra.neutral"             Ra 0    NoRadical (BS 0 0 0) None        0
+    , pair "Rb.neutral"             Rb 0    NoRadical (BS 1 0 0) None        0
+    , pair "Rb.plus"                Rb 1    NoRadical (BS 0 0 0) None        0
+    , pair "Rn"                     Rn 0    NoRadical (BS 0 0 0) None        0
+    , pair "Ru.3minus.6"            Ru (-3) NoRadical (BS 6 0 0) Octahedral  0
+    , pair "Ru.2minus.6"            Ru (-2) NoRadical (BS 6 0 0) Octahedral  0
+    , pair "Ru.6"                   Ru 0    NoRadical (BS 6 0 0) SP3D2       0
+    , pair "S.2minus"               S  (-2) NoRadical (BS 0 0 0) None        4
+    , pair "S.minus"                S  (-1) NoRadical (BS 1 0 0) SP3         3
+    , pair "S.2"                    S  0    NoRadical (BS 0 1 0) SP2         2
+    , pair "S.oxide"                S  0    NoRadical (BS 0 2 0) Planar      3
+    , pair "S.trioxide"             S  0    NoRadical (BS 0 3 0) SP2         0
+    , pair "S.inyl.2"               S  0    NoRadical (BS 1 0 1) SP2         0
+    , pair "S.3"                    S  0    NoRadical (BS 2 0 0) SP3         2
+    , pair "S.planar3"              S  0    NoRadical (BS 2 0 0) Planar      2
+    , pair "S.inyl"                 S  0    NoRadical (BS 2 1 0) SP2         0
+    , pair "S.onyl"                 S  0    NoRadical (BS 2 2 0) SP3         0
+    , pair "S.sp3.4"                S  0    NoRadical (BS 2 2 0) SP3         0
+    , pair "S.thionyl"              S  0    NoRadical (BS 2 2 0) SP3         0
+    , pair "S.anyl"                 S  0    NoRadical (BS 4 0 0) SP3D2       1
+    , pair "S.sp3d1"                S  0    NoRadical (BS 4 1 0) SP3D1       0
+    , pair "S.octahedral"           S  0    NoRadical (BS 6 0 0) SP3D2       0
+    , pair "S.plus"                 S  1    NoRadical (BS 1 1 0) SP2         1
+    , pair "S.inyl.charged"         S  1    NoRadical (BS 3 0 0) SP2         0
+    , pair "S.onyl.charged"         S  2    NoRadical (BS 2 2 0) SP3         0
+    , pair "Sb.3"                   Sb 0    NoRadical (BS 3 0 0) SP3         1
+    , pair "Sb.4"                   Sb 0    NoRadical (BS 3 1 0) None        0
+    , pair "Sc.3minus"              Sc (-3) NoRadical (BS 6 0 0) Octahedral  0
+    , pair "Se.2minus"              Se (-2) NoRadical (BS 0 0 0) None        4
+    , pair "Se.2"                   Se 0    NoRadical (BS 0 0 0) None        0
+    , pair "Se.1"                   Se 0    NoRadical (BS 0 1 0) SP2         2
+    , pair "Se.sp2.2"               Se 0    NoRadical (BS 0 2 0) SP2         1
+    , pair "Se.3"                   Se 0    NoRadical (BS 2 0 0) SP3         2
+    , pair "Se.sp3.3"               Se 0    NoRadical (BS 2 1 0) SP3         1
+    , pair "Se.sp3.4"               Se 0    NoRadical (BS 2 2 0) SP3         0
+    , pair "Se.sp3d1.4"             Se 0    NoRadical (BS 4 0 0) SP3D1       1
+    , pair "Se.5"                   Se 0    NoRadical (BS 4 1 0) SP3D1       0
+    , pair "Se.plus.3"              Se 1    NoRadical (BS 3 0 0) SP3         1
+    , pair "Se.4plus"               Se 4    NoRadical (BS 0 0 0) None        0
+    , pair "Si.2minus.6"            Si (-2) NoRadical (BS 6 0 0) SP3D2       0
+    , pair "Si.2"                   Si 0    NoRadical (BS 0 2 0) SP          0
+    , pair "Si.3"                   Si 0    NoRadical (BS 2 1 0) SP3         0
+    , pair "Si.sp3"                 Si 0    NoRadical (BS 4 0 0) SP3         0
+    , pair "Sn.sp3"                 Sn 0    NoRadical (BS 4 0 0) SP3         0
+    , pair "Sr.2plus"               Sr 2    NoRadical (BS 0 0 0) None        0
+    , pair "Te.3"                   Te 0    NoRadical (BS 2 0 0) SP3         2
+    , pair "Te.4plus"               Te 4    NoRadical (BS 0 0 0) None        1
+    , pair "Th"                     Th 0    NoRadical (BS 0 0 0) None        0
+    , pair "Ti.3minus"              Ti (-3) NoRadical (BS 6 0 0) Octahedral  0
+    , pair "Ti.2"                   Ti 0    NoRadical (BS 0 2 0) Octahedral  0
+    , pair "Ti.sp3"                 Ti 0    NoRadical (BS 4 0 0) SP3         0
+    , pair "Tl"                     Tl 0    NoRadical (BS 0 0 0) None        0
+    , pair "Tl.1"                   Tl 0    NoRadical (BS 1 0 0) SP          1
+    , pair "Tl.plus"                Tl 1    NoRadical (BS 0 0 0) None        0
+    , pair "V.3minus.4"             V  (-3) NoRadical (BS 3 1 0) Tetrahedral 0
+    , pair "V.3minus"               V  (-3) NoRadical (BS 6 0 0) Octahedral  0
+    , pair "W.metallic"             W  0    NoRadical (BS 0 0 0) None        0
+    , pair "Xe"                     Xe 0    NoRadical (BS 0 0 0) None        0
+    , pair "Xe.3"                   Xe 0    NoRadical (BS 4 0 0) SP3D2       0
+    , pair "Zn.metallic"            Zn 0    NoRadical (BS 0 0 0) None        0
+    , pair "Zn.1"                   Zn 0    NoRadical (BS 0 1 0) None        0
+    , pair "Zn"                     Zn 0    NoRadical (BS 2 0 0) None        0
+    , pair "Zn.2plus"               Zn 2    NoRadical (BS 2 0 0) S           0
+    ]
 
-atype Be c bs co = if c == 0 then AT Be_neutral else AT Be_2minus
-atype Ga c bs co = if c == 0 then AT Ga else AT Ga_3plus
-atype Ge c bs co = if bs.double == 1 then AT Ge_3 else AT Ge
-atype Te c bs co = if c == 0 then AT Te_3 else AT Te_4plus
-atype _  _ _  _ = AT X
-
-radical NoRadical e c bs co = atype e c bs co
-radical Singlet   C 0 bs co =
-  if      bs.triple == 1 then AT C_radical_sp
-  else if bs.double == 1 then AT C_radical_sp2
-  else                        AT C_radical_planar
-radical _         e c bs co = AT X
-
-atypeH e c bs co =
-  let at := atype e c bs co
-   in if at.bonds == bs then at else AT X
-
---     private IAtomType perceiveOxygenRadicals(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, 0)) {
---             if (atomContainer.getConnectedBondsCount(atom) <= 1) {
---                 IAtomType type = getAtomType("O.sp3.radical");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (isCharge(atom, +1)) {
---             if (atomContainer.getConnectedBondsCount(atom) == 0) {
---                 IAtomType type = getAtomType("O.plus.radical");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (atomContainer.getConnectedBondsCount(atom) <= 2) {
---                 IBond.Order maxBondOrder = atomContainer.getMaximumBondOrder(atom);
---                 if (maxBondOrder == IBond.Order.SINGLE) {
---                     IAtomType type = getAtomType("O.plus.radical");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 } else if (maxBondOrder == IBond.Order.DOUBLE) {
---                     IAtomType type = getAtomType("O.plus.sp2.radical");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 }
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveOxygens(IAtomContainer atomContainer, IAtom atom,
---     		                          RingSearch searcher, List<IBond> connectedBonds) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             return perceiveOxygenRadicals(atomContainer, atom);
---         }
---
---         // if hybridization is given, use that
---         if (connectedBonds == null) connectedBonds = atomContainer.getConnectedBondsList(atom);
---         if (hasHybridization(atom) && !isCharged(atom)) {
---             if (atom.getHybridization() == Hybridization.SP2) {
---                 int connectedAtomsCount = connectedBonds.size();
---                 if (connectedAtomsCount == 1) {
---                     if (isCarboxylate(atomContainer, atom, connectedBonds)) {
---                         IAtomType type = getAtomType("O.sp2.co2");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     } else {
---                         IAtomType type = getAtomType("O.sp2");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                 } else if (connectedAtomsCount == 2) {
---                     IAtomType type = getAtomType("O.planar3");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (atom.getHybridization() == Hybridization.SP3) {
---                 IAtomType type = getAtomType("O.sp3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (atom.getHybridization() == Hybridization.PLANAR3) {
---                 IAtomType type = getAtomType("O.planar3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (isCharged(atom)) {
---             if (isCharge(atom, -1) && connectedBonds.size() <= 1) {
---                 if (isCarboxylate(atomContainer, atom, connectedBonds)) {
---                     IAtomType type = getAtomType("O.minus.co2");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else {
---                     IAtomType type = getAtomType("O.minus");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (isCharge(atom, -2) && connectedBonds.size() == 0) {
---                 IAtomType type = getAtomType("O.minus2");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (isCharge(atom, +1)) {
---                 if (connectedBonds.size() == 0) {
---                     IAtomType type = getAtomType("O.plus");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---                 IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---                 if (maxBondOrder == Order.DOUBLE) {
---                     IAtomType type = getAtomType("O.plus.sp2");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (maxBondOrder == Order.TRIPLE) {
---                     IAtomType type = getAtomType("O.plus.sp1");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else {
---                     IAtomType type = getAtomType("O.plus");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             }
---             return null;
---         } else if (connectedBonds.size() > 2) {
---             // FIXME: I don't perceive carbons with more than 4 connections yet
---             return null;
---         } else if (connectedBonds.size() == 0) {
---             IAtomType type = getAtomType("O.sp3");
---             if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---         } else { // OK, use bond order info
---             IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---             if (maxBondOrder == Order.DOUBLE) {
---                 if (isCarboxylate(atomContainer, atom, connectedBonds)) {
---                     IAtomType type = getAtomType("O.sp2.co2");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else {
---                     IAtomType type = getAtomType("O.sp2");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (maxBondOrder == Order.SINGLE) {
---                 int explicitHydrogens = countExplicitHydrogens(atom, connectedBonds);
---                 int connectedHeavyAtoms = connectedBonds.size() - explicitHydrogens;
---                 if (connectedHeavyAtoms == 2) {
---                     // a O.sp3 which is expected to take part in an aromatic system
---                     if (bothNeighborsAreSp2(atom, atomContainer, connectedBonds) && isRingAtom(atom, atomContainer, searcher)) {
---                         IAtomType type = getAtomType("O.planar3");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                     IAtomType type = getAtomType("O.sp3");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else {
---                     IAtomType type = getAtomType("O.sp3");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             }
---         }
---         return null;
---     }
---
---     private boolean isCarboxylate(IAtomContainer container, IAtom atom, List<IBond> connectedBonds) {
---         // assumes that the oxygen only has one neighbor (C=O, or C-[O-])
---         if (connectedBonds.size() != 1) return false;
---         IAtom carbon = connectedBonds.get(0).getOther(atom);
---         if (carbon.getAtomicNumber() != IElement.C) return false;
---
---         List<IBond> carbonBonds = container.getConnectedBondsList(carbon);
---         if (carbonBonds.size() < 2) return false;
---         int oxygenCount = 0;
---         int singleBondedNegativeOxygenCount = 0;
---         int doubleBondedOxygenCount = 0;
---         for (IBond cBond : carbonBonds) {
---             IAtom neighbor = cBond.getOther(carbon);
---             if (neighbor.getAtomicNumber() == IElement.O) {
---                 oxygenCount++;
---                 IBond.Order order = cBond.getOrder();
---                 Integer charge = neighbor.getFormalCharge();
---                 if (order == IBond.Order.SINGLE && charge != null && charge == -1) {
---                     singleBondedNegativeOxygenCount++;
---                 } else if (order == IBond.Order.DOUBLE) {
---                     doubleBondedOxygenCount++;
---                 }
---             }
---         }
---         return (oxygenCount == 2) && (singleBondedNegativeOxygenCount == 1) && (doubleBondedOxygenCount == 1);
---     }
---
---     private boolean atLeastTwoNeighborsAreSp2(IAtom atom, IAtomContainer atomContainer, List<IBond> connectedBonds) {
---     	int count = 0;
---     	for (IBond bond : connectedBonds) {
---     		if (bond.getOrder() == Order.DOUBLE || bond.isAromatic()) {
---     			count++;
---     		} else {
---     			IAtom nextAtom = bond.getOther(atom);
---     			if (nextAtom.getHybridization() != CDKConstants.UNSET &&
---     					nextAtom.getHybridization() == Hybridization.SP2) {
---     				// OK, it's SP2
---     				count++;
---     			} else {
---     				List<IBond> nextConnectBonds = atomContainer.getConnectedBondsList(nextAtom);
---     				if (countAttachedDoubleBonds(nextConnectBonds, nextAtom) > 0) {
---     					// OK, it's SP2
---     					count++;
---     				}
---     			}
---     		}
---     		if (count >= 2) return true;
---     	}
---     	return false;
---     }
---
---     private boolean bothNeighborsAreSp2(IAtom atom, IAtomContainer atomContainer, List<IBond> connectedBonds) {
---         return atLeastTwoNeighborsAreSp2(atom, atomContainer, connectedBonds);
---     }
---
---     private IAtomType perceiveNitrogenRadicals(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (atomContainer.getConnectedBondsCount(atom) >= 1 && atomContainer.getConnectedBondsCount(atom) <= 2) {
---             IBond.Order maxBondOrder = atomContainer.getMaximumBondOrder(atom);
---             if (isCharge(atom, +1)) {
---                 if (maxBondOrder == IBond.Order.DOUBLE) {
---                     IAtomType type = getAtomType("N.plus.sp2.radical");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 } else if (maxBondOrder == IBond.Order.SINGLE) {
---                     IAtomType type = getAtomType("N.plus.sp3.radical");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 }
---             } else if (isCharge(atom, 0)) {
---                 if (maxBondOrder == IBond.Order.SINGLE) {
---                     IAtomType type = getAtomType("N.sp3.radical");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 } else if (maxBondOrder == IBond.Order.DOUBLE) {
---                     IAtomType type = getAtomType("N.sp2.radical");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 }
---             }
---         } else {
---             IBond.Order maxBondOrder = atomContainer.getMaximumBondOrder(atom);
---             if (isCharge(atom, +1)
---                     && maxBondOrder == IBond.Order.SINGLE) {
---                 IAtomType type = getAtomType("N.plus.sp3.radical");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveMolybdenum(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, 0)) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 4) {
---                 IAtomType type = getAtomType("Mo.4");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             }
---             IAtomType type1 = getAtomType("Mo.metallic");
---             if (isAcceptable(atom, atomContainer, type1)) {
---                 return type1;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveNitrogens(IAtomContainer atomContainer, IAtom atom,
---     		                            RingSearch searcher, List<IBond> connectedBonds) throws CDKException {
---         // if hybridization is given, use that
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             return perceiveNitrogenRadicals(atomContainer, atom);
---         }
---
---         if (connectedBonds == null) connectedBonds = atomContainer.getConnectedBondsList(atom);
---         if (hasHybridization(atom) && !isCharged(atom)) {
---             if (atom.getHybridization() == Hybridization.SP1) {
---                 int neighborCount = connectedBonds.size();
---                 if (neighborCount > 1) {
---                     IAtomType type = getAtomType("N.sp1.2");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else {
---                     IAtomType type = getAtomType("N.sp1");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (atom.getHybridization() == Hybridization.SP2) {
---                 if (isAmide(atom, atomContainer, connectedBonds)) {
---                     IAtomType type = getAtomType("N.amide");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (isThioAmide(atom, atomContainer, connectedBonds)) {
---                     IAtomType type = getAtomType("N.thioamide");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---                 // but an sp2 hyb N might N.sp2 or N.planar3 (pyrrole), so check for the latter
---                 int neighborCount = connectedBonds.size();
---                 if (neighborCount == 4 && IBond.Order.DOUBLE == getMaximumBondOrder(connectedBonds)) {
---                     IAtomType type = getAtomType("N.oxide");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (neighborCount > 1 && bothNeighborsAreSp2(atom, atomContainer, connectedBonds)) {
---                     if (isRingAtom(atom, atomContainer, searcher)) {
---                         if (neighborCount == 3) {
---                             IBond.Order maxOrder = getMaximumBondOrder(connectedBonds);
---                             if (maxOrder == IBond.Order.DOUBLE) {
---                                 IAtomType type = getAtomType("N.sp2.3");
---                                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                             } else if (maxOrder == IBond.Order.SINGLE) {
---                                 IAtomType type = getAtomType("N.planar3");
---                                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                             }
---                         } else if (neighborCount == 2) {
---                             IBond.Order maxOrder = getMaximumBondOrder(connectedBonds);
---                             if (maxOrder == IBond.Order.SINGLE) {
---                                 if (atom.getImplicitHydrogenCount() != CDKConstants.UNSET
---                                         && atom.getImplicitHydrogenCount() == 1) {
---                                     IAtomType type = getAtomType("N.planar3");
---                                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                                 } else {
---                                     IAtomType type = getAtomType("N.sp2");
---                                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                                 }
---                             } else if (maxOrder == IBond.Order.DOUBLE) {
---                                 IAtomType type = getAtomType("N.sp2");
---                                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                             }
---                         }
---                     }
---                 }
---                 IAtomType type = getAtomType("N.sp2");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (atom.getHybridization() == Hybridization.SP3) {
---                 IAtomType type = getAtomType("N.sp3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (atom.getHybridization() == Hybridization.PLANAR3) {
---                 IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---                 if (connectedBonds.size() == 3 && maxBondOrder == Order.DOUBLE
---                         && countAttachedDoubleBonds(connectedBonds, atom, "O") == 2) {
---                     IAtomType type = getAtomType("N.nitro");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---                 IAtomType type = getAtomType("N.planar3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (isCharged(atom)) {
---             if (isCharge(atom, 1)) {
---                 IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---                 if (maxBondOrder == Order.SINGLE || connectedBonds.size() == 0) {
---                     if (atom.getHybridization() == IAtomType.Hybridization.SP2) {
---                         IAtomType type = getAtomType("N.plus.sp2");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                     IAtomType type = getAtomType("N.plus");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (maxBondOrder == Order.DOUBLE) {
---                     int doubleBonds = countAttachedDoubleBonds(connectedBonds, atom);
---                     if (doubleBonds == 1) {
---                         IAtomType type = getAtomType("N.plus.sp2");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     } else if (doubleBonds == 2) {
---                         IAtomType type = getAtomType("N.plus.sp1");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                 } else if (maxBondOrder == Order.TRIPLE) {
---                     if (connectedBonds.size() == 2) {
---                         IAtomType type = getAtomType("N.plus.sp1");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                 }
---             } else if (isCharge(atom, -1)) {
---                 IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---                 if (maxBondOrder == Order.SINGLE) {
---                     if (connectedBonds.size() >= 2 && bothNeighborsAreSp2(atom, atomContainer, connectedBonds)
---                             && isRingAtom(atom, atomContainer, searcher)) {
---                         IAtomType type = getAtomType("N.minus.planar3");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     } else if (connectedBonds.size() <= 2) {
---                         IAtomType type = getAtomType("N.minus.sp3");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                 } else if (maxBondOrder == Order.DOUBLE) {
---                     if (connectedBonds.size() <= 1) {
---                         IAtomType type = getAtomType("N.minus.sp2");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                 }
---             }
---         } else if (connectedBonds.size() > 3) {
---             if (connectedBonds.size() == 4 && countAttachedDoubleBonds(connectedBonds, atom) == 1) {
---                 IAtomType type = getAtomType("N.oxide");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---             return null;
---         } else if (connectedBonds.size() == 0) {
---             IAtomType type = getAtomType("N.sp3");
---             if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---         } else if (hasOneOrMoreSingleOrDoubleBonds(connectedBonds)) {
---             int connectedAtoms = connectedBonds.size()
---                     + (atom.getImplicitHydrogenCount() == CDKConstants.UNSET ? 0 : atom.getImplicitHydrogenCount());
---             if (connectedAtoms == 3) {
---                 IAtomType type = getAtomType("N.planar3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---             IAtomType type = getAtomType("N.sp2");
---             if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---         } else { // OK, use bond order info
---             IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---             if (maxBondOrder == Order.SINGLE) {
---                 if (isAmide(atom, atomContainer, connectedBonds)) {
---                     IAtomType type = getAtomType("N.amide");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (isThioAmide(atom, atomContainer, connectedBonds)) {
---                     IAtomType type = getAtomType("N.thioamide");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---
---                 List<IBond> heavy = heavyBonds(connectedBonds);
---
---                 int expHCount = heavy.size() - connectedBonds.size();
---
---                 if (heavy.size() == 2) {
---
---                     if (heavy.get(0).getFlag(CDKConstants.ISAROMATIC) && heavy.get(1).getFlag(CDKConstants.ISAROMATIC)) {
---
---                         int hCount = atom.getImplicitHydrogenCount() != null ? atom.getImplicitHydrogenCount()
---                                 + expHCount : expHCount;
---                         if (hCount == 0) {
---                             if (maxBondOrder == Order.SINGLE
---                                     && isSingleHeteroAtom(atom, atomContainer)) {
---                                 IAtomType type = getAtomType("N.planar3");
---                                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                             } else {
---                                 IAtomType type = getAtomType("N.sp2");
---                                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                             }
---                         } else if (hCount == 1) {
---                             IAtomType type = getAtomType("N.planar3");
---                             if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                         }
---                     } else if (bothNeighborsAreSp2(atom, atomContainer, connectedBonds) && isRingAtom(atom, atomContainer, searcher)) {
---                         // a N.sp3 which is expected to take part in an aromatic system
---                         IAtomType type = getAtomType("N.planar3");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     } else {
---                         IAtomType type = getAtomType("N.sp3");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                 } else if (heavy.size() == 3) {
---                     if (bothNeighborsAreSp2(atom, atomContainer, connectedBonds) && isRingAtom(atom, atomContainer, searcher)) {
---                         IAtomType type = getAtomType("N.planar3");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                     IAtomType type = getAtomType("N.sp3");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (heavy.size() == 1) {
---                     IAtomType type = getAtomType("N.sp3");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (heavy.size() == 0) {
---                     IAtomType type = getAtomType("N.sp3");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (maxBondOrder == Order.DOUBLE) {
---                 if (connectedBonds.size() == 3
---                         && countAttachedDoubleBonds(connectedBonds, atom, "O") == 2) {
---                     IAtomType type = getAtomType("N.nitro");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (connectedBonds.size() == 3
---                         && countAttachedDoubleBonds(connectedBonds, atom) > 0) {
---                     IAtomType type = getAtomType("N.sp2.3");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---                 IAtomType type = getAtomType("N.sp2");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (maxBondOrder == Order.TRIPLE) {
---                 int neighborCount = connectedBonds.size();
---                 if (neighborCount > 1) {
---                     IAtomType type = getAtomType("N.sp1.2");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else {
---                     IAtomType type = getAtomType("N.sp1");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             }
---         }
---         return null;
---     }
---
---     /**
---      * Determines whether the bonds (up to two spheres away) are only to non
---      * hetroatoms. Currently used in N.planar3 perception of (e.g. pyrrole).
---      *
---      * @param atom an atom to test
---      * @param container container of the atom
---      *
---      * @return whether the atom's only bonds are to heteroatoms
---      * @see #perceiveNitrogens(IAtomContainer, IAtom, RingSearch, List)
---      */
---     private boolean isSingleHeteroAtom(IAtom atom, IAtomContainer container) {
---
---         List<IAtom> connected = container.getConnectedAtomsList(atom);
---
---         for (IAtom atom1 : connected) {
---
---             boolean aromatic = container.getBond(atom, atom1).isAromatic();
---
---             // ignoring non-aromatic bonds
---             if (!aromatic) continue;
---
---             // found a hetroatom - we're not a single hetroatom
---             if (atom1.getAtomicNumber() != IElement.C) return false;
---
---             // check the second sphere
---             for (IAtom atom2 : container.getConnectedAtomsList(atom1)) {
---
---                 if (!atom2.equals(atom) && container.getBond(atom1, atom2).isAromatic()
---                         && atom2.getAtomicNumber() != IElement.C) {
---                     return false;
---                 }
---
---             }
---
---         }
---
---         return true;
---
---     }
---
---     private boolean isRingAtom(IAtom atom, IAtomContainer atomContainer, RingSearch searcher) {
---         if (searcher == null) searcher = new RingSearch(atomContainer);
---         return searcher.cyclic(atom);
---     }
---
---     private boolean isAmide(IAtom atom, IAtomContainer atomContainer, List<IBond> connectedBonds) {
---     	if (connectedBonds.size() < 1) return false;
---         for (IBond bond : connectedBonds) {
---         	IAtom neighbor = bond.getOther(atom);
---             if (neighbor.getAtomicNumber() == IElement.C) {
---                 if (countAttachedDoubleBonds(atomContainer.getConnectedBondsList(neighbor), neighbor, "O") == 1) return true;
---             }
---         }
---         return false;
---     }
---
---     private boolean isThioAmide(IAtom atom, IAtomContainer atomContainer, List<IBond> connectedBonds) {
---     	if (connectedBonds.size() < 1) return false;
---         for (IBond bond : connectedBonds) {
---         	IAtom neighbor = bond.getOther(atom);
---             if (neighbor.getAtomicNumber() == IElement.C) {
---                 if (countAttachedDoubleBonds(atomContainer.getConnectedBondsList(neighbor), neighbor, "S") == 1) return true;
---             }
---         }
---         return false;
---     }
---
---     private int countExplicitHydrogens(IAtom atom, List<IBond> connectedBonds) {
---         int count = 0;
---         for (IBond bond : connectedBonds) {
---         	IAtom aAtom = bond.getOther(atom);
---             if (aAtom.getAtomicNumber() == IElement.H) {
---                 count++;
---             }
---         }
---         return count;
---     }
---
---     /**
---      * Filter a bond list keeping only bonds between heavy atoms.
---      *
---      * @param bonds a list of bond
---      * @return the bond list only with heavy bonds
---      */
---     private List<IBond> heavyBonds(final List<IBond> bonds) {
---         final List<IBond> heavy = new ArrayList<>(bonds.size());
---         for (final IBond bond : bonds) {
---             if (!(bond.getBegin().getAtomicNumber() == IElement.H && bond.getEnd().getAtomicNumber() == IElement.H)) {
---                 heavy.add(bond);
---             }
---         }
---         return heavy;
---     }
---
---     private IAtomType perceiveIron(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (atom.getAtomicNumber() == IElement.Fe) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 0))) {
---                 int neighbors = atomContainer.getConnectedBondsCount(atom);
---                 if (neighbors == 0) {
---                 	IAtomType type = getAtomType("Fe.metallic");
---                 	if (isAcceptable(atom, atomContainer, type)) {
---                 		return type;
---                 	}
---                 } else if (neighbors == 2) {
---                     IAtomType type5 = getAtomType("Fe.2");
---                     if (isAcceptable(atom, atomContainer, type5)) {
---                         return type5;
---                     }
---                 } else if (neighbors == 3) {
---                     IAtomType type6 = getAtomType("Fe.3");
---                     if (isAcceptable(atom, atomContainer, type6)) {
---                         return type6;
---                     }
---                 } else if (neighbors == 4) {
---                     IAtomType type7 = getAtomType("Fe.4");
---                     if (isAcceptable(atom, atomContainer, type7)) {
---                         return type7;
---                     }
---                 } else if (neighbors == 5) {
---                     IAtomType type8 = getAtomType("Fe.5");
---                     if (isAcceptable(atom, atomContainer, type8)) {
---                         return type8;
---                     }
---                 } else if (neighbors == 6) {
---                     IAtomType type9 = getAtomType("Fe.6");
---                     if (isAcceptable(atom, atomContainer, type9)) {
---                         return type9;
---                     }
---                 }
---             } else if ((isCharge(atom, 2))) {
---                 int neighbors = atomContainer.getConnectedBondsCount(atom);
---                 if (neighbors <= 1) {
---                     IAtomType type = getAtomType("Fe.2plus");
---                     if (isAcceptable(atom, atomContainer, type)) {
---                         return type;
---                     }
---                 }
---             } else if ((isCharge(atom, 1))) {
---                 int neighbors = atomContainer.getConnectedBondsCount(atom);
---
---                 if (neighbors == 2) {
---                     IAtomType type0 = getAtomType("Fe.plus");
---                     if (isAcceptable(atom, atomContainer, type0)) {
---                         return type0;
---                     }
---                 }
---             } else if ((isCharge(atom, 3))) {
---                 IAtomType type1 = getAtomType("Fe.3plus");
---                 if (isAcceptable(atom, atomContainer, type1)) {
---                     return type1;
---                 }
---             } else if ((isCharge(atom, -2))) {
---                 IAtomType type2 = getAtomType("Fe.2minus");
---                 if (isAcceptable(atom, atomContainer, type2)) {
---                     return type2;
---                 }
---             } else if ((isCharge(atom, -3))) {
---                 IAtomType type3 = getAtomType("Fe.3minus");
---                 if (isAcceptable(atom, atomContainer, type3)) {
---                     return type3;
---                 }
---             } else if ((isCharge(atom, -4))) {
---                 IAtomType type4 = getAtomType("Fe.4minus");
---                 if (isAcceptable(atom, atomContainer, type4)) {
---                     return type4;
---                 }
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveMercury(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (atom.getAtomicNumber() == IElement.Hg) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, -1))) {
---                 IAtomType type = getAtomType("Hg.minus");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             } else if ((isCharge(atom, 2))) {
---                 IAtomType type = getAtomType("Hg.2plus");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             } else if ((isCharge(atom, +1))) {
---                 int neighbors = atomContainer.getConnectedBondsCount(atom);
---                 if (neighbors <= 1) {
---                     IAtomType type = getAtomType("Hg.plus");
---                     if (isAcceptable(atom, atomContainer, type)) {
---                         return type;
---                     }
---                 }
---             } else if ((isCharge(atom, 0))) {
---                 int neighbors = atomContainer.getConnectedBondsCount(atom);
---                 if (neighbors == 2) {
---                     IAtomType type = getAtomType("Hg.2");
---                     if (isAcceptable(atom, atomContainer, type)) {
---                         return type;
---                     }
---                 } else if (neighbors == 1) {
---                     IAtomType type = getAtomType("Hg.1");
---                     if (isAcceptable(atom, atomContainer, type)) {
---                         return type;
---                     }
---                 } else if (neighbors == 0) {
---                     IAtomType type = getAtomType("Hg.metallic");
---                     if (isAcceptable(atom, atomContainer, type)) {
---                         return type;
---                     }
---                 }
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveSulphurs(IAtomContainer atomContainer, IAtom atom,
---     		                           RingSearch searcher, List<IBond> connectedBonds) throws CDKException {
---         if (connectedBonds == null) connectedBonds = atomContainer.getConnectedBondsList(atom);
---         IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---         int neighborcount = connectedBonds.size();
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if (atom.getHybridization() != CDKConstants.UNSET && atom.getHybridization() == Hybridization.SP2
---                 && isCharge(atom, +1)) {
---             if (neighborcount == 3) {
---                 IAtomType type = getAtomType("S.inyl.charged");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else {
---                 IAtomType type = getAtomType("S.plus");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (isCharged(atom)) {
---
---             if (isCharge(atom, -1) && neighborcount == 1) {
---                 IAtomType type = getAtomType("S.minus");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (isCharge(atom, +1) && neighborcount == 2) {
---                 IAtomType type = getAtomType("S.plus");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (isCharge(atom, +1) && neighborcount == 3) {
---                 IAtomType type = getAtomType("S.inyl.charged");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (isCharge(atom, +2) && neighborcount == 4) {
---                 IAtomType type = getAtomType("S.onyl.charged");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (isCharge(atom, -2) && neighborcount == 0) {
---                 IAtomType type = getAtomType("S.2minus");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 0) {
---             if (isCharge(atom, 0)) {
---                 IAtomType type = getAtomType("S.3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 1) {
---             if (connectedBonds.get(0).getOrder() == Order.DOUBLE) {
---                 IAtomType type = getAtomType("S.2");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (connectedBonds.get(0).getOrder() == Order.SINGLE) {
---                 IAtomType type = getAtomType("S.3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 2) {
---             if (bothNeighborsAreSp2(atom, atomContainer, connectedBonds) && isRingAtom(atom, atomContainer, searcher)) {
---                 if (countAttachedDoubleBonds(connectedBonds, atom) == 2) {
---                     IAtomType type = getAtomType("S.inyl.2");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else {
---                     IAtomType type = getAtomType("S.planar3");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (countAttachedDoubleBonds(connectedBonds, atom, "O") == 2) {
---                 IAtomType type = getAtomType("S.oxide");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (countAttachedDoubleBonds(connectedBonds, atom) == 2) {
---                 IAtomType type = getAtomType("S.inyl.2");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (countAttachedDoubleBonds(connectedBonds, atom) <= 1) {
---                 IAtomType type = getAtomType("S.3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (countAttachedDoubleBonds(connectedBonds, atom) == 0
---                     && countAttachedSingleBonds(connectedBonds, atom) == 2) {
---                 IAtomType type = getAtomType("S.octahedral");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 3) {
---             int doubleBondedAtoms = countAttachedDoubleBonds(connectedBonds, atom);
---             if (doubleBondedAtoms == 1) {
---                 IAtomType type = getAtomType("S.inyl");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (doubleBondedAtoms == 3) {
---                 IAtomType type = getAtomType("S.trioxide");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (doubleBondedAtoms == 0) {
---                 IAtomType type = getAtomType("S.anyl");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 4) {
---             // count the number of double bonded oxygens
---             int doubleBondedOxygens = countAttachedDoubleBonds(connectedBonds, atom, "O");
---             int doubleBondedNitrogens = countAttachedDoubleBonds(connectedBonds, atom, "N");
---             int doubleBondedSulphurs = countAttachedDoubleBonds(connectedBonds, atom, "S");
---             int countAttachedDoubleBonds = countAttachedDoubleBonds(connectedBonds, atom);
---
---             if (doubleBondedOxygens + doubleBondedNitrogens == 2) {
---                 IAtomType type = getAtomType("S.onyl");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (doubleBondedSulphurs == 1 && doubleBondedOxygens == 1) {
---                 IAtomType type = getAtomType("S.thionyl");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (maxBondOrder == Order.SINGLE) {
---                 IAtomType type = getAtomType("S.anyl");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (doubleBondedOxygens == 1 && countAttachedDoubleBonds == 1) {
---                 IAtomType type = getAtomType("S.sp3d1");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (countAttachedDoubleBonds == 2 && maxBondOrder == Order.DOUBLE) {
---                 IAtomType type = getAtomType("S.sp3.4");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---
---         } else if (neighborcount == 5) {
---
---             if (maxBondOrder == Order.DOUBLE) {
---
---                 IAtomType type = getAtomType("S.sp3d1");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (maxBondOrder == Order.SINGLE) {
---                 IAtomType type = getAtomType("S.octahedral");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 6) {
---             if (maxBondOrder == Order.SINGLE) {
---                 IAtomType type = getAtomType("S.octahedral");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceivePhosphors(IAtomContainer atomContainer, IAtom atom, List<IBond> connectedBonds) throws CDKException {
---         if (connectedBonds == null) connectedBonds = atomContainer.getConnectedBondsList(atom);
---         int neighborcount = connectedBonds.size();
---         IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---         if (countSingleElectrons(atomContainer, atom) == 3) {
---             IAtomType type = getAtomType("P.se.3");
---             if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---         } else if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if (neighborcount == 0) {
---             if (isCharge(atom, 0)) {
---                 IAtomType type = getAtomType("P.ine");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 1) {
---             if (isCharge(atom, 0)) {
---                 IAtomType type = getAtomType("P.ide");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 3) {
---             int doubleBonds = countAttachedDoubleBonds(connectedBonds, atom);
---             if (isCharge(atom, 1)) {
---                 IAtomType type = getAtomType("P.anium");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (doubleBonds == 1) {
---                 IAtomType type = getAtomType("P.ate");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else {
---                 IAtomType type = getAtomType("P.ine");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 2) {
---             if (maxBondOrder == Order.DOUBLE) {
---                 if (isCharge(atom, 1)) {
---                     IAtomType type = getAtomType("P.sp1.plus");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else {
---                     IAtomType type = getAtomType("P.irane");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (maxBondOrder == Order.SINGLE) {
---                 IAtomType type = getAtomType("P.ine");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 4) {
---             // count the number of double bonded oxygens
---             int doubleBonds = countAttachedDoubleBonds(connectedBonds, atom);
---             if (isCharge(atom, 1) && doubleBonds == 0) {
---                 IAtomType type = getAtomType("P.ate.charged");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (doubleBonds == 1) {
---                 IAtomType type = getAtomType("P.ate");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 5) {
---             if (isCharge(atom, 0)) {
---                 IAtomType type = getAtomType("P.ane");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveHydrogens(IAtomContainer atomContainer, IAtom atom, List<IBond> connectedBonds) throws CDKException {
---     	if (connectedBonds == null) connectedBonds = atomContainer.getConnectedBondsList(atom);
---         int neighborcount = connectedBonds.size();
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             if ((isCharge(atom, 0)) && neighborcount == 0) {
---                 IAtomType type = getAtomType("H.radical");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---             return null;
---         } else if (neighborcount == 2) {
---             // FIXME: bridging hydrogen as in B2H6
---             return null;
---         } else if (neighborcount == 1) {
---             if (isCharge(atom, 0)) {
---                 IAtomType type = getAtomType("H");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (neighborcount == 0) {
---             if (isCharge(atom, 0)) {
---                 IAtomType type = getAtomType("H");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (isCharge(atom, 1)) {
---                 IAtomType type = getAtomType("H.plus");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (isCharge(atom, -1)) {
---                 IAtomType type = getAtomType("H.minus");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveLithium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         int neighborcount = atomContainer.getConnectedBondsCount(atom);
---         if (neighborcount == 1) {
---             if (isCharge(atom, 0)) {
---                 IAtomType type = getAtomType("Li");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (neighborcount == 0) {
---             if (isCharge(atom, 0)) {
---                 IAtomType type = getAtomType("Li.neutral");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---             if (isCharge(atom, +1)) {
---                 IAtomType type = getAtomType("Li.plus");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveHalogens(IAtomContainer atomContainer, IAtom atom, List<IBond> connectedBonds) throws CDKException {
---
---         if (connectedBonds == null) {
---             connectedBonds = atomContainer.getConnectedBondsList(atom);
---         }
---
---         if (atom.getAtomicNumber() == IElement.F) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 if (connectedBonds.size() == 0) {
---                     if (isCharge(atom, +1)) {
---                         IAtomType type = getAtomType("F.plus.radical");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     } else if (isCharge(atom, 0)) {
---                         IAtomType type = getAtomType("F.radical");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                 } else if (connectedBonds.size() <= 1) {
---                     IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---                     if (maxBondOrder == IBond.Order.SINGLE) {
---                         IAtomType type = getAtomType("F.plus.radical");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                 }
---                 return null;
---             } else if (isCharged(atom)) {
---                 if (isCharge(atom, -1)) {
---                     IAtomType type = getAtomType("F.minus");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 } else if (isCharge(atom, 1)) {
---                     IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---                     if (maxBondOrder == IBond.Order.DOUBLE) {
---                         IAtomType type = getAtomType("F.plus.sp2");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     } else if (maxBondOrder == IBond.Order.SINGLE) {
---                         IAtomType type = getAtomType("F.plus.sp3");
---                         if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                     }
---                 }
---             } else if (connectedBonds.size() == 1 || connectedBonds.size() == 0) {
---                 IAtomType type = getAtomType("F");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.I) {
---             return perceiveIodine(atomContainer, atom, connectedBonds);
---         }
---         return null;
---     }
---
---     private IAtomType perceiveArsenic(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, +1) && atomContainer
---                 .getConnectedBondsCount(atom) <= 4)) {
---             IAtomType type = getAtomType("As.plus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if ((isCharge(atom, 0))) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 4) {
---                 IAtomType type = getAtomType("As.5");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             }
---             if (neighbors == 2) {
---                 IAtomType type = getAtomType("As.2");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             }
---             IAtomType type = getAtomType("As");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if ((isCharge(atom, +3))) {
---             IAtomType type = getAtomType("As.3plus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if ((isCharge(atom, -1))) {
---             IAtomType type = getAtomType("As.minus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveThorium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (atom.getAtomicNumber() == IElement.Th) {
---             if (isCharge(atom, 0) && atomContainer.getConnectedBondsCount(atom) == 0) {
---                 IAtomType type = getAtomType("Th");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveRubidium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             return null;
---         } else if (isCharge(atom, +1)) {
---             IAtomType type = getAtomType("Rb.plus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if (isCharge(atom, 0)) {
---             IAtomType type = getAtomType("Rb.neutral");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveCommonSalts(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (atom.getAtomicNumber() == IElement.Mg) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, +2))) {
---                 IAtomType type = getAtomType("Mg.2plus");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.Co) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, +2))) {
---                 IAtomType type = getAtomType("Co.2plus");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if ((isCharge(atom, +3))) {
---                 IAtomType type = getAtomType("Co.3plus");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if ((isCharge(atom, 0))) {
---                 IAtomType type = getAtomType("Co.metallic");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.W) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 0))) {
---                 IAtomType type = getAtomType("W.metallic");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveCopper(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, +2))) {
---             IAtomType type = getAtomType("Cu.2plus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if (isCharge(atom, 0)) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 1) {
---                 IAtomType type = getAtomType("Cu.1");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             } else {
---                 IAtomType type01 = getAtomType("Cu.metallic");
---                 if (isAcceptable(atom, atomContainer, type01)) {
---                     return type01;
---                 }
---             }
---         } else if (isCharge(atom, +1)) {
---             IAtomType type02 = getAtomType("Cu.plus");
---             if (isAcceptable(atom, atomContainer, type02)) {
---                 return type02;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveBarium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             return null;
---         } else if ((isCharge(atom, 2))) {
---             IAtomType type = getAtomType("Ba.2plus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveAluminium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, 3)) {
---             int connectedBondsCount = atomContainer.getConnectedBondsCount(atom);
---             if (connectedBondsCount == 0) {
---                 IAtomType type = getAtomType("Al.3plus");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             }
---         } else if (isCharge(atom, 0)
---                 && atomContainer.getConnectedBondsCount(atom) == 3) {
---             IAtomType type = getAtomType("Al");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if (isCharge(atom, -3)
---                 && atomContainer.getConnectedBondsCount(atom) == 6) {
---             IAtomType type = getAtomType("Al.3minus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveZinc(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if (atomContainer.getConnectedBondsCount(atom) == 0
---                 && (isCharge(atom, 0))) {
---             IAtomType type = getAtomType("Zn.metallic");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (atomContainer.getConnectedBondsCount(atom) == 0
---                 && (isCharge(atom, 2))) {
---             IAtomType type = getAtomType("Zn.2plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (atomContainer.getConnectedBondsCount(atom) == 1
---                 && (isCharge(atom, 0))) {
---             IAtomType type = getAtomType("Zn.1");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (atomContainer.getConnectedBondsCount(atom) == 2
---                 && (isCharge(atom, 0))) {
---             IAtomType type = getAtomType("Zn");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveChromium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, 0)
---                 && atomContainer.getConnectedBondsCount(atom) == 6) {
---             IAtomType type = getAtomType("Cr");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if (isCharge(atom, 0)
---                 && atomContainer.getConnectedBondsCount(atom) == 4) {
---             IAtomType type = getAtomType("Cr.4");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if (isCharge(atom, 6)
---                 && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Cr.6plus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if (isCharge(atom, 0)
---                 && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Cr.neutral");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.Cr) {
---             if (isCharge(atom, 3)
---                     && atomContainer.getConnectedBondsCount(atom) == 0) {
---                 IAtomType type = getAtomType("Cr.3plus");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveOrganometallicCenters(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (atom.getAtomicNumber() == IElement.Po) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if (atomContainer.getConnectedBondsCount(atom) == 2) {
---                 IAtomType type = getAtomType("Po");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.Sn) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 0) && atomContainer
---                     .getConnectedBondsCount(atom) <= 4)) {
---                 IAtomType type = getAtomType("Sn.sp3");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.Sc) {
---             if (isCharge(atom, -3)
---                     && atomContainer.getConnectedBondsCount(atom) == 6) {
---                 IAtomType type = getAtomType("Sc.3minus");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveNickel(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, +2))) {
---             IAtomType type = getAtomType("Ni.2plus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if ((isCharge(atom, 0))
---                 && atomContainer.getConnectedBondsCount(atom) == 2) {
---             IAtomType type = getAtomType("Ni");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if ((isCharge(atom, 0))
---                 && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Ni.metallic");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         } else if ((isCharge(atom, 1))
---                 && atomContainer.getConnectedBondsCount(atom) == 1) {
---             IAtomType type = getAtomType("Ni.plus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveNobelGases(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (atom.getAtomicNumber() == IElement.He) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 0))) {
---                 IAtomType type = getAtomType("He");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.Ne) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 0))) {
---                 IAtomType type = getAtomType("Ne");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.Ar) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 0))) {
---                 IAtomType type = getAtomType("Ar");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.Kr) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 0))) {
---                 IAtomType type = getAtomType("Kr");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (atom.getAtomicNumber() == IElement.Xe) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 0))) {
---                 if (atomContainer.getConnectedBondsCount(atom) == 0) {
---                     IAtomType type = getAtomType("Xe");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 } else {
---                     IAtomType type = getAtomType("Xe.3");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 }
---             }
---         } else if (atom.getAtomicNumber() == IElement.Rn) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 0))) {
---                 IAtomType type = getAtomType("Rn");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveSilicon(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if (isCharge(atom, 0)) {
---             if (atomContainer.getConnectedBondsCount(atom) == 2) {
---                 IAtomType type = getAtomType("Si.2");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (atomContainer.getConnectedBondsCount(atom) == 3) {
---                 IAtomType type = getAtomType("Si.3");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (atomContainer.getConnectedBondsCount(atom) == 4) {
---                 IAtomType type = getAtomType("Si.sp3");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (isCharge(atom, -2)) {
---             IAtomType type = getAtomType("Si.2minus.6");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveManganese(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, 0))) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 2) {
---                 IAtomType type02 = getAtomType("Mn.2");
---                 if (isAcceptable(atom, atomContainer, type02)) return type02;
---             } else if (neighbors == 0) {
---                 IAtomType type03 = getAtomType("Mn.metallic");
---                 if (isAcceptable(atom, atomContainer, type03)) return type03;
---             }
---         } else if ((isCharge(atom, +2))) {
---             IAtomType type = getAtomType("Mn.2plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, +3))) {
---             IAtomType type = getAtomType("Mn.3plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveSodium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, 1))) {
---             IAtomType type = getAtomType("Na.plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, 0))
---                 && atomContainer.getConnectedBondsCount(atom) == 1) {
---             IAtomType type = getAtomType("Na");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, 0))
---                 && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Na.neutral");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveIodine(IAtomContainer atomContainer, IAtom atom, List<IBond> connectedBonds ) throws CDKException {
---     	if (connectedBonds == null) connectedBonds = atomContainer.getConnectedBondsList(atom);
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             if (connectedBonds.size() == 0) {
---                 if (isCharge(atom, +1)) {
---                     IAtomType type = getAtomType("I.plus.radical");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (isCharge(atom, 0)) {
---                     IAtomType type = getAtomType("I.radical");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (connectedBonds.size() <= 1) {
---                 IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---                 if (maxBondOrder == IBond.Order.SINGLE) {
---                     IAtomType type = getAtomType("I.plus.radical");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             }
---             return null;
---         } else if (isCharged(atom)) {
---             if (isCharge(atom, -1)) {
---                 if (connectedBonds.size() == 0) {
---                     IAtomType type = getAtomType("I.minus");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else {
---                     IAtomType type = getAtomType("I.minus.5");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (isCharge(atom, 1)) {
---                 IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---                 if (maxBondOrder == IBond.Order.DOUBLE) {
---                     IAtomType type = getAtomType("I.plus.sp2");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (maxBondOrder == IBond.Order.SINGLE) {
---                     IAtomType type = getAtomType("I.plus.sp3");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             }
---         } else if (connectedBonds.size() == 3) {
---             int doubleBondCount = countAttachedDoubleBonds(connectedBonds, atom);
---             if (doubleBondCount == 2) {
---                 IAtomType type = getAtomType("I.5");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (isCharge(atom, 0)) {
---                 IAtomType type = getAtomType("I.sp3d2.3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (connectedBonds.size() == 2) {
---             IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---             if (maxBondOrder == IBond.Order.DOUBLE) {
---                 IAtomType type = getAtomType("I.3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (connectedBonds.size() <= 1) {
---             IAtomType type = getAtomType("I");
---             if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveRuthenium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, 0)) {
---             IAtomType type = getAtomType("Ru.6");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, -2)) {
---             IAtomType type = getAtomType("Ru.2minus.6");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, -3)) {
---             IAtomType type = getAtomType("Ru.3minus.6");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceivePotassium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, +1))) {
---             IAtomType type = getAtomType("K.plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, 0)) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 1) {
---                 IAtomType type = getAtomType("K.neutral");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---             IAtomType type = getAtomType("K.metallic");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceivePlutonium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, 0) && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Pu");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveCadmium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, +2))) {
---             IAtomType type = getAtomType("Cd.2plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, 0))) {
---             if (atomContainer.getConnectedBondsCount(atom) == 0) {
---                 IAtomType type = getAtomType("Cd.metallic");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (atomContainer.getConnectedBondsCount(atom) == 2) {
---                 IAtomType type = getAtomType("Cd.2");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveIndium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, 0) && atomContainer.getConnectedBondsCount(atom) == 3) {
---             IAtomType type = getAtomType("In.3");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, 3) && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("In.3plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, 0) && atomContainer.getConnectedBondsCount(atom) == 1) {
---             IAtomType type = getAtomType("In.1");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else {
---             IAtomType type = getAtomType("In");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveChlorine(IAtomContainer atomContainer, IAtom atom, List<IBond> connectedBonds) throws CDKException {
---     	if (connectedBonds == null) connectedBonds = atomContainer.getConnectedBondsList(atom);
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             if (connectedBonds.size() > 1) {
---                 if (isCharge(atom, +1)) {
---                     IAtomType type = getAtomType("Cl.plus.radical");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (connectedBonds.size() == 1) {
---                 IBond.Order maxBondOrder = atomContainer.getMaximumBondOrder(atom);
---                 if (maxBondOrder == IBond.Order.SINGLE) {
---                     IAtomType type = getAtomType("Cl.plus.radical");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (connectedBonds.size() == 0
---                     && (isCharge(atom, 0))) {
---                 IAtomType type = getAtomType("Cl.radical");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if (isCharge(atom, 0)) {
---             int neighborcount = connectedBonds.size();
---             IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---
---             if (maxBondOrder == IBond.Order.DOUBLE) {
---                 if (neighborcount == 2) {
---                     IAtomType type = getAtomType("Cl.2");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (neighborcount == 3) {
---                     IAtomType type = getAtomType("Cl.chlorate");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 } else if (neighborcount == 4) {
---                     IAtomType type = getAtomType("Cl.perchlorate");
---                     if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---                 }
---             } else if (neighborcount <= 1) {
---                 IAtomType type = getAtomType("Cl");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if ((isCharge(atom, -1))) {
---             IAtomType type = getAtomType("Cl.minus");
---             if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---         } else if (isCharge(atom, 1)) {
---             IBond.Order maxBondOrder = getMaximumBondOrder(connectedBonds);
---             if (maxBondOrder == IBond.Order.DOUBLE) {
---                 IAtomType type = getAtomType("Cl.plus.sp2");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (maxBondOrder == IBond.Order.SINGLE) {
---                 IAtomType type = getAtomType("Cl.plus.sp3");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         } else if ((isCharge(atom, +3))
---                 && connectedBonds.size() == 4) {
---             IAtomType type = getAtomType("Cl.perchlorate.charged");
---             if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---         } else {
---             int doubleBonds = countAttachedDoubleBonds(connectedBonds, atom);
---             if (connectedBonds.size() == 3 && doubleBonds == 2) {
---                 IAtomType type = getAtomType("Cl.chlorate");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             } else if (connectedBonds.size() == 4 && doubleBonds == 3) {
---                 IAtomType type = getAtomType("Cl.perchlorate");
---                 if (isAcceptable(atom, atomContainer, type, connectedBonds)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveSilver(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             return null;
---         } else if ((isCharge(atom, 0))) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 1) {
---                 IAtomType type = getAtomType("Ag.1");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---             IAtomType type = getAtomType("Ag.neutral");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, 1))) {
---             IAtomType type = getAtomType("Ag.plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveGold(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             return null;
---         }
---         int neighbors = atomContainer.getConnectedBondsCount(atom);
---         if ((isCharge(atom, 0)) && neighbors == 1) {
---             IAtomType type = getAtomType("Au.1");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveRadium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             return null;
---         } else if ((isCharge(atom, 0))) {
---             IAtomType type = getAtomType("Ra.neutral");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveCalcium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (atom.getAtomicNumber() == IElement.Ca) {
---             if (hasOneSingleElectron(atomContainer, atom)) {
---                 // no idea how to deal with this yet
---                 return null;
---             } else if ((isCharge(atom, 2) && atomContainer
---                     .getConnectedBondsCount(atom) == 0)) {
---                 IAtomType type = getAtomType("Ca.2plus");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             } else if ((isCharge(atom, 0) && atomContainer
---                     .getConnectedBondsCount(atom) == 2)) {
---                 IAtomType type = getAtomType("Ca.2");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             } else if ((isCharge(atom, 0) && atomContainer
---                     .getConnectedBondsCount(atom) == 1)) {
---                 IAtomType type = getAtomType("Ca.1");
---                 if (isAcceptable(atom, atomContainer, type)) {
---                     return type;
---                 }
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceivePlatinum(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, +2))) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 4) {
---                 IAtomType type = getAtomType("Pt.2plus.4");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else {
---                 IAtomType type = getAtomType("Pt.2plus");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if ((isCharge(atom, 0))) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 2) {
---                 IAtomType type = getAtomType("Pt.2");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 4) {
---                 IAtomType type = getAtomType("Pt.4");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 6) {
---                 IAtomType type = getAtomType("Pt.6");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveAntimony(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             return null;
---         } else if ((isCharge(atom, 0) && atomContainer
---                 .getConnectedBondsCount(atom) == 3)) {
---             IAtomType type = getAtomType("Sb.3");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, 0) && atomContainer
---                 .getConnectedBondsCount(atom) == 4)) {
---             IAtomType type = getAtomType("Sb.4");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveGadolinum(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, +3)
---                 && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Gd.3plus");
---             if (isAcceptable(atom, atomContainer, type)) {
---                 return type;
---             }
---         }
---         return null;
---     }
---
---     private IAtomType perceiveMagnesium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, 0))) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 4) {
---                 IAtomType type = getAtomType("Mg.neutral");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 2) {
---                 IAtomType type = getAtomType("Mg.neutral.2");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 1) {
---                 IAtomType type = getAtomType("Mg.neutral.1");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else {
---                 IAtomType type = getAtomType("Mg.neutral");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if ((isCharge(atom, +2))) {
---             IAtomType type = getAtomType("Mg.2plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveThallium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, +1)
---                 && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Tl.plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, 0)
---                 && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Tl");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, 0)
---                 && atomContainer.getConnectedBondsCount(atom) == 1) {
---             IAtomType type = getAtomType("Tl.1");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveLead(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, 0)
---                 && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Pb.neutral");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, 2)
---                 && atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Pb.2plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, 0)
---                 && atomContainer.getConnectedBondsCount(atom) == 1) {
---             IAtomType type = getAtomType("Pb.1");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveStrontium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             return null;
---         } else if ((isCharge(atom, 2))) {
---             IAtomType type = getAtomType("Sr.2plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveTitanium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, -3)
---                 && atomContainer.getConnectedBondsCount(atom) == 6) {
---             IAtomType type = getAtomType("Ti.3minus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, 0))
---                 && atomContainer.getConnectedBondsCount(atom) == 4) {
---             IAtomType type = getAtomType("Ti.sp3");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, 0))
---                 && atomContainer.getConnectedBondsCount(atom) == 2) {
---             IAtomType type = getAtomType("Ti.2");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveVanadium(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (isCharge(atom, -3)
---                 && atomContainer.getConnectedBondsCount(atom) == 6) {
---             IAtomType type = getAtomType("V.3minus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, -3)
---                 && atomContainer.getConnectedBondsCount(atom) == 4) {
---             IAtomType type = getAtomType("V.3minus.4");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveBromine(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             if (atomContainer.getConnectedBondsCount(atom) == 0) {
---                 if (isCharge(atom, +1)) {
---                     IAtomType type = getAtomType("Br.plus.radical");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 } else if (isCharge(atom, 0)) {
---                     IAtomType type = getAtomType("Br.radical");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 }
---             } else if (atomContainer.getConnectedBondsCount(atom) <= 1) {
---                 IBond.Order maxBondOrder = atomContainer.getMaximumBondOrder(atom);
---                 if (maxBondOrder == IBond.Order.SINGLE) {
---                     IAtomType type = getAtomType("Br.plus.radical");
---                     if (isAcceptable(atom, atomContainer, type)) return type;
---                 }
---             }
---             return null;
---         } else if (isCharge(atom, -1)) {
---             IAtomType type = getAtomType("Br.minus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (isCharge(atom, 1)) {
---             IBond.Order maxBondOrder = atomContainer.getMaximumBondOrder(atom);
---             if (maxBondOrder == IBond.Order.DOUBLE) {
---                 IAtomType type = getAtomType("Br.plus.sp2");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (maxBondOrder == IBond.Order.SINGLE) {
---                 IAtomType type = getAtomType("Br.plus.sp3");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if (atomContainer.getConnectedBondsCount(atom) == 1 || atomContainer.getConnectedBondsCount(atom) == 0) {
---             IAtomType type = getAtomType("Br");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if (atomContainer.getConnectedBondsCount(atom) == 3) {
---             IAtomType type = getAtomType("Br.3");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         }
---         return null;
---     }
---
---     private IAtomType perceiveCobalt(IAtomContainer atomContainer, IAtom atom) throws CDKException {
---         if (hasOneSingleElectron(atomContainer, atom)) {
---             // no idea how to deal with this yet
---             return null;
---         } else if ((isCharge(atom, +2))) {
---             IAtomType type = getAtomType("Co.2plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, +3))) {
---             IAtomType type = getAtomType("Co.3plus");
---             if (isAcceptable(atom, atomContainer, type)) return type;
---         } else if ((isCharge(atom, 0))) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 2) {
---                 IAtomType type = getAtomType("Co.2");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 4) {
---                 IAtomType type = getAtomType("Co.4");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 6) {
---                 IAtomType type = getAtomType("Co.6");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 1) {
---                 IAtomType type = getAtomType("Co.1");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else {
---                 IAtomType type = getAtomType("Co.metallic");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         } else if ((isCharge(atom, +1))) {
---             int neighbors = atomContainer.getConnectedBondsCount(atom);
---             if (neighbors == 2) {
---                 IAtomType type = getAtomType("Co.plus.2");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 4) {
---                 IAtomType type = getAtomType("Co.plus.4");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 1) {
---                 IAtomType type = getAtomType("Co.plus.1");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 6) {
---                 IAtomType type = getAtomType("Co.plus.6");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else if (neighbors == 5) {
---                 IAtomType type = getAtomType("Co.plus.5");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             } else {
---                 IAtomType type = getAtomType("Co.plus");
---                 if (isAcceptable(atom, atomContainer, type)) return type;
---             }
---         }
---         return null;
---     }
+radical e r c bs =
+  fromMaybe unknown $ lookup (hash e c r bs.double bs.triple) atMap

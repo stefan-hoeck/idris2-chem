@@ -223,13 +223,16 @@ data Radical = NoRadical | Singlet | Doublet | Triplet
 ||| Kinds of hybridization
 public export
 data Hybridization : Type where
-  None       : Hybridization
-  Planar     : Hybridization
-  SP         : Hybridization
-  SP2        : Hybridization
-  SP3        : Hybridization
-  SP3D1      : Hybridization
-  Octahedral : Hybridization
+  None        : Hybridization
+  Planar      : Hybridization
+  S           : Hybridization
+  SP          : Hybridization
+  SP2         : Hybridization
+  SP3         : Hybridization
+  SP3D1       : Hybridization
+  SP3D2       : Hybridization
+  Tetrahedral : Hybridization
+  Octahedral  : Hybridization
 
 %runElab derive "Hybridization" [Show,Eq,Ord,Finite]
 

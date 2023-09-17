@@ -3,7 +3,7 @@ module Test.Text.Smiles.Generators
 import public Chem
 import public Data.Vect
 import public Hedgehog
-import public Test.Chem.Element
+import public Test.Chem.Elem
 import public Test.Chem.Isotope
 import public Test.Chem.Types
 import public Text.Smiles
