@@ -23,8 +23,15 @@ toBonds Single = BS 1 0 0
 toBonds Dbl    = BS 0 1 0
 toBonds Triple = BS 0 0 1
 
-calcAT : Fin k -> Adj k MolBond MolAtom -> MolAtomAT
-calcAT n (A l ns) =
+||| Compute the atom type and implicit hydrogen count
+||| of an atom with charge and information about
+||| racicals set, that is bound to its neighbours by `MolBond`s.
+export
+calcMolAtomType :
+     Fin k
+  -> Adj k MolBond (Atom Isotope Charge p Radical h t c l)
+  -> Atom Isotope Charge p Radical HCount AtomType c l
+calcMolAtomType n (A l ns) =
   let bs      := foldMap (toBonds . type) ns
       (hy,at) := atomTypeAndHydrogens (cast l.elem) l.radical l.charge bs
    in {type := at, hydrogen := hy} l
@@ -32,4 +39,4 @@ calcAT n (A l ns) =
 ||| Perceive atom types and implicit hydrogens for a .mol-file graph
 export %inline
 perceiveMolAtomTypes : MolGraph -> MolGraphAT
-perceiveMolAtomTypes (G o g) = G o $ mapWithCtxt calcAT g
+perceiveMolAtomTypes (G o g) = G o $ mapWithCtxt calcMolAtomType g
