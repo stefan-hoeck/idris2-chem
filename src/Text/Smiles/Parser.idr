@@ -136,7 +136,7 @@ rings :
   -> Atoms k
   -> Bonds (S k)
   -> (ts   : List (SmilesToken,Nat))
-  -> Either (Bounded Err) SmilesMol
+  -> Either (Bounded Err) SmilesGraph
 
 finalize :
      {k : _}
@@ -144,7 +144,7 @@ finalize :
   -> Rings k
   -> Atoms k
   -> Bonds k
-  -> Either (Bounded Err) SmilesMol
+  -> Either (Bounded Err) SmilesGraph
 finalize (A _ _ c :: xs) _       _  _  = unclosed (oneChar (P 0 c)) PO
 finalize [] ((r,R _ _ _ c) :: _) _  _  = custom (ringBounds c r) UnclosedRing
 finalize [] []                   as bs = Right $ G k (mkGraphRev as bs)
@@ -160,7 +160,7 @@ chain :
   -> (as   : Atoms k)       -- accumulated atoms
   -> (bs   : Bonds k)       -- accumulated bonds
   -> (ts   : List (SmilesToken,Nat))
-  -> Either (Bounded Err) SmilesMol
+  -> Either (Bounded Err) SmilesGraph
 chain o a s r as bs [] = finalize s r as bs
 chain o a s r as bs ((x,c)::xs) = case x of
   TA a2 rs => rings c a2 rs s r (wrings r) as (waddBond o (bond a a2) bs) xs
@@ -195,13 +195,17 @@ rings c a (xs :< R rn mb) s wr r as bs ts =
               r2     := delete rn r
            in rings c1 a xs s wr r2 as (addBond n b bs) ts
 
-start : List (SmilesToken,Nat) -> Either (Bounded Err) SmilesMol
+start : List (SmilesToken,Nat) -> Either (Bounded Err) SmilesGraph
 start ((TA a rs,c) :: xs) = rings c a rs [] [] [] [] [] xs
 start []                  = Right (G 0 empty)
 start ((t,c) :: _)        = custom (bounds t c) ExpectedAtom
 
 export
-readSmilesFrom : Has SmilesParseErr es => Origin -> String -> ChemRes es SmilesMol
+readSmilesFrom :
+     {auto has : Has SmilesParseErr es}
+  -> Origin
+  -> String
+  -> ChemRes es SmilesGraph
 readSmilesFrom o s =
   let Right ts := lexSmiles s
         | Left e => Left $ inject (fromBounded s o (voidLeft <$> e))
@@ -210,5 +214,5 @@ readSmilesFrom o s =
    in Right m
 
 export %inline
-readSmiles : Has SmilesParseErr es => String -> ChemRes es SmilesMol
+readSmiles : Has SmilesParseErr es => String -> ChemRes es SmilesGraph
 readSmiles = readSmilesFrom Virtual

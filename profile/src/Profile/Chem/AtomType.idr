@@ -1,8 +1,5 @@
 module Profile.Chem.AtomType
 
-import Chem
-import Chem.AtomType
-import Data.List.Quantifiers.Extra
 import Data.Maybe
 import Data.String
 import Profile
@@ -11,11 +8,12 @@ import System.File
 import Text.Smiles
 
 0 Errs : List Type
-Errs = [HErr, ATErr, SmilesParseErr]
+Errs = [SmilesParseErr]
 
-calcAtomTypes : String -> Maybe (Graph Bond (Atom (Chirality,AtomType)))
-calcAtomTypes str =
-  either (const Nothing) Just $ smilesToAtomType {es = Errs} str
+calcAtomTypes : String -> Maybe SmilesGraphAT
+calcAtomTypes s =
+  either (const Nothing) (Just . perceiveSmilesAtomTypes) $
+  readSmiles {es = Errs} s
 
 parseLines : Integer -> File -> IO (Either FileError ())
 parseLines n f = do

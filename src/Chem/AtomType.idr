@@ -35,6 +35,12 @@ record Bonds where
 
 %runElab derive "Bonds" [Show,Eq,Ord]
 
+||| Add single bonds from implicit hydrogens to the list of bonds
+||| connected to an atom
+export %inline
+addH : HCount -> Bonds -> Bonds
+addH h = {single $= (+ cast h.value)}
+
 ||| Placeholder for unknown atom types
 |||
 ||| We use this instead of returning an error type such
@@ -57,50 +63,41 @@ export
 Monoid Bonds where
   neutral = BS 0 0 0
 
-||| Compute the number of implicit hydrogen atoms from
-||| an atom type and a count of bond types.
+||| Perceiving atom types
 |||
-||| If the number of single bonds at the atom exceeds the
-||| number of single bonds of the atom type, this returns
-||| atom type `X` (unknown) together with a hydrogen count
-||| of zero.
+||| This is to be used if no implicit hydrogen atoms are given.
+||| Implicit hydrogen count can then be determined from the atom type.
 export
-hcount : AtomType -> Bonds -> (HCount, AtomType)
-hcount at bs =
-  case refineHCount (cast $ at.single `minus` bs.single) of
-    Just h  => (h, at)
-    Nothing => (0, unknown)
-
-||| Perceiving radicals for those cases where such information is available.
-export
-radical : Elem -> Radical -> Charge -> Bonds -> AtomType
+atomType : Elem -> Radical -> Charge -> Bonds -> AtomType
 
 ||| General purpose atom type perception
 |||
 ||| This is to be used if no implicit hydrogen atoms are given
 ||| and these should be perceived from the atom type as well.
 export %inline
-atype : Elem -> Charge -> Bonds -> AtomType
-atype e = radical e NoRadical
+atomTypeAndHydrogens : Elem -> Radical -> Charge -> Bonds -> (HCount, AtomType)
+atomTypeAndHydrogens e r c bs =
+  let at := atomType e r c bs
+      h  := fromMaybe 0 $ refineHCount (cast at.single - cast bs.single)
+   in (h,at)
 
 ||| Utility for those cases where the number of implict hydrogens
 ||| (if any) is already included in the number of bonds.
-||| in this case.
+|||
+||| This returns `unknown` if the number of single bonds do not
+||| match exactly.
 export
-atypeH : Elem -> Charge -> Bonds -> AtomType
-atypeH e c bs =
-  let at := atype e c bs
-   in if at.single == bs.single then at else unknown
+exactAtomType : Elem -> Radical -> Charge -> Bonds -> AtomType
 
 --------------------------------------------------------------------------------
 --          Implementation
 --------------------------------------------------------------------------------
 
-hash : Elem -> Charge -> Radical -> (double,triple : Nat) -> Bits32
-hash e c r d t =
+hash : Elem -> Charge -> Radical -> (single,double,triple : Nat) -> Bits32
+hash e c r s d t =
   let he := cast (conIndexElem e)      * 100
-      hc := (he + cast (c.value + 15)) * 1000
-      ht := hc + cast (d * 100 + t * 10) + cast (conIndexRadical r)
+      hc := (he + cast (c.value + 15)) * 10000
+      ht := hc + cast (s * 1000 + d * 100 + t * 10) + cast (conIndexRadical r)
    in ht
 
 -- convert information about an atom type to a hash for fast lookup
@@ -114,9 +111,21 @@ pair :
   -> (hybr      : Hybridization)
   -> (lonePairs : Nat)
   -> (Bits32,AtomType)
-pair n e c r (BS s d t) h l = (hash e c r d t, AT n l h s d t)
+pair n e c r (BS s d t) h l = (hash e c r s d t, AT n l h s d t)
 
 -- sorted map from hash to atom type
+-- TODO: C.minus.planar
+--       N.minus.planar
+--       N.nitro
+--       N.amide
+--       N.thioamide
+--       N.planar3
+--       O.minus.co2
+--       O.sp2.co2
+--       O.planar3
+--       S.planar3
+--       S.only
+--       S.thionyl
 atMap : SortedMap Bits32 AtomType
 atMap =
   SortedMap.fromList
@@ -150,11 +159,6 @@ atMap =
     , pair "C.minus.sp1"            C  (-1) NoRadical (BS 0 0 1) SP          1
     , pair "C.minus.sp2"            C  (-1) NoRadical (BS 1 1 0) SP2         1
     , pair "C.minus.sp3"            C  (-1) NoRadical (BS 3 0 0) SP3         1
-    , pair "C.minus.planar"         C  (-1) NoRadical (BS 3 0 0) Planar      1
-    , pair "C.allene"               C  0    NoRadical (BS 0 2 0) SP          0
-    , pair "C.sp"                   C  0    NoRadical (BS 1 0 1) SP          0
-    , pair "C.sp2"                  C  0    NoRadical (BS 2 1 0) SP2         0
-    , pair "C.sp3"                  C  0    NoRadical (BS 4 0 0) SP3         0
     , pair "C.radical.sp1"          C  0    Singlet   (BS 0 0 1) SP          0
     , pair "C.radical.sp2"          C  0    Singlet   (BS 1 1 0) SP2         0
     , pair "C.radical.planar"       C  0    Singlet   (BS 3 0 0) Planar      0
@@ -266,16 +270,11 @@ atMap =
     , pair "Mo.4"                   Mo 0    NoRadical (BS 2 2 0) None        0
     , pair "N.minus.sp2"            N  (-1) NoRadical (BS 0 1 0) SP2         2
     , pair "N.minus.sp3"            N  (-1) NoRadical (BS 2 0 0) SP3         2
-    , pair "N.minus.planar3"        N  (-1) NoRadical (BS 2 0 0) Planar      2
     , pair "N.sp1"                  N  0    NoRadical (BS 0 0 1) SP          1
     , pair "N.sp1.2"                N  0    NoRadical (BS 0 1 1) SP          0
     , pair "N.sp2"                  N  0    NoRadical (BS 1 1 0) SP2         1
     , pair "N.sp2.3"                N  0    NoRadical (BS 1 2 0) SP2         0
-    , pair "N.nitro"                N  0    NoRadical (BS 1 2 0) Planar      0
-    , pair "N.amide"                N  0    NoRadical (BS 3 0 0) SP2         1
-    , pair "N.thioamide"            N  0    NoRadical (BS 3 0 0) SP2         1
     , pair "N.sp3"                  N  0    NoRadical (BS 3 0 0) SP3         1
-    , pair "N.planar3"              N  0    NoRadical (BS 3 0 0) Planar      1
     , pair "N.oxide"                N  0    NoRadical (BS 3 1 0) SP2         0
     , pair "N.sp2.radical"          N  0    Singlet   (BS 0 1 0) SP2         1
     , pair "N.sp3.radical"          N  0    Singlet   (BS 2 0 0) SP3         1
@@ -294,11 +293,8 @@ atMap =
     , pair "Ni.2plus"               Ni 2    NoRadical (BS 0 0 0) None        0
     , pair "O.minus2"               O  (-2) NoRadical (BS 0 0 0) SP3         4
     , pair "O.minus"                O  (-1) NoRadical (BS 1 0 0) SP3         3
-    , pair "O.minus.co2"            O  (-1) NoRadical (BS 1 0 0) SP3         3
     , pair "O.sp2"                  O  0    NoRadical (BS 0 1 0) SP2         2
-    , pair "O.sp2.co2"              O  0    NoRadical (BS 0 1 0) SP2         2
     , pair "O.sp3"                  O  0    NoRadical (BS 2 0 0) SP3         2
-    , pair "O.planar3"              O  0    NoRadical (BS 2 0 0) Planar      2
     , pair "O.sp3.radical"          O  0    Singlet   (BS 1 0 0) SP3         2
     , pair "O.plus.sp1"             O  1    NoRadical (BS 0 0 1) SP          1
     , pair "O.plus.sp2"             O  1    NoRadical (BS 1 1 0) SP2         1
@@ -338,11 +334,8 @@ atMap =
     , pair "S.trioxide"             S  0    NoRadical (BS 0 3 0) SP2         0
     , pair "S.inyl.2"               S  0    NoRadical (BS 1 0 1) SP2         0
     , pair "S.3"                    S  0    NoRadical (BS 2 0 0) SP3         2
-    , pair "S.planar3"              S  0    NoRadical (BS 2 0 0) Planar      2
     , pair "S.inyl"                 S  0    NoRadical (BS 2 1 0) SP2         0
-    , pair "S.onyl"                 S  0    NoRadical (BS 2 2 0) SP3         0
     , pair "S.sp3.4"                S  0    NoRadical (BS 2 2 0) SP3         0
-    , pair "S.thionyl"              S  0    NoRadical (BS 2 2 0) SP3         0
     , pair "S.anyl"                 S  0    NoRadical (BS 4 0 0) SP3D2       1
     , pair "S.sp3d1"                S  0    NoRadical (BS 4 1 0) SP3D1       0
     , pair "S.octahedral"           S  0    NoRadical (BS 6 0 0) SP3D2       0
@@ -389,5 +382,39 @@ atMap =
     , pair "Zn.2plus"               Zn 2    NoRadical (BS 2 0 0) S           0
     ]
 
-radical e r c bs =
-  fromMaybe unknown $ lookup (hash e c r bs.double bs.triple) atMap
+c_allene, c_sp, c_sp2, c_sp3 : AtomType
+c_allene = AT "C.allene"  0 SP  0 2 0
+c_sp     = AT "C.sp"      0 SP  1 0 1
+c_sp2    = AT "C.sp2"     0 SP2 2 1 0
+c_sp3    = AT "C.sp3"     0 SP3 4 0 0
+
+-- performance optimized implementation for neutral carbons
+atomType C NoRadical 0 bs =
+  case bs of
+    BS _ 0 0 => c_sp3
+    BS _ 1 0 => c_sp2
+    BS _ 0 1 => c_sp
+    BS 0 2 0 => c_allene
+    _        => unknown
+
+-- in the general case, we try to find an atom type
+-- by adding up to 4 single bonds to implicit hydrogen atoms
+atomType e r c (BS s d t) =
+  fromMaybe unknown $
+        lookup (hash e c r s     d t) atMap
+    <|> lookup (hash e c r (s+1) d t) atMap
+    <|> lookup (hash e c r (s+2) d t) atMap
+    <|> lookup (hash e c r (s+3) d t) atMap
+    <|> lookup (hash e c r (s+4) d t) atMap
+
+
+-- as with `radical` this is performance optimized for carbons
+exactAtomType C NoRadical 0 bs =
+  case bs of
+    BS 4 0 0 => c_sp3
+    BS 2 1 0 => c_sp2
+    BS 1 0 3 => c_sp
+    BS 0 2 0 => c_allene
+    _        => unknown
+exactAtomType e r c (BS s d t) =
+  fromMaybe unknown $ lookup (hash e c r s d t) atMap

@@ -194,5 +194,5 @@ Interpolation SmilesBond where
 %runElab derive "SmilesBond" [Show,Eq,Ord]
 
 public export
-SmilesMol : Type
-SmilesMol = Graph SmilesBond SmilesAtom
+0 SmilesGraph : Type
+SmilesGraph = Graph SmilesBond SmilesAtom

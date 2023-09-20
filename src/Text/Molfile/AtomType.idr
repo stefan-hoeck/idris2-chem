@@ -25,12 +25,11 @@ toBonds Triple = BS 0 0 1
 
 calcAT : Fin k -> Adj k MolBond MolAtom -> MolAtomAT
 calcAT n (A l ns) =
-  let bs       := foldMap (toBonds . type) ns
-      at       := radical (cast l.elem) l.radical l.charge bs
-      (hy,at') :=  hcount at bs
-   in {type := at', hydrogen := hy} l
+  let bs      := foldMap (toBonds . type) ns
+      (hy,at) := atomTypeAndHydrogens (cast l.elem) l.radical l.charge bs
+   in {type := at, hydrogen := hy} l
 
 ||| Perceive atom types and implicit hydrogens for a .mol-file graph
-export
+export %inline
 perceiveMolAtomTypes : MolGraph -> MolGraphAT
 perceiveMolAtomTypes (G o g) = G o $ mapWithCtxt calcAT g

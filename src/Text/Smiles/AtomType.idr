@@ -5,81 +5,74 @@ import Text.Smiles.Types
 
 %default total
 
--- -- generates a pair with a list of non aromatic bonds and a
--- -- aromatic bond counter
--- aromBonds : List Bond -> (List Bond, Nat)
--- aromBonds = foldl fun ([],0)
---   where fun : (List Bond, Nat) -> Bond -> (List Bond, Nat)
---         fun (x, z) Arom = (x, S z)
---         fun (x, z) FW = (Dbl :: x, z)
---         fun (x, z) BW = (Dbl :: x, z)
---         fun (x, z) b  = (b :: x, z)
---
--- -- creates an atom from a non-aromatic subset element
--- org : Elem -> HCount -> Atom Chirality
--- org e h = MkAtom e False Nothing 0 None h
---
--- -- creates an atom from an aromatic subset element
--- orgArom : (e : Elem) -> (0 _ : ValidAromatic e True) => HCount -> Atom Chirality
--- orgArom e h = MkAtom e True Nothing 0 None h
---
--- toImplH : (val : Nat) -> (bonds : Nat) -> Maybe HCount
--- toImplH val bonds = refineHCount (cast val - cast bonds)
---
--- subset : (e : Elem) -> {auto 0 _ : ValidSubset e False} -> Nat -> Maybe HCount
--- subset C n  = toImplH 4 n
--- subset O n  = toImplH 2 n
--- subset N n  = toImplH 3 n <|> toImplH 5 n
--- subset B n  = toImplH 3 n
--- subset F n  = toImplH 1 n
--- subset P n  = toImplH 3 n <|> toImplH 5 n
--- subset S n  = toImplH 2 n <|> toImplH 4 n <|> toImplH 6 n
--- subset Cl n = toImplH 1 n
--- subset Br n = toImplH 1 n
--- subset I n  = toImplH 1 n
---
--- arom : (e : Elem) -> (0 _ : ValidSubset e True) => List Bond -> Nat -> Maybe HCount
--- arom C [] 2      = Just 1
--- arom C [] 3      = Just 0
--- arom C [Sngl] 2  = Just 0
--- arom C [Dbl] 2   = Just 0
--- arom C l n       = Nothing
--- arom N [] 3      = Just 0
--- arom N [] 2      = Just 0
--- arom N [Sngl] 2  = Just 0
--- arom N l n       = Nothing
--- arom O [] 2      = Just 0
--- arom O l n       = Nothing
--- arom B [] 3      = Just 0
--- arom B [] 2      = Just 0
--- arom B [Sngl] 2  = Just 0
--- arom B l n       = Nothing
--- arom S [] 2      = Just 0
--- arom S l n       = Nothing
--- arom P [] 3      = Just 0
--- arom P [] 2      = Just 0
--- arom P l n       = Nothing
---
--- parameters {auto has : Has HErr es}
---
---   adjToAtom : Fin k -> Adj k Bond Atom -> ChemRes es (Atom Chirality)
---   adjToAtom n (A se ns) = case se of
---     SubsetAtom e False =>
---       let bnds := bondTotal $ values ns
---        in case subset e bnds of
---             Just h  => Right (org e h)
---             Nothing => Left $ inject (HE (finToNat n) e bnds)
---     SubsetAtom e True  =>
---       let (ys,bnds) := aromBonds $ values ns
---        in case arom e ys bnds of
---             Just h  => Right (orgArom e h)
---             Nothing => Left $ inject (HE (finToNat n) e bnds)
---     Bracket _ e a _ h c => Right $ MkAtom e a Nothing c None h
---
--- ---------------------------------------------------------------------
--- -- Main function
--- ---------------------------------------------------------------------
---
---   export
---   graphWithH : Graph Bond Atom -> ChemRes es (Graph Bond (Atom Chirality))
---   graphWithH (G s g) = map (G s) (traverseWithCtxt adjToAtom g)
+||| SMILES atom with perceived atom type and computed
+||| implicit hydrogen count
+public export
+0 SmilesAtomAT : Type
+SmilesAtomAT = Atom AromIsotope Charge () () HCount AtomType Chirality ()
+
+||| SMILES molecule with perceived atom type and computed
+||| implicit hydrogen count
+public export
+0 SmilesGraphAT : Type
+SmilesGraphAT = Graph SmilesBond SmilesAtomAT
+
+--------------------------------------------------------------------------------
+--          Utilities
+--------------------------------------------------------------------------------
+
+toBonds : SmilesBond -> Bonds
+toBonds Sngl = BS 1 0 0
+toBonds Arom = BS 0 0 0
+toBonds Dbl  = BS 0 1 0
+toBonds Trpl = BS 0 0 1
+toBonds Quad = BS 0 0 0 -- TODO: Should we even support this?
+toBonds FW   = BS 0 1 0
+toBonds BW   = BS 0 1 0
+
+-- Adjust number of bonds for nitrogen-like elements (N, P, As) with
+-- two aromatic bonds. If these have no additional single bonds, they are
+-- pyridine-like and one of the aromtic bonds should be treated as a double
+-- bond. Otherwise, they are pyrrole-like and both aromatic bonds should
+-- be counted as single bonds.
+adjNitrogen2 : Bonds -> Bonds
+adjNitrogen2 bs =
+  if bs.single > 0
+     then {single $= (+ 2)} bs
+     else {single := 1, double $= S} bs
+
+-- add aromatic bonds to the list of bonds connected to an atom
+addAromaticBonds : Elem -> Nat -> Bonds -> Bonds
+addAromaticBonds _ 0 bs = bs
+addAromaticBonds C 2 bs =
+  if bs.double > 0
+     then {single $= (+ 2)} bs
+     else {single $= S, double $= S} bs
+addAromaticBonds C  3 bs = {single $= (+2), double $= S} bs
+addAromaticBonds N  2 bs = adjNitrogen2 bs
+addAromaticBonds P  2 bs = adjNitrogen2 bs
+addAromaticBonds As 2 bs = adjNitrogen2 bs
+addAromaticBonds _  n bs = {single $= (+n)} bs
+
+-- compute the atom type and implicit hydrogen count from
+-- a SMILES atom and the list of bonds connected to it
+calcAT : Fin k -> Adj k SmilesBond SmilesAtom -> SmilesAtomAT
+calcAT n (A at@(SubsetAtom e a) ns) =
+  let iso     := MkAI e Nothing a
+      arom    := count (Arom ==) ns
+      bonds   := addAromaticBonds e arom $ foldMap toBonds ns
+      (h,tpe) := atomTypeAndHydrogens e NoRadical 0 bonds
+   in MkAtom iso 0 () () h tpe None ()
+
+calcAT n (A (Bracket x) ns) =
+  let e    := cast {to = Elem} x.elem
+      arom := count (Arom ==) ns
+      bs   :=
+          addAromaticBonds e arom               -- add aromatic bonds
+        . {single $= (+ cast x.hydrogen.value)} -- add bonds to implicit Hs
+        $ foldMap toBonds ns                    -- compute non-aromatic bonds
+   in {type := exactAtomType e NoRadical x.charge bs} x
+
+export %inline
+perceiveSmilesAtomTypes : SmilesGraph -> SmilesGraphAT
+perceiveSmilesAtomTypes (G o g) = G o $ mapWithCtxt calcAT g

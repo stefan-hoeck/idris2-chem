@@ -1,8 +1,9 @@
-module Profile.Text.Lex.Element
+module Profile.Text.Lex.Elem
 
 import Chem
+import Data.Finite
 import Profile
-import Text.Lex.Element
+import Text.Lex.Elem
 import Text.Lex.Manual
 
 %default total
@@ -129,7 +130,7 @@ fromSymbol "Og"  = Just Og
 fromSymbol _     = Nothing
 
 strings : List String
-strings = map symbol elements
+strings = map symbol $ values {a = Elem}
 
 charLists : List (List Char)
 charLists = map unpack strings

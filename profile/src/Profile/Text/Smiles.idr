@@ -15,8 +15,8 @@ export
 strychnine : String
 strychnine = "O=C7N2c1ccccc1[C@@]64[C@@H]2[C@@H]3[C@@H](OC/C=C5\[C@@H]3C[C@@H]6N(CC4)C5)C7"
 
-parse' : String -> ChemRes [SmilesParseErr] Mol
-parse' s = parse s
+parse' : String -> ChemRes [SmilesParseErr] SmilesGraph
+parse' s = readSmiles s
 
 parseLines : Integer -> File -> IO (Either FileError ())
 parseLines n f = Prelude.do
