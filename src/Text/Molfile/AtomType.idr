@@ -28,15 +28,17 @@ toBonds Triple = BS 0 0 1
 ||| racicals set, that is bound to its neighbours by `MolBond`s.
 export
 calcMolAtomType :
-     Fin k
-  -> Adj k MolBond (Atom Isotope Charge p Radical h t c l)
+     {auto fld : Foldable f}
+  -> f MolBond
+  -> Atom Isotope Charge p Radical h t c l
   -> Atom Isotope Charge p Radical HCount AtomType c l
-calcMolAtomType n (A l ns) =
+calcMolAtomType ns a =
   let bs      := foldMap (toBonds . type) ns
-      (hy,at) := atomTypeAndHydrogens (cast l.elem) l.radical l.charge bs
-   in {type := at, hydrogen := hy} l
+      (hy,at) := atomTypeAndHydrogens (cast a.elem) a.radical a.charge bs
+   in {type := at, hydrogen := hy} a
 
 ||| Perceive atom types and implicit hydrogens for a .mol-file graph
 export %inline
 perceiveMolAtomTypes : MolGraph -> MolGraphAT
-perceiveMolAtomTypes (G o g) = G o $ mapWithCtxt calcMolAtomType g
+perceiveMolAtomTypes (G o g) =
+  G o $ mapWithCtxt (\_,(A a ns) => calcMolAtomType ns a) g
