@@ -16,7 +16,6 @@ modules = Chem
         , Chem.AtomType
         , Chem.Elem
         , Chem.Formula
-        , Chem.Hydrogen
         , Chem.Isotope
         , Chem.Types
 
