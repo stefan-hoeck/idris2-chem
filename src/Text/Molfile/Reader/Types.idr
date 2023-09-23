@@ -1,7 +1,7 @@
 module Text.Molfile.Reader.Types
 
 import public Text.Molfile.Reader.Util
-import Text.Lex.Element
+import Text.Lex.Elem
 import Text.Lex.Manual.Syntax
 
 %default total
@@ -56,20 +56,14 @@ coords : Tok False MolFileError (Vect 3 Coordinate)
 coords = Tok.[| (\x,y,z => [x,y,z]) coord coord coord |]
 
 export
-atomSymbol : SnocList Char -> Either Error (Maybe MassNr, AtomSymbol)
-atomSymbol sc =
+isotope : SnocList Char -> Either Error Isotope
+isotope sc =
   let cs := sc <>> []
    in case lexElement {e = Void} cs @{Same} of
-        Succ e [] => Right (Nothing, El e)
+        Succ e [] => Right (cast e)
         _      => case pack cs of
-          "D"  => Right (Just 2, El H)
-          "T"  => Right (Just 3, El H)
-          "L"  => Right (Nothing, L)
-          "A"  => Right (Nothing, A)
-          "Q"  => Right (Nothing, Q)
-          "*"  => Right (Nothing, Ast)
-          "LP" => Right (Nothing, LP)
-          "R#" => Right (Nothing, RSharp)
+          "D"  => Right (MkI H $ Just 2)
+          "T"  => Right (MkI H $ Just 3)
           v    => custom $ ESymbol v
 
 export
@@ -100,12 +94,16 @@ bondType : SnocList Char -> Either Error BondType
 bondType [<'1'] = Right Single
 bondType [<'2'] = Right Dbl
 bondType [<'3'] = Right Triple
-bondType [<'4'] = Right Aromatic
-bondType [<'5'] = Right SngOrDbl
-bondType [<'6'] = Right SngOrAromatic
-bondType [<'7'] = Right DblOrAromatic
-bondType [<'8'] = Right AnyBond
 bondType sc     = customPack sc EBondType
+
+export
+queryBondType : SnocList Char -> Either Error QueryBondType
+queryBondType [<'4'] = Right Arom
+queryBondType [<'5'] = Right SngOrDbl
+queryBondType [<'6'] = Right SngOrAromatic
+queryBondType [<'7'] = Right DblOrAromatic
+queryBondType [<'8'] = Right AnyBond
+queryBondType sc     = BT <$> bondType sc
 
 export
 bondStereo : SnocList Char -> Either Error BondStereo

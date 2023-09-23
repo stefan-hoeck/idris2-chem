@@ -4,18 +4,15 @@ import Chem
 import Derive.Prelude
 import Derive.Refined
 
---------------------------------------------------------------------------------
---          Pragmas
---------------------------------------------------------------------------------
-
 %default total
-
 %language ElabReflection
 
 --------------------------------------------------------------------------------
 --          Chirality
 --------------------------------------------------------------------------------
 
+||| Index for tetrahedral chirality flags as given in the
+||| OpenSMILES specification
 public export
 record TBIx where
   constructor MkTBIx
@@ -29,6 +26,8 @@ Interpolation TBIx where
 namespace TBIx
   %runElab derive "TBIx" [Show,Eq,Ord,RefinedInteger]
 
+||| Index for octahedral chirality flags as given in the
+||| OpenSMILES specification
 public export
 record OHIx where
   constructor MkOHIx
@@ -42,6 +41,7 @@ Interpolation OHIx where
 namespace OHIx
   %runElab derive "OHIx" [Show,Eq,Ord,RefinedInteger]
 
+||| Chirality flag of a bracket atom
 public export
 data Chirality =
   None | CW | CCW | TH1 | TH2 | AL1 | AL2 | SP1 | SP2 | SP3 | TB TBIx | OH OHIx
@@ -66,6 +66,10 @@ Interpolation Chirality where
 --------------------------------------------------------------------------------
 --          Atoms
 --------------------------------------------------------------------------------
+
+||| Proof that an element (plus aromaticity flag) is a valid subset
+||| element that can appear without being wrapped in a pair of
+||| brackets.
 public export
 data ValidSubset : Elem -> Bool -> Type where
   VB  : ValidSubset B b
@@ -79,33 +83,54 @@ data ValidSubset : Elem -> Bool -> Type where
   VBr : ValidSubset Br False
   VI  : ValidSubset I False
 
+export %hint
+0 toValidArom : ValidSubset e b => ValidAromatic e b
+toValidArom {b = False}       = VARest
+toValidArom {b = True} @{VB}  = VAB
+toValidArom {b = True} @{VC}  = VAC
+toValidArom {b = True} @{VN}  = VAN
+toValidArom {b = True} @{VO}  = VAO
+toValidArom {b = True} @{VP}  = VAP
+toValidArom {b = True} @{VS}  = VAS
+
 public export
-data Atom : Type where
+data SmilesAtom : Type where
   SubsetAtom :
-       (elem : Elem)
-    -> (arom : Bool)
-    -> (0 prf : ValidSubset elem arom)
-    => Atom
-  Bracket    :
-       (massNr    : Maybe MassNr)
-    -> (elem      : Elem)
-    -> (isArom    : Bool)
-    -> (chirality : Chirality)
-    -> (hydrogens : HCount)
-    -> (charge    : Charge)
-    -> (0 prf     : ValidAromatic elem isArom)
-    => Atom
+       (elem       : Elem)
+    -> (arom       : Bool)
+    -> {auto 0 prf : ValidSubset elem arom}
+    -> SmilesAtom
+  Bracket : Atom AromIsotope Charge () () HCount () Chirality () -> SmilesAtom
 
-public export %inline
-isArom : Atom -> Bool
-isArom (SubsetAtom _ a)      = a
-isArom (Bracket _ _ a _ _ _) = a
+%runElab derive "SmilesAtom" [Show,Eq]
 
-public export %inline
-bracket : Maybe MassNr -> ValidElem -> Chirality -> HCount -> Charge -> Atom
-bracket x (VE e a) z w v = Bracket x e a z w v
+export
+Cast SmilesAtom Elem where
+  cast (SubsetAtom elem arom) = elem
+  cast (Bracket x)            = cast x.elem
 
-%runElab derive "Atom" [Show,Eq]
+export
+Cast SmilesAtom Isotope where
+  cast (SubsetAtom elem arom) = MkI elem Nothing
+  cast (Bracket x)            = cast x.elem
+
+export
+Cast SmilesAtom AromIsotope where
+  cast (SubsetAtom elem arom) = MkAI elem Nothing arom
+  cast (Bracket x)            = x.elem
+
+export %inline
+Cast SmilesAtom AromElem where
+  cast = cast . cast {to = AromIsotope}
+
+export %inline
+bracket : AromIsotope -> Chirality -> HCount -> Charge -> SmilesAtom
+bracket a c h ch = Bracket (MkAtom a ch () () h () c ())
+
+export %inline
+isArom : SmilesAtom -> Bool
+isArom (SubsetAtom _ a) = a
+isArom (Bracket a)      = a.elem.arom
 
 %inline
 aromElem : Elem -> Bool -> String
@@ -123,20 +148,22 @@ encodeH 0 = ""
 encodeH 1 = "H"
 encodeH n = "H\{n}"
 
-encodeAtom : Atom -> String
+encodeAtom : SmilesAtom -> String
 encodeAtom (SubsetAtom e b)  = aromElem e b
-encodeAtom (Bracket mn e ar ch h chrg) =
+encodeAtom (Bracket $ MkAtom (MkAI e mn ar) chrg () () h () ch ()) =
   let mns := maybe "" (show . value) mn
    in "[\{mns}\{aromElem e ar}\{ch}\{encodeH h}\{encodeCharge chrg}]"
 
 export %inline
-Interpolation Atom where
+Interpolation SmilesAtom where
   interpolate = encodeAtom
 
 --------------------------------------------------------------------------------
 --          Bonds
 --------------------------------------------------------------------------------
 
+||| An natural number in the range [0,99] representing a ring opening
+||| or -closure in a SMILES string
 public export
 record RingNr where
   constructor MkRingNr
@@ -150,11 +177,12 @@ Interpolation RingNr where
 namespace RingNr
   %runElab derive "RingNr" [Show,Eq,Ord,RefinedInteger]
 
+||| A bond in a SMILES string
 public export
-data Bond = Sngl | Arom | Dbl | Trpl | Quad | FW | BW
+data SmilesBond = Sngl | Arom | Dbl | Trpl | Quad | FW | BW
 
 export %inline
-Interpolation Bond where
+Interpolation SmilesBond where
   interpolate Sngl = "-"
   interpolate Arom = ":"
   interpolate Dbl  = "="
@@ -163,21 +191,8 @@ Interpolation Bond where
   interpolate FW   = "/"
   interpolate BW   = "\\"
 
-%runElab derive "Bond" [Show,Eq,Ord]
+%runElab derive "SmilesBond" [Show,Eq,Ord]
 
 public export
-SmilesMol : Type
-SmilesMol = Graph Bond Atom
-
-export %hint
-toValidArom : ValidSubset e b => ValidAromatic e b
-toValidArom @{VB}  = VAB
-toValidArom @{VC}  = VAC
-toValidArom @{VN}  = VAN
-toValidArom @{VO}  = VAO
-toValidArom @{VF}  = VARest
-toValidArom @{VP}  = VAP
-toValidArom @{VS}  = VAS
-toValidArom @{VCl} = VARest
-toValidArom @{VBr} = VARest
-toValidArom @{VI}  = VARest
+0 SmilesGraph : Type
+SmilesGraph = Graph SmilesBond SmilesAtom

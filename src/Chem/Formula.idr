@@ -1,6 +1,6 @@
 module Chem.Formula
 
-import Chem.Element
+import Chem.Elem
 import Data.Maybe.Upper
 import Data.Nat
 import Data.Prim.String

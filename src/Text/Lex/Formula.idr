@@ -1,12 +1,11 @@
 module Text.Lex.Formula
 
 import Chem
-import Chem.Formula
 import Data.List.Quantifiers.Extra
 import Derive.Prelude
 import Text.Bounds
 import Text.FC
-import Text.Lex.Element
+import Text.Lex.Elem
 import Text.Lex.Manual
 
 %language ElabReflection

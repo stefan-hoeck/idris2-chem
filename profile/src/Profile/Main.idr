@@ -4,7 +4,7 @@ import Data.List1
 import Data.String
 import Profile
 import Profile.Chem.AtomType
-import Profile.Text.Lex.Element
+import Profile.Text.Lex.Elem
 import Profile.Text.Smiles
 import Profile.Text.Molfile
 import System

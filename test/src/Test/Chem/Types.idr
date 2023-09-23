@@ -1,7 +1,8 @@
 module Test.Chem.Types
 
-import Data.Maybe
 import Chem
+import Data.Maybe
+import Data.Vect
 import Hedgehog
 
 export
@@ -27,3 +28,7 @@ molarMass = fromMaybe 1.0 . refineMolarMass <$> double (linear 0 MaxMolecularMas
 export
 charge : Gen Charge
 charge = fromMaybe 0 . refineCharge <$> int8 (linearFrom 0 (-15) 15)
+
+export
+radical : Gen Radical
+radical = element [NoRadical, Singlet, Doublet, Triplet]

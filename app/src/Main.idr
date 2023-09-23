@@ -11,17 +11,33 @@ import Text.Smiles
 import Chem.AtomType
 
 0 ErrTypes : List Type
-ErrTypes = [HErr, ATErr, SmilesParseErr]
+ErrTypes = [SmilesParseErr]
 
 handlers : Console => All (Handler ()) ErrTypes
-handlers =
-  [ \x => cputStrLn "\{x}\n"
-  , \x => cputStrLn "\{x}\n"
-  , \x => cputStrLn "\{x}\n"
-  ]
+handlers = [ \x => cputStrLn "\{x}\n" ]
 
-printAtom : Atom (Chirality,AtomType) -> String
-printAtom (MkAtom e _ _ _ l _) = "\{show e} (\{show $ snd l})"
+aromElem : Elem -> Bool -> String
+aromElem e False = show e
+aromElem e True  = toLower $ show e
+
+printIso : AromIsotope -> String
+printIso (MkAI e Nothing a)  = aromElem e a
+printIso (MkAI e (Just n) a) = "\{show n}\{aromElem e a}"
+
+printCharge : Charge -> String
+printCharge 0    = ""
+printCharge 1    = "+"
+printCharge (-1) = "-"
+printCharge c    = if c.value > 0 then "+\{show c.value}" else show c.value
+
+printH : HCount -> String
+printH 0 = ""
+printH 1 = "; H"
+printH n = "; H\{show n.value}"
+
+printAtom : SmilesAtomAT -> String
+printAtom (MkAtom e c () () h t _ _) =
+  "\{printIso e}\{printCharge c} (\{t.name}\{printH h})"
 
 app : Console => RIO Void ()
 app = do
@@ -31,39 +47,10 @@ app = do
     "q" => cputStr "Goodbye!"
     _   => do
       handleAll @{handlers} $ do
-        G _ graph <- liftEither $ smilesToAtomType s
+        G _ graph <- liftEither . map perceiveSmilesAtomTypes $ readSmiles s
         cputStrLn (pretty interpolate printAtom graph)
         cputStrLn ""
       app
 
-
 main : IO ()
 main = run $ app @{stdIO}
-
-mol : ChemRes [MolParseErr] MolFile
-mol =
-  readMol
-    Virtual
-    """
-
-      Mrv2219 08252310162D
-
-      8  8  0  0  0  0            999 V2000
-      -11.3170    4.0393    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-      -12.0314    3.6268    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-      -12.0314    2.8018    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-      -11.3170    2.3893    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-      -10.6025    2.8018    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-      -10.6025    3.6268    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-      -11.3170    4.8643    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0
-       -9.8880    2.3893    0.0000 Cl  0  0  0  0  0  0  0  0  0  0  0  0
-      1  2  1  0  0  0  0
-      2  3  2  0  0  0  0
-      3  4  1  0  0  0  0
-      4  5  2  0  0  0  0
-      5  6  1  0  0  0  0
-      1  6  2  0  0  0  0
-      1  7  1  0  0  0  0
-      5  8  1  0  0  0  0
-    M  END
-    """

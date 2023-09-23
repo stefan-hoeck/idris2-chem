@@ -2,7 +2,7 @@ module Text.Smiles.Lexer
 
 import Chem
 import Derive.Prelude
-import Text.Lex.Element
+import Text.Lex.Elem
 import Text.Parse.Manual
 import Text.Smiles.Types
 
@@ -40,15 +40,15 @@ public export
 record Ring where
   constructor R
   ring   : RingNr
-  bond   : Maybe Bond
+  bond   : Maybe SmilesBond
 
 %runElab derive "Ring" [Show,Eq]
 
-public export
+export
 rnChars : RingNr -> Nat
 rnChars rn = if rn < 10 then 1 else 3
 
-public export
+export
 ringChars : Ring -> Nat
 ringChars (R rn mb) = rnChars rn + maybe 0 (const 1) mb
 
@@ -62,8 +62,8 @@ data SmilesToken : Type where
   PO  : SmilesToken -- '('
   PC  : SmilesToken -- ')'
   Dot : SmilesToken
-  TB  : Bond -> SmilesToken
-  TA  : Atom -> SnocList Ring -> SmilesToken
+  TB  : SmilesBond -> SmilesToken
+  TA  : SmilesAtom -> SnocList Ring -> SmilesToken
 
 %runElab derive "SmilesToken" [Show,Eq]
 
@@ -83,7 +83,7 @@ public export
 0 Err : Type
 Err = ParseError SmilesToken SmilesErr
 
-public export
+export
 ringBounds : Nat -> RingNr -> Bounds
 ringBounds k rn = BS (P 0 $ k `minus` rnChars rn) (P 0 k)
 
@@ -91,7 +91,7 @@ ringBounds k rn = BS (P 0 $ k `minus` rnChars rn) (P 0 k)
 --       for the same bracket atom. A better option would perhaps
 --       be to include the string length in the `Bracket` data
 --       constructor.
-public export
+export
 bounds : SmilesToken -> Nat -> Bounds
 bounds t k = BS (P 0 k) (P 0 $ k + length "\{t}")
 
@@ -126,69 +126,64 @@ strictFromDigs f (x::xs) =
   if isDigit x then fromDigs (digit x) f xs else failDigit Dec p
 strictFromDigs f [] = eoiAt p
 
-public export
-atom : Atom -> AutoTok e Atom
+atom : SmilesAtom -> AutoTok e SmilesAtom
 atom a (']' :: xs) = Succ a xs
 atom _ (x :: xs)   = single (Expected $ Left "]") p
 atom _ []          = eoiAt p
 
-public export
-charge : Maybe MassNr -> ValidElem -> Chirality -> HCount -> AutoTok e Atom
-charge mn e c h ('+' :: t) = case t of
-  '+'::t  => atom (bracket mn e c h 2) t
+charge : AromIsotope -> Chirality -> HCount -> AutoTok e SmilesAtom
+charge ai c h ('+' :: t) = case t of
+  '+'::t  => atom (bracket ai c h 2) t
   t       => case maybeFromDigs 1 refineCharge t of
-    Succ ch ys => atom (bracket mn e c h ch) ys
+    Succ ch ys => atom (bracket ai c h ch) ys
     Fail x y z => Fail x y z
-charge mn e c h ('-' :: t) = case t of
-  '-'::t  => atom (bracket mn e c h (-2)) t
+charge ai c h ('-' :: t) = case t of
+  '-'::t  => atom (bracket ai c h (-2)) t
   t       => case maybeFromDigs (-1) (refineCharge . negate) t of
-    Succ ch ys => atom (bracket mn e c h ch) ys
+    Succ ch ys => atom (bracket ai c h ch) ys
     Fail x y z => Fail x y z
-charge mn e c h t = atom (bracket mn e c h 0) t
+charge ai c h t = atom (bracket ai c h 0) t
 
-public export
-hcount : Maybe MassNr -> ValidElem -> Chirality -> AutoTok e Atom
-hcount mn e c ('H' :: xs) = case maybeFromDigs 1 refineHCount xs of
-  Succ h ys => charge mn e c h ys
+hcount : AromIsotope -> Chirality -> AutoTok e SmilesAtom
+hcount ai c ('H' :: xs) = case maybeFromDigs 1 refineHCount xs of
+  Succ h ys => charge ai c h ys
   Fail x y z => Fail x y z
-hcount mn e c xs = charge mn e c 0 xs
+hcount ai c xs = charge ai c 0 xs
 
-public export
-chiral : Maybe MassNr -> ValidElem -> AutoTok e Atom
-chiral mn e ('@' :: xs) = case xs of
-  '@'          ::t => hcount mn e CW t
-  'T'::'H'::'1'::t => hcount mn e TH1 t
-  'T'::'H'::'2'::t => hcount mn e TH2 t
-  'A'::'L'::'1'::t => hcount mn e AL1 t
-  'A'::'L'::'2'::t => hcount mn e AL2 t
-  'S'::'P'::'1'::t => hcount mn e SP1 t
-  'S'::'P'::'2'::t => hcount mn e SP2 t
-  'S'::'P'::'3'::t => hcount mn e SP3 t
+chiral : AromIsotope -> AutoTok e SmilesAtom
+chiral ai ('@' :: xs) = case xs of
+  '@'          ::t => hcount ai CW t
+  'T'::'H'::'1'::t => hcount ai TH1 t
+  'T'::'H'::'2'::t => hcount ai TH2 t
+  'A'::'L'::'1'::t => hcount ai AL1 t
+  'A'::'L'::'2'::t => hcount ai AL2 t
+  'S'::'P'::'1'::t => hcount ai SP1 t
+  'S'::'P'::'2'::t => hcount ai SP2 t
+  'S'::'P'::'3'::t => hcount ai SP3 t
   'T'::'B'::     t => case strictFromDigs refineTBIx t of
-    Succ x ys  => hcount mn e (TB x) ys
+    Succ x ys  => hcount ai (TB x) ys
     Fail x y z => Fail x y z
   'O'::'H'::     t => case strictFromDigs refineOHIx t of
-    Succ x ys  => hcount mn e (OH x) ys
+    Succ x ys  => hcount ai (OH x) ys
     Fail x y z => Fail x y z
-  t                => hcount mn e CCW t
-chiral mn e xs = hcount mn e None xs
+  t                => hcount ai CCW t
+chiral ai xs = hcount ai None xs
 
-public export
-anyElem : Maybe MassNr -> AutoTok e Atom
-anyElem mn ('c'     ::t) = chiral mn (VE C True) t
-anyElem mn ('b'     ::t) = chiral mn (VE B True) t
-anyElem mn ('n'     ::t) = chiral mn (VE N True) t
-anyElem mn ('o'     ::t) = chiral mn (VE O True) t
-anyElem mn ('p'     ::t) = chiral mn (VE P True) t
-anyElem mn ('s'::'e'::t) = chiral mn (VE Se True) t
-anyElem mn ('s'     ::t) = chiral mn (VE S True) t
-anyElem mn ('a'::'s'::t) = chiral mn (VE As True) t
+anyElem : Maybe MassNr -> AutoTok e SmilesAtom
+anyElem mn ('c'     ::t) = chiral (MkAI C  mn True) t
+anyElem mn ('b'     ::t) = chiral (MkAI B  mn True) t
+anyElem mn ('n'     ::t) = chiral (MkAI N  mn True) t
+anyElem mn ('o'     ::t) = chiral (MkAI O  mn True) t
+anyElem mn ('p'     ::t) = chiral (MkAI P  mn True) t
+anyElem mn ('s'::'e'::t) = chiral (MkAI Se mn True) t
+anyElem mn ('s'     ::t) = chiral (MkAI S  mn True) t
+anyElem mn ('a'::'s'::t) = chiral (MkAI As mn True) t
 anyElem mn xs = case autoTok {orig} lexElement xs of
-  Succ e ys                => chiral mn (VE e False) ys
+  Succ e ys                => chiral (MkAI e mn False) ys
   Fail start errEnd reason => Fail start errEnd reason
 
-public export
-bracket : AutoTok e Atom
+export
+bracket : AutoTok e SmilesAtom
 bracket xs = case maybeFromDigs Nothing (map Just . refineMassNr) xs of
   Succ mn ys => anyElem mn ys
   Fail x y z => Fail x y z
@@ -212,7 +207,6 @@ rng :
   -> (0 acc : SuffixAcc cs)
   -> Either (Bounded LexErr) (List (SmilesToken,Nat))
 
-public export
 tok :
      SnocList (SmilesToken,Nat)
   -> (column : Nat)
@@ -276,6 +270,6 @@ rng (st :< (TA a rs,x):< (TB b, y)) c rn cs acc =
   tok (st :< (TA a (rs :< R rn (Just b)),x)) c cs acc
 rng st c rn cs acc = Left (unexpectedRing c rn)
 
-public export
+export
 lexSmiles : String -> Either (Bounded LexErr) (List (SmilesToken,Nat))
 lexSmiles s = tok [<] 0 (unpack s) suffixAcc

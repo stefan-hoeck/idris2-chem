@@ -12,13 +12,15 @@ depends    = base         >= 0.5.1
            , finite
 
 modules = Chem
-        , Chem.Element
-        , Chem.Formula
-        , Chem.Types
         , Chem.Atom
         , Chem.AtomType
+        , Chem.Elem
+        , Chem.Formula
+        , Chem.Isotope
+        , Chem.Types
 
         , Text.Molfile
+        , Text.Molfile.AtomType
         , Text.Molfile.Reader
         , Text.Molfile.Reader.Error
         , Text.Molfile.Reader.Types
@@ -26,11 +28,11 @@ modules = Chem
         , Text.Molfile.Types
         , Text.Molfile.Writer
 
-        , Text.Lex.Element
+        , Text.Lex.Elem
         , Text.Lex.Formula
 
         , Text.Smiles
+        , Text.Smiles.AtomType
         , Text.Smiles.Lexer
         , Text.Smiles.Parser
         , Text.Smiles.Types
-        , Text.Smiles.ImplH

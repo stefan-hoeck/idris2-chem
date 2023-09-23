@@ -3,7 +3,8 @@ module Test.Text.Smiles.Generators
 import public Chem
 import public Data.Vect
 import public Hedgehog
-import public Test.Chem.Element
+import public Test.Chem.Elem
+import public Test.Chem.Isotope
 import public Test.Chem.Types
 import public Text.Smiles
 
@@ -19,7 +20,7 @@ chirality = frequency
   ]
 
 export
-subset : Gen Atom
+subset : Gen SmilesAtom
 subset = element
   [ SubsetAtom C False
   , SubsetAtom B False
@@ -39,34 +40,19 @@ subset = element
   , SubsetAtom S True
   ]
 
-ve : Atom -> ValidElem
-ve (SubsetAtom elem arom)      = VE elem arom
-ve (Bracket _ elem arom _ _ _) = VE elem arom
-
-el : Elem -> ValidElem
-el e = VE e False
-
-export
-validElem : Gen ValidElem
-validElem = frequency
-  [ (7, map el element)
-  , (1, element [VE Se True, VE As True])
-  , (3, map ve subset)
-  ]
-
 export
 hcount : Gen HCount
 hcount = fromMaybe 0 . refineHCount <$> bits8 (linear 0 9)
 
 export
-atom : Gen Atom
+atom : Gen SmilesAtom
 atom = frequency
   [ (1, subset)
-  , (5, [| bracket (maybe massNr) validElem chirality hcount charge |])
+  , (5, Prelude.[| bracket aromIsotope chirality hcount charge |])
   ]
 
 export
-bond : Gen Bond
+bond : Gen SmilesBond
 bond = element [Sngl,Dbl,Trpl,Quad,Arom,FW,BW]
 
 export

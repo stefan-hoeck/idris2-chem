@@ -2,7 +2,7 @@ module Test.Chem.Formula
 
 import Chem
 import Chem.Formula
-import Test.Chem.Element
+import Test.Chem.Elem
 
 import Hedgehog
 
@@ -12,4 +12,4 @@ export
 formula : Gen Formula
 formula =
   foldMap (uncurry singleton) <$>
-  list (linear 0 20) [| MkPair element (nat $ linear 0 20) |]
+  list (linear 0 20) [| MkPair elem (nat $ linear 0 20) |]
