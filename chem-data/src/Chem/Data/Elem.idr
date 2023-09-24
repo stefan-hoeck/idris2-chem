@@ -6,13 +6,13 @@ import Derive.Prelude
 %default total
 %language ElabReflection
 
+-- data type similar to the real `ElemData` in `Chem.Data`, which is used
+-- to accumulate the values found in the Blue Obelisk `.xml` file.
 record ElemData where
   constructor ED
-  symbol            : String
-  atomicNumber      : Nat
   mass              : Double
   exactMass         : Double
-  radiusCovalent    : Maybe Double
+  radiusCovalent    : Double
   radiusVDW         : Maybe Double
   ionization        : Maybe Double
   electronAffinity  : Maybe Double
@@ -22,42 +22,56 @@ record ElemData where
 
 %runElab derive "ElemData" [Show]
 
-init : String -> ElemData
-init s = ED s 0 0 0 Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+init : ElemData
+init = ED 0 0 0 Nothing Nothing Nothing Nothing Nothing Nothing
 
-line : SnocList ElemData -> ElemData -> List String -> List ElemData
-line sx x []         = sortBy (comparing atomicNumber) $ sx <>> [x]
-line sx x ("" :: ss) = line sx x ss
-line sx x (s  :: ss) = case forget $ split (' ' ==) s of
-  ["symbol", v]            => line (sx :< x) (init v) ss
-  ["atomicNumber", v]      => line sx ({atomicNumber := cast v} x) ss
-  ["mass", v]              => line sx ({mass := cast v} x) ss
-  ["exactMass", v]         => line sx ({exactMass := cast v} x) ss
-  ["radiusCovalent", v]    => line sx ({radiusCovalent := Just $ cast v} x) ss
-  ["radiusVDW", v]         => line sx ({radiusVDW := Just $ cast v} x) ss
-  ["ionization", v]        => line sx ({ionization := Just $ cast v} x) ss
-  ["electronAffinity", v]  => line sx ({electronAffinity := Just $ cast v} x) ss
-  ["electronegativity", v] => line sx ({electronegativity := Just $ cast v} x) ss
-  ["boilingpoint", v]      => line sx ({boilingpoint := Just $ cast v} x) ss
-  ["meltingpoint", v]      => line sx ({meltingpoint := Just $ cast v} x) ss
-  _ => line sx x ss
+-- If the exact mass is still at zero, we set it to the same value as
+-- the atomic mass. This is only the case for elements with an atomic
+-- number above 115
+adj : ElemData -> ElemData
+adj x = if x.exactMass < 0.1 then {exactMass := x.mass} x else x
+
+line :
+     SnocList (Nat,ElemData)
+  -> Nat
+  -> ElemData
+  -> List String
+  -> List ElemData
+line sx n x []         =
+    map (adj. snd)
+  . filter ((Z /=) . fst)
+  . sortBy (comparing fst)
+  $ sx <>> [(n,x)]
+line sx n x ("" :: ss) = line sx n x ss
+line sx n x (s  :: ss) = case forget $ split (' ' ==) s of
+  ["atomicNumber", v]      => line (sx :< (n,x)) (cast v) init ss
+  ["mass", v]              => line sx n ({mass := cast v} x) ss
+  ["exactMass", v]         => line sx n ({exactMass := cast v} x) ss
+  ["radiusCovalent", v]    => line sx n ({radiusCovalent := cast v} x) ss
+  ["radiusVDW", v]         => line sx n ({radiusVDW := Just $ cast v} x) ss
+  ["ionization", v]        => line sx n ({ionization := Just $ cast v} x) ss
+  ["electronAffinity", v]  => line sx n ({electronAffinity := Just $ cast v} x) ss
+  ["electronegativity", v] => line sx n ({electronegativity := Just $ cast v} x) ss
+  ["boilingpoint", v]      => line sx n ({boilingpoint := Just $ cast v} x) ss
+  ["meltingpoint", v]      => line sx n ({meltingpoint := Just $ cast v} x) ss
+  _                        => line sx n x ss
 
 dataLines : List String -> List ElemData
 dataLines [] = []
 dataLines ("" :: ss) = dataLines ss
 dataLines (s  :: ss) = case forget $ split (' ' ==) s of
-  ["symbol",n] => line [<] (init n) ss
+  ["atomicNumber",n] => line [<] (cast n) init ss
   _            => dataLines ss
 
 
 generateLines : String -> String
 generateLines s =
   let (h :: t) := dataLines $ lines s | [] => ""
-      res      := "    [ \{show h}" :: map (\x => "    , \{show x}") t
+      res      := "[ \{show h}" :: map (\x => ", \{show x}") t
    in """
       arrElemData =
         array
-      unlines res
+      \{unlines $ indent 4 <$> res}    ]
       """
 
 genStr : String
@@ -69,5 +83,5 @@ export
 adjustSource : (dat, src : String) -> String
 adjustSource dat src =
   let gen         := generateLines dat
-      (pre, _::t) := break (genStr ==) (lines dat) | _ => src
+      (pre, _::t) := break (genStr ==) (lines src) | _ => src
    in unlines $ pre ++ [genStr, "", gen]
