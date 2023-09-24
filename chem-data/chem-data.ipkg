@@ -5,7 +5,7 @@ version    = 0.1.0
 sourcedir  = "src"
 brief      = "Code generator for element and isotope data in core idris2-chem"
 depends    = base         >= 0.5.1
-           , elab-util
+           , chem
 
 main       = Main
 executable = "chem-data"

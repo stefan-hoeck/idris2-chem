@@ -64,6 +64,7 @@ dataLines (s  :: ss) = case forget $ split (' ' ==) s of
   _            => dataLines ss
 
 
+export
 generateLines : String -> String
 generateLines s =
   let (h :: t) := dataLines $ lines s | [] => ""
@@ -73,15 +74,3 @@ generateLines s =
         array
       \{unlines $ indent 4 <$> res}    ]
       """
-
-genStr : String
-genStr = "-- Generated Data"
-
-||| Extracts data from the `dat` string, generates Idris code from it, and
-||| attaches it to `src` after the `-- Generated Data` line.
-export
-adjustSource : (dat, src : String) -> String
-adjustSource dat src =
-  let gen         := generateLines dat
-      (pre, _::t) := break (genStr ==) (lines src) | _ => src
-   in unlines $ pre ++ [genStr, "", gen]
