@@ -2,6 +2,7 @@ module Chem
 
 import public Chem.Atom
 import public Chem.AtomType
+import public Chem.Data
 import public Chem.Elem
 import public Chem.Formula
 import public Chem.Isotope
