@@ -19,16 +19,21 @@ type   = "local"
 path   = "app"
 ipkg   = "app.ipkg"
 
+[custom.all.chem-data]
+type   = "local"
+path   = "chem-data"
+ipkg   = "chem-data.ipkg"
+
 [custom.all.chem-profile]
 type   = "local"
 path   = "profile"
 ipkg   = "profile.ipkg"
 
-[custom.all.quantifiers-extra]
-type   = "git"
-url    = "https://github.com/stefan-hoeck/idris2-quantifiers-extra"
-commit = "latest:main"
-ipkg   = "quantifiers-extra.ipkg"
+# [custom.all.quantifiers-extra]
+# type   = "git"
+# url    = "https://github.com/stefan-hoeck/idris2-quantifiers-extra"
+# commit = "latest:main"
+# ipkg   = "quantifiers-extra.ipkg"
 
 # [custom.all.array]
 # type   = "git"
