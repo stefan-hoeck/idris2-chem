@@ -4,6 +4,11 @@ path   = "."
 ipkg   = "chem.ipkg"
 test   = "test/test.ipkg"
 
+[custom.all.chem-generators]
+type   = "local"
+path   = "chem-generators"
+ipkg   = "chem-generators.ipkg"
+
 [custom.all.chem-test]
 type   = "local"
 path   = "test"

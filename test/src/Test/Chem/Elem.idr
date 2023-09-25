@@ -1,32 +1,8 @@
 module Test.Chem.Elem
 
-import Chem
 import Data.Finite
 import Data.Vect
-import Test.Chem.Types
-
-import Hedgehog
-
-export
-elem : Gen Elem
-elem = fromAtomicNr <$> atomicNr
-
-export
-aromElem : Gen AromElem
-aromElem =
-  choice
-    [ (\e => MkAE e False) <$> elem
-    , element
-        [ MkAE C True
-        , MkAE B True
-        , MkAE N True
-        , MkAE O True
-        , MkAE P True
-        , MkAE S True
-        , MkAE Se True
-        , MkAE As True
-        ]
-    ]
+import Test.Chem.Generators
 
 prop_elems : Property
 prop_elems = withTests 1 $ property $
