@@ -1,6 +1,7 @@
 module Chem.Atom
 
 import Chem.Elem
+import Chem.Formula
 import Data.Maybe.Upper
 import Data.Nat
 import Derive.Prelude
@@ -67,3 +68,11 @@ Foldable (Atom e c p r h t ch) where
 public export
 Traversable (Atom e c p r h t ch) where
   traverse f (MkAtom e c p r h t ch l) = MkAtom e c p r h t ch <$> f l
+
+export
+Cast e Elem => Cast (Atom e c p r NoH t ch l) Formula where
+  cast a = singleton (cast a.elem) 1
+
+export
+Cast e Elem => Cast (Atom e c p r HCount t ch l) Formula where
+  cast a = singleton (cast a.elem) 1 <+> singleton H (cast a.hydrogen.value)
