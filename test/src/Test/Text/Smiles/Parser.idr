@@ -1,7 +1,7 @@
 module Test.Text.Smiles.Parser
 
-import Data.List.Quantifiers.Extra
 import Data.SOP
+import Data.Vect
 import Test.Text.Smiles.Generators
 
 %default total

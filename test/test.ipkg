@@ -9,4 +9,5 @@ executable = "runTest"
 
 depends    = base         >= 0.5.1
            , chem
+           , chem-generators
            , hedgehog

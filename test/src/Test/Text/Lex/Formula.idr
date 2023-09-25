@@ -1,12 +1,7 @@
 module Test.Text.Lex.Formula
 
-import Chem
-import Chem.Formula
-import Data.List.Quantifiers.Extra
-import Test.Chem.Formula
+import Test.Chem.Generators
 import Text.Lex.Formula
-
-import Hedgehog
 
 %default total
 

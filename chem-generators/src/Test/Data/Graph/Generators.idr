@@ -1,10 +1,11 @@
-module Test.Data.Graph
+module Test.Data.Graph.Generators
 
-import Chem
+import public Chem
+import public Hedgehog
+
 import Data.List
 import Data.Refined.Bits32
 import Data.Vect
-import Hedgehog
 
 --------------------------------------------------------------------------------
 --          Generators
