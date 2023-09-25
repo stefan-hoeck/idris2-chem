@@ -206,6 +206,24 @@ Interpolation HCount where
 namespace HCount
   %runElab derive "HCount" [Show,Eq,Ord,RefinedInteger]
 
+||| Placeholder for atoms without implicit hydrogens.
+|||
+||| We can use this instead of `Unit` (`()`), to signal that an atom
+||| does not have any implicit hydrogens, as oppsed to the implicit
+||| H-count not having been determined yet.
+|||
+||| For instance, we can have an implementation of
+||| `Cast (Atom Elem c p r NoH t ch l) Formula`, because here we
+||| do not have to add any implicit hydrogens to such an atom,
+||| while no such implementation should be written for
+||| `Cast (Atom Elem c p r () t ch l) Formula`, because in this case,
+||| the `Unit` tag implies that implicit hydrogens have not been
+||| determined yet.
+public export
+data NoH = HasNoH
+
+%runElab derive "NoH" [Show,Eq,Ord]
+
 --------------------------------------------------------------------------------
 --          Radicals
 --------------------------------------------------------------------------------
