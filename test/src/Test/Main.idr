@@ -1,7 +1,6 @@
 module Test.Main
 
 import Hedgehog
-import Test.Data.Graph
 import Test.Chem.Elem
 import Test.Chem.AtomType
 import Test.Text.Lex.Elem
