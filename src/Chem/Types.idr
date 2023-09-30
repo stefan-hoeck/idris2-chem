@@ -189,6 +189,26 @@ Interpolation Charge where
 namespace Charge
   %runElab derive "Charge" [Show,Eq,Ord,RefinedInteger]
 
+||| Increase a charge value by one.
+|||
+||| Returns the unmodified input if it is already the maximal valid value.
+export
+incCharge : Charge -> Charge
+incCharge x =
+  case refineCharge $ x.value+1 of
+    Nothing => x
+    Just y  => y
+
+||| Decrease a charge value by one.
+|||
+||| Returns the unmodified input if it is already the minimal valid value.
+export
+decCharge : Charge -> Charge
+decCharge x =
+  case refineCharge $ x.value-1 of
+    Nothing => x
+    Just y  => y
+
 --------------------------------------------------------------------------------
 --          HCount
 --------------------------------------------------------------------------------
