@@ -34,7 +34,7 @@ propRead s = property1 $ case readMol {es = [MolParseErr]} Virtual s of
 propReadRoundTrip : Property
 propReadRoundTrip = property $ do
   m <- forAll molFile
-  Right m === readMol {es = [MolParseErr]} Virtual (writeMol m)
+  Right m === readMol {es = [MolParseErr]} Virtual (writeMolfile m)
 
 export
 props : Group

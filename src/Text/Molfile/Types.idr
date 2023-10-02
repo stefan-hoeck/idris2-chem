@@ -226,6 +226,11 @@ Interpolation Coordinate where
 namespace Coordinate
   %runElab derive "Coordinate" [Show,Eq,Ord,RefinedInteger]
 
+||| Convenience alias for `Vect 3 Coordinates`
+public export
+0 Coordinates : Type
+Coordinates = Vect 3 Coordinate
+
 ||| Regular atom loaded from a .mol file.
 |||
 ||| Note: .mol files support additional atom symbols
@@ -233,7 +238,7 @@ namespace Coordinate
 ||| this is the type to use.
 public export
 0 MolAtom : Type
-MolAtom = Atom Isotope Charge (Vect 3 Coordinate) Radical () () () ()
+MolAtom = Atom Isotope Charge Coordinates Radical () () () ()
 
 public export
 Cast Elem MolAtom where
