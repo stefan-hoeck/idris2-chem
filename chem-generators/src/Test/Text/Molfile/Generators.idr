@@ -75,6 +75,10 @@ atom : Gen MolAtom
 atom = [| MkAtom isotope charge coords radical u u u u |]
 
 export
+simpleAtom : Gen MolAtom
+simpleAtom = [| MkAtom (map cast elem) (pure 0) coords (pure NoRadical) u u u u |]
+
+export
 bondType : Gen BondType
 bondType = element [Single,Dbl,Triple]
 
