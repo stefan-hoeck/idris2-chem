@@ -25,6 +25,8 @@ record AtomType where
   double        : Nat
   triple        : Nat
 
+%runElab derive "AtomType" [Show,Eq]
+
 ||| Counts of bond types connected to an atom
 public export
 record Bonds where
