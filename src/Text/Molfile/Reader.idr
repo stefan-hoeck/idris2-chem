@@ -16,51 +16,48 @@ import public Text.Molfile.Reader.Types
 0 Prop : Nat -> Type
 Prop k = (Fin k, MolAtom -> MolAtom)
 
-0 Props : Nat -> Type
-Props = List . Prop
+-- applyProps : Props k -> Fin k -> MolAtom -> MolAtom
+-- applyProps []            _ a = a
+-- applyProps ((x,f) :: ps) y a =
+--   let a' := if x == y then f a else a
+--    in applyProps ps y a'
+--
+-- modGraph : {k : _} -> Props k -> IGraph k b MolAtom -> IGraph k b MolAtom
+-- modGraph [] x      = x
+-- modGraph ps (IG x) = IG $ mapWithIndex (map . applyProps ps) x
+--
+-- repeat : Nat -> Tok b MolFileError a -> List a -> Tok False MolFileError (List a)
+-- repeat 0     f xs cs = Succ xs cs
+-- repeat (S k) f xs cs = case f cs of
+--   Succ x2 cs2 @{p} => weaken $ trans (repeat k f (x2 :: xs) cs2) p
+--   Fail x y z       => Fail x y z
+--
+-- charge : {k : _} -> Tok False MolFileError (Prop k)
+-- charge = Tok.do
+--   n <- node {k} 4
+--   c <- int 4 (refineCharge . cast)
+--   pure $ (n, {charge := c})
+--
+-- %inline
+-- setMass : MassNr -> Isotope -> Isotope
+-- setMass v = {mass := Just v}
 
-applyProps : Props k -> Fin k -> MolAtom -> MolAtom
-applyProps []            _ a = a
-applyProps ((x,f) :: ps) y a =
-  let a' := if x == y then f a else a
-   in applyProps ps y a'
+-- iso : {k : _} -> Tok False MolFileError (Prop k)
+-- iso = Tok.do
+--   n <- node {k} 4
+--   v <- nat 4 (refineMassNr . cast)
+--   pure $ (n, {elem $= setMass v})
 
-modGraph : {k : _} -> Props k -> IGraph k b MolAtom -> IGraph k b MolAtom
-modGraph [] x      = x
-modGraph ps (IG x) = IG $ mapWithIndex (map . applyProps ps) x
+-- n8 : List a -> Tok False MolFileError a -> Tok False MolFileError (List a)
+-- n8 xs f = Tok.do
+--   n  <- nat 3 (\n => if 1 <= n && n <= 8 then Just n else Nothing)
+--   g2 <- repeat n f xs
+--   pure g2
 
-repeat : Nat -> Tok b MolFileError a -> List a -> Tok False MolFileError (List a)
-repeat 0     f xs cs = Succ xs cs
-repeat (S k) f xs cs = case f cs of
-  Succ x2 cs2 @{p} => weaken $ trans (repeat k f (x2 :: xs) cs2) p
-  Fail x y z       => Fail x y z
-
-charge : {k : _} -> Tok False MolFileError (Prop k)
-charge = Tok.do
-  n <- node {k} 4
-  c <- int 4 (refineCharge . cast)
-  pure $ (n, {charge := c})
-
-%inline
-setMass : MassNr -> Isotope -> Isotope
-setMass v = {mass := Just v}
-
-iso : {k : _} -> Tok False MolFileError (Prop k)
-iso = Tok.do
-  n <- node {k} 4
-  v <- nat 4 (refineMassNr . cast)
-  pure $ (n, {elem $= setMass v})
-
-n8 : List a -> Tok False MolFileError a -> Tok False MolFileError (List a)
-n8 xs f = Tok.do
-  n  <- nat 3 (\n => if 1 <= n && n <= 8 then Just n else Nothing)
-  g2 <- repeat n f xs
-  pure g2
-
-property : {k : _} -> Props k -> Tok False MolFileError (Props k)
-property ps ('M'::' '::' '::'C'::'H'::'G'::t) = succF $ n8 ps charge t
-property ps ('M'::' '::' '::'I'::'S'::'O'::t) = succF $ n8 ps iso t
-property ps cs = fail Same
+property : {k : _} -> Tok False MolFileError (Prop k)
+-- property ps ('M'::' '::' '::'C'::'H'::'G'::t) = succF $ n8 ps charge t
+-- property ps ('M'::' '::' '::'I'::'S'::'O'::t) = succF $ n8 ps iso t
+-- property ps cs = fail Same
 
 --------------------------------------------------------------------------------
 --          Reading
@@ -145,45 +142,57 @@ lineTok l f s = case f (unpack s) of
     Left $ oneChar (Unexpected $ Left $ show x) (P l $ toNat p)
   Fail x y z  => Left $ boundedErr (P l 0) x y z
 
+%inline
+right : Ur (IArray k (Adj k x y)) -@ Ur (Either e (IGraph k x y))
+right (MkBang u) = MkBang (Right $ IG u)
+
 properties :
      {k : _}
-  -> IGraph k b MolAtom
-  -> Props k
   -> (line  : Nat)
   -> (lines : List String)
-  -> Either (Bounded Error) (IGraph k b MolAtom)
-properties g ps l []               = Right (modGraph ps g)
-properties g ps l ("M  END" :: ss) = Right (modGraph ps g)
-properties g ps l (s        :: ss) = case lineTok l (property ps) s of
-  Right ps2 => properties g ps2 (S l) ss
-  Left err  => properties g ps (S l) ss
+  -> MArray k (Adj k MolBond MolAtom)
+  -@ Ur (Either (Bounded Error) (IGraph k MolBond MolAtom))
+properties l []               m = right (freeze m)
+properties l ("M  END" :: ss) m = right (freeze m)
+properties l (s        :: ss) m =
+  case lineTok l property s of
+    Right ps2 => ?rightCase
+    Left err  => discarding m $ MkBang $ Left err
 
 bonds :
      {k : _}
-  -> Vect k MolAtom
-  -> List (Edge k MolBond)
-  -> (nbonds, line : Nat)
-  -> (lines        : List String)
-  -> Either (Bounded Error) (IGraph k MolBond MolAtom)
-bonds as bs 0     l ss      = properties (mkGraphRev as bs) [] l ss
-bonds as bs (S k) l (s::ss) = case lineTok l bond s of
-  Right e  => bonds as (e :: bs) k (S l) ss
-  Left err => Left err
-bonds _ _ (S k) l [] = Left (oneChar EOI $ P l 0)
+  -> (n, line : Nat)
+  -> (lines   : List String)
+  -> MArray k (Adj k MolBond MolAtom)
+  -@ Ur (Either (Bounded Error) (IGraph k MolBond MolAtom))
+bonds 0     l ss      m = properties l ss m
+bonds (S k) l (s::ss) m =
+  case lineTok l bond s of
+    Right (E x y b) =>
+      let m2 := modify x {neighbours $= insert y b} m
+          m3 := modify y {neighbours $= insert x b} m2
+       in bonds k (S k) ss m3
+    Left err        => discarding m $ MkBang $ Left err
+bonds (S k) l []      m = discarding m $ MkBang $ Left (oneChar EOI $ P l 0)
 
 atoms :
      {k : _}
-  -> Vect k MolAtom
-  -> (natoms, nbonds, line : Nat)
+  -> (n, line, nbonds : Nat)
+  -> {auto ix : Ix n k}
   -> (lines        : List String)
-  -> Either (Bounded Error) (IGraph (k + natoms) MolBond MolAtom)
-atoms as 0     bs l ss      =
-  rewrite plusZeroRightNeutral k in bonds as [] bs l ss
-atoms as (S v) bs l (s::ss) = case lineTok l atom s of
-  Right a  =>
-    rewrite sym (plusSuccRightSucc k v) in atoms (a :: as) v bs (S l) ss
-  Left err => Left err
-atoms as (S k) bs l [] = Left (oneChar EOI $ P l 0)
+  -> MArray k (Adj k MolBond MolAtom)
+  -@ Ur (Either (Bounded Error) (IGraph k MolBond MolAtom))
+atoms 0     l bs ss      m  = bonds bs l ss m
+atoms (S v) l bs (s::ss) m =
+  case lineTok l atom s of
+    Right a  =>
+      let m2 := modifyIx v {label := a} m
+       in atoms v (S l) bs ss m2
+    Left err => discarding m $ MkBang $ Left err
+atoms (S v) l bs [] m = discarding m $ MkBang $ Left (oneChar EOI $ P l 0)
+
+adjIni : Adj k MolBond MolAtom
+adjIni = A (cast Elem.C) empty
 
 readMol' : (ls : List String) -> Either (Bounded Error) Molfile
 readMol' (h1::h2::h3::cs::t) = do
@@ -191,7 +200,7 @@ readMol' (h1::h2::h3::cs::t) = do
   info    <- lineTok 1 molLine h2
   comment <- lineTok 2 molLine h3
   counts  <- lineTok 3 counts cs
-  g       <- atoms [] counts.atoms counts.bonds 4 t
+  g       <- unrestricted $ alloc counts.atoms adjIni (atoms counts.atoms 4 counts.bonds t)
   pure $ MkMolfile name info comment (G counts.atoms g)
 readMol' ls = Left (B (Custom EHeader) $ BS begin (P (length ls) 0))
 
