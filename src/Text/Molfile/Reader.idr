@@ -76,6 +76,12 @@ iso = Tok.do
   v <- nat 4 (refineMassNr . cast)
   pure $ (n, {elem $= setMass v})
 
+rad : {k : _} -> Tok False MolFileError (Prop k)
+rad = Tok.do
+  n <- node {k} 4
+  v <- radical
+  pure $ (n, {radical := v})
+
 n8 :
      (line : Nat)
   -> Tok b MolFileError (Prop k)
@@ -132,7 +138,7 @@ export
 atom : Tok False MolFileError MolAtom
 atom = Tok.do
   pos   <- coords
-  i     <- (trim 4 isotope)
+  i     <- trim 4 isotope
   drop 2
   c     <- nat 3 $ refineCharge . cast
   drop 30
@@ -175,6 +181,10 @@ properties l (s        :: ss) m =
         Left  err => MkBang (Left $ failLine l s err)
     'M'::' '::' '::'I'::'S'::'O'::t =>
       case n8 l iso t m of
+        Right m2  => properties (S l) ss m2
+        Left  err => MkBang (Left $ failLine l s err)
+    'M'::' '::' '::'R'::'A'::'D'::t =>
+      case n8 l rad t m of
         Right m2  => properties (S l) ss m2
         Left  err => MkBang (Left $ failLine l s err)
     _  => properties (S l) ss m

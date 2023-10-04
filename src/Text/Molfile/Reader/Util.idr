@@ -100,3 +100,13 @@ drop' _     []        = Succ () []
 export %inline
 drop : (n : Nat) -> Tok False MolFileError ()
 drop n cs = drop' n cs
+
+export
+radical : Tok False MolFileError Radical
+radical =
+  trim 4 $ \case
+    [<'1'] => Right Singlet
+    [<'2'] => Right Doublet
+    [<'3'] => Right Triplet
+    [<'0'] => Right NoRadical
+    cs     => Left (Custom . ERadical . pack $ cs <>> [])
