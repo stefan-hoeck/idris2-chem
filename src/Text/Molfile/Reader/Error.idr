@@ -14,6 +14,7 @@ data MolFileError : Type where
   EChiralFlag           : String -> MolFileError
   EVersion              : String -> MolFileError
   ESymbol               : String -> MolFileError
+  ERadical              : String -> MolFileError
   EStereoParity         : String -> MolFileError
   EStereoCareBox        : String -> MolFileError
   EH0Designator         : String -> MolFileError
@@ -31,6 +32,7 @@ Interpolation MolFileError where
     EChiralFlag s           => "chiral flag: '\{s}'"
     EVersion s              => ".mol-file version: '\{s}'"
     ESymbol s               => "atom symbol: '\{s}'"
+    ERadical s              => "radical: '\{s}'"
     EStereoParity s         => "stereo parity: '\{s}'"
     EStereoCareBox s        => "stereo care box: '\{s}'"
     EH0Designator s         => "H0 designator: '\{s}'"
