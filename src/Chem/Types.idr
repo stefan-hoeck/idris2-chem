@@ -104,7 +104,7 @@ MaxMolecularMass = 1.0e60
 
 public export %inline
 IsMolecularMass : Double -> Bool
-IsMolecularMass v = v > 0.0 && v <= MaxMolecularMass
+IsMolecularMass v = v >= 0.0 && v <= MaxMolecularMass
 
 ||| Molecular mass (or molecular weight) in g/mol
 public export
@@ -131,6 +131,10 @@ addMolecularMass a1 a2 =
 public export %inline
 Semigroup MolecularMass where
   (<+>) = addMolecularMass
+
+public export %inline
+Monoid MolecularMass where
+  neutral = 0.0
 
 --------------------------------------------------------------------------------
 --          Molar Mass
@@ -165,12 +169,16 @@ Semigroup MolarMass where
   (<+>) = addMolarMass
 
 public export %inline
-molecularToMolarMass : MolecularMass -> MolarMass
-molecularToMolarMass (MkMolecularMass v) = MkMolarMass v
+Monoid MolarMass where
+  neutral = 0.0
 
 public export %inline
-molarToMolecularMass : MolarMass -> MolecularMass
-molarToMolecularMass (MkMolarMass v) = MkMolecularMass v
+Cast MolecularMass MolarMass where
+  cast (MkMolecularMass v) = MkMolarMass v
+
+public export %inline
+Cast MolarMass MolecularMass where
+  cast (MkMolarMass v) = MkMolecularMass v
 
 --------------------------------------------------------------------------------
 --          Charge
