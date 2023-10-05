@@ -123,7 +123,7 @@ namespace MolecularMass
 public export %inline
 addMolecularMass : MolecularMass -> MolecularMass -> MolecularMass
 addMolecularMass a1 a2 =
-  let res = a1.value * a2.value
+  let res = a1.value + a2.value
    in case hdec0 {p = Holds IsMolecularMass} res of
         Just0 _ => MkMolecularMass res
         Nothing0 => 1.0e60
@@ -159,7 +159,7 @@ namespace MolarMass
 public export %inline
 addMolarMass : MolarMass -> MolarMass -> MolarMass
 addMolarMass a1 a2 =
-  let res = a1.value * a2.value
+  let res = a1.value + a2.value
    in case hdec0 {p = Holds IsMolecularMass} res of
         Just0 _ => MkMolarMass res
         Nothing0 => 1.0e60
