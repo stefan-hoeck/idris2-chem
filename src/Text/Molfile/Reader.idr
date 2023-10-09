@@ -1,5 +1,6 @@
 module Text.Molfile.Reader
 
+import Data.Array.Mutable
 import Data.List.Quantifiers.Extra
 import Data.Nat
 import Data.String

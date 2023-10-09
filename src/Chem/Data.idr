@@ -1,6 +1,6 @@
 module Chem.Data
 
-import Data.Array.Indexed
+import Data.Array
 import Data.Vect
 import Chem.Elem
 import Chem.Types
