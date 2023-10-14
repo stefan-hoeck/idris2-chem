@@ -42,16 +42,6 @@ record Props (k : Nat) where
   charges  : List String
   radicals : List String
 
-
-grouped : (n : Nat) -> (0 p : IsSucc n) => List a -> List (List a)
-grouped _     []      = []
-grouped (S m) (x::xs) = go [<] [<x] m xs
-  where
-    go : SnocList (List a) -> SnocList a -> Nat -> List a -> List (List a)
-    go sxs sx c     []        = sxs <>> [sx <>> []]
-    go sxs sx 0     (x :: xs) = go (sxs :< (sx <>> [])) [<x] m xs
-    go sxs sx (S k) (x :: xs) = go sxs (sx :< x) k xs
-
 dispGroup : String -> List String -> String
 dispGroup pre vs = fastConcat $ pre :: fill 3 (length vs) :: vs
 
