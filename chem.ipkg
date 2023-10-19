@@ -19,6 +19,16 @@ modules = Chem
         , Chem.Formula
         , Chem.Isotope
         , Chem.Types
+        , Chem.Util
+
+        , Geom
+        , Geom.Angle
+        , Geom.Bounds
+        , Geom.Matrix
+        , Geom.Mol
+        , Geom.Point
+        , Geom.Scale
+        , Geom.Vector
 
         , Text.Molfile
         , Text.Molfile.AtomType
