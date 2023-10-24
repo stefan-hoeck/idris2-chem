@@ -1,5 +1,4 @@
 module Text.Smiles.AtomType
-
 import Chem
 import Text.Smiles.Types
 
