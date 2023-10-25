@@ -55,8 +55,8 @@ data MolVersion = V2000 | V3000
 
 export %inline
 Interpolation MolVersion where
-  interpolate V2000 = "v2000"
-  interpolate V3000 = "v3000"
+  interpolate V2000 = "V2000"
+  interpolate V3000 = "V3000"
 
 %runElab derive "MolVersion" [Eq,Ord,Show]
 
