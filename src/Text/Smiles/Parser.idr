@@ -216,3 +216,12 @@ readSmilesFrom o s =
 export %inline
 readSmiles : Has SmilesParseErr es => String -> ChemRes es SmilesGraph
 readSmiles = readSmilesFrom Virtual
+
+||| This is a convenience alias `readSmiles`, which can be used
+||| to quickly come up with fairly complex molecular graphs.
+|||
+||| All errors are converted to pretty printed error messages.
+export %inline
+readSmiles' : String -> Either String SmilesGraph
+readSmiles' =
+  mapFst (interpolate . project1) . readSmiles {es = [SmilesParseErr]}
