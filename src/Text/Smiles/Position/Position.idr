@@ -25,24 +25,21 @@ record DrawerSettings where
 -- get the parent node if it exists
 %inline
 parent : Fin k -> State k -> Maybe (Fin k)
-parent n = parent . index n . value
+parent n = parent . index n
 
 %inline
 getCoord : Fin k -> State k -> Maybe (Point Smiles)
-getCoord n s = coord $ index n s.value
+getCoord n = coord . index n
 
 %inline
 getAngle : Fin k -> State k -> Maybe Angle
-getAngle n = angle . index n . value
+getAngle n = angle . index n
 
 -- draw the very first node with no parent node
 drawNodeOrigin : Fin k -> State k -> State k
 drawNodeOrigin n =
---  {value $= updateAt n (set (?foo .> coord) (Just origin))} s  -- how to use lenses?
-  {value $= updateAt n ({ coord := Just origin
-                        , angle := Just $ (negate 1.0 / 6.0) * pi -- -30°?
-                        }
-                       )}
+    setL (ix n .> coordL) (Just origin)
+  . setL (ix n .> angleL) (Just $ (1.0 / 6.0) * pi)
 
 drawChildNode : (current,parent : Fin k) -> State k -> Maybe (Point Smiles)
 drawChildNode n p s =
@@ -52,8 +49,7 @@ drawChildNode n p s =
    in Just $ translate vect prntPnt
 
 updateCoord : Fin k -> Point Smiles -> State k -> State k
-updateCoord n p =
-  {value $= updateAt n ({coord := Just p})}
+updateCoord n p = updateAt n ({coord := Just p})
 
 ---- computes the preferred angle for a new bond based on the bond type
 ---- angles to already existing bonds.

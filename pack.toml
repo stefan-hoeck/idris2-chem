@@ -34,20 +34,8 @@ type   = "local"
 path   = "profile"
 ipkg   = "profile.ipkg"
 
-# [custom.all.quantifiers-extra]
-# type   = "git"
-# url    = "https://github.com/stefan-hoeck/idris2-quantifiers-extra"
-# commit = "latest:main"
-# ipkg   = "quantifiers-extra.ipkg"
-
-[custom.all.array]
+[custom.all.monocle]
 type   = "git"
-url    = "https://github.com/stefan-hoeck/idris2-array"
+url    = "https://github.com/stefan-hoeck/idris2-monocle"
 commit = "latest:main"
-ipkg   = "array.ipkg"
-
-[custom.all.indexed-graph]
-type   = "git"
-url    = "https://github.com/stefan-hoeck/idris2-indexed-graph"
-commit = "latest:main"
-ipkg   = "indexed-graph.ipkg"
+ipkg   = "monocle.ipkg"

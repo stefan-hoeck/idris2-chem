@@ -30,8 +30,5 @@ record Info k where
 %runElab derive "Info" [Lenses]
 
 public export
-record State k where
-  constructor S
-  value : Vect k (Info k)
-
-%runElab derive "State" [Lenses]
+0 State : Nat -> Type
+State k = Vect k (Info k)
