@@ -10,6 +10,7 @@ depends    = base         >= 0.5.1
            , indexed-graph
            , quantifiers-extra
            , finite
+           , monocle
 
 modules = Chem
         , Chem.Atom
@@ -48,3 +49,4 @@ modules = Chem
         , Text.Smiles.Parser
         , Text.Smiles.Types
         , Text.Smiles.Position.Types
+        , Text.Smiles.Position.Position
