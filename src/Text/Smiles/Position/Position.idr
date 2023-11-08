@@ -25,31 +25,34 @@ record DrawerSettings where
 -- get the parent node if it exists
 %inline
 parent : Fin k -> State k -> Maybe (Fin k)
-parent n = parent . index n
+parent n = maybe Nothing parent . index n
 
 %inline
-getCoord : Fin k -> State k -> Maybe (Point Smiles)
-getCoord n = coord . index n
+getCoord : Fin k -> State k -> Maybe (Point Mol)
+getCoord n = maybe Nothing (Just . coord) . index n
 
 %inline
-getAngle : Fin k -> State k -> Maybe Angle
-getAngle n = angle . index n
+getAngle : Fin k -> State k -> Maybe (Angle)
+getAngle n = maybe Nothing (Just . angle) . index n
 
 -- draw the very first node with no parent node
 drawNodeOrigin : Fin k -> State k -> State k
 drawNodeOrigin n =
-    setL (ix n .> coordL) (Just origin)
-  . setL (ix n .> angleL) (Just $ (1.0 / 6.0) * pi)
+  updateAt n (map { coord := origin
+                  , angle := (1.0 / 6.0) * pi
+                  })
+--    setL (ix n .> coordL) (origin)
+--  . setL (ix n .> angleL) ((1.0 / 6.0) * pi)
 
-drawChildNode : (current,parent : Fin k) -> State k -> Maybe (Point Smiles)
+drawChildNode : (current,parent : Fin k) -> State k -> Maybe (Point Mol)
 drawChildNode n p s =
   let Just prntPnt := getCoord p s | Nothing => Nothing
       Just curAngl := getAngle n s | Nothing => Nothing
       vect         := polar BondLengthInAngstrom curAngl
    in Just $ translate vect prntPnt
 
-updateCoord : Fin k -> Point Smiles -> State k -> State k
-updateCoord n p = updateAt n ({coord := Just p})
+updateCoord : Fin k -> Point Mol -> State k -> State k
+updateCoord n p = ?foo6 --updateAt n ({coord := p})
 
 ---- computes the preferred angle for a new bond based on the bond type
 ---- angles to already existing bonds.
@@ -104,17 +107,7 @@ parameters {0 k : _}
 
 SmilesPAtom : Type
 SmilesPAtom =
-  Atom AromIsotope Charge (Point Smiles) () HCount AtomType Chirality ()
-
-initStateValue : Adj k SmilesBond SmilesAtom -> Info k
-initStateValue (A l n) =
-  I { drawn   = False
-    , visited = False
-    , parent  = Nothing
-    , next    = Nothing
-    , coord   = Nothing
-    , angle   = Nothing
-    }
+  Atom AromIsotope Charge (Point Mol) () HCount AtomType Chirality ()
 
 giveCoord :
      IGraph k SmilesBond SmilesAtom

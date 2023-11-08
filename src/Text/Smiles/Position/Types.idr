@@ -15,20 +15,15 @@ import Derive.Lens
 --------------------------------------------------------------------------------
 
 public export
-Smiles : AffineTransformation
-
-public export
 record Info k where
   constructor I
-  drawn   : Bool
-  visited : Bool
   parent  : Maybe $ Fin k
-  next    : Maybe $ List (Fin k)
-  coord   : Maybe $ Point Smiles
-  angle   : Maybe Angle
+  coord   : Point Mol
+  angle   : Angle
 
 %runElab derive "Info" [Lenses]
 
+-- if Just ..., then visisted
 public export
 0 State : Nat -> Type
-State k = Vect k (Info k)
+State k = Vect k $ Maybe (Info k)
