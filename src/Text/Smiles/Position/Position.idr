@@ -38,9 +38,8 @@ getAngle n = maybe Nothing (Just . angle) . index n
 -- draw the very first node with no parent node
 drawNodeOrigin : Fin k -> State k -> State k
 drawNodeOrigin n =
-  updateAt n (map { coord := origin
-                  , angle := (1.0 / 6.0) * pi
-                  })
+  updateAt n (map { coord := origin , angle := (1.0 / 6.0) * pi })
+-- Do I need Optionals here?
 --    setL (ix n .> coordL) (origin)
 --  . setL (ix n .> angleL) ((1.0 / 6.0) * pi)
 
@@ -51,8 +50,20 @@ drawChildNode n p s =
       vect         := polar BondLengthInAngstrom curAngl
    in Just $ translate vect prntPnt
 
-updateCoord : Fin k -> Point Mol -> State k -> State k
-updateCoord n p = ?foo6 --updateAt n ({coord := p})
+updateNode : Fin k -> Point Mol -> Angle -> State k -> State k
+updateNode n p a =
+  updateAt n (map { coord := p , angle := a })
+
+-- Needed to update the different branch states
+-- Are there modification possible of another indice than the first of the
+-- update list?
+updateState : State k -> State k -> State k
+updateState xs ys = ?updateState_rhs
+
+(++) : State k -> State k -> State k
+(++) = updateState
+
+head : List (Fin n) -> Fin n
 
 ---- computes the preferred angle for a new bond based on the bond type
 ---- angles to already existing bonds.
@@ -89,14 +100,27 @@ parameters {0 k : _}
   draw : List (Fin k) -> State k -> State k
   draw []        s = s
   draw (n :: ns) s =
-    -- set coord
-    case parent n s of
-      Nothing => drawNodeOrigin n s
-      Just p  =>
-        let Just newCoord := drawChildNode n p s | Nothing => s  -- break from algorithm
-            placeCurNode  := updateCoord n newCoord s
-         -- set angles for neighbours
-         in ?determineNeighAngles
+      -- get all neighbours that needs to be checked for drawing
+    let allNeigh := map fst (pairs (neighbours g n))
+        parent   := parent n s
+        toDrawN  := maybe allNeigh (\p => dropWhile (== p) allNeigh) parent
+        -- TODO: Proove that this list gets smaller
+        -- TODO: Sort `toDrawN` for deciding, which branch should be drawn first
+        drawList := toDrawN ++ ns
+        nCount   := length drawList
+    -- set coords for the neighours
+     in case getCoord n s of
+       -- Starting Node: Repeat drawing of this node with its start coord and
+       -- angle
+       Nothing => draw (n :: ns) $ updateNode n origin ((1.0 / 6.0) * pi) s
+       _       =>
+         case nCount of
+           0 => ?nothing
+           1 => ?oneN
+           2 => ?twoN
+           3 => ?threeN
+           4 => ?fourN
+           _ => ?starFormation
 
 
 --------------------------------------------------------------------------------
