@@ -4,10 +4,7 @@ import Chem
 import Text.Smiles
 import Geom
 import Data.Vect
-import Monocle
-import Derive.Lens
 
-%language ElabReflection
 %default total
 
 --------------------------------------------------------------------------------
@@ -20,11 +17,6 @@ record Info k where
   parent  : Maybe $ Fin k
   coord   : Point Mol
   angle   : Angle
-
-lensOptions : LensOptions
-lensOptions = LO (++ "Lens") id id
-
-%runElab derive "Info" [LensesVisO lensOptions  Public]
 
 -- if Just ..., then visisted
 public export

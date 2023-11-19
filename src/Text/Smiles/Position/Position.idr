@@ -157,6 +157,22 @@ SmilesPAtom : Type
 SmilesPAtom =
   Atom AromIsotope Charge (Point Mol) () HCount AtomType Chirality ()
 
+smilesAtomToPAtom : SmilesAtom -> Point Mol -> SmilesPAtom
+
+stateToAtom : State k -> Fin k -> Adj k SmilesBond SmilesAtom -> SmilesPAtom
+stateToAtom xs n a =
+  let atom := a.label
+      pos  := maybe origin coord $ index n xs
+   in smilesAtomToPAtom atom pos
+
+parameters {k : _}
+           (g : IGraph k SmilesBond SmilesAtom)
+  initState : State k
+  initState = replicate k Nothing
+
+  infoTransfer : State k -> IGraph k SmilesBond SmilesPAtom
+  infoTransfer xs = mapWithCtxt (stateToAtom xs) g
+
 giveCoord :
      IGraph k SmilesBond SmilesAtom
   -> Info k
