@@ -21,7 +21,10 @@ record Info k where
   coord   : Point Mol
   angle   : Angle
 
-%runElab derive "Info" [Lenses]
+lensOptions : LensOptions
+lensOptions = LO (++ "Lens") id id
+
+%runElab derive "Info" [LensesVisO lensOptions  Public]
 
 -- if Just ..., then visisted
 public export
