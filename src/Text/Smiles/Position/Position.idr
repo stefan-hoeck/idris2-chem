@@ -1,11 +1,14 @@
 module Text.Smiles.Position.Position
 
 import Text.Smiles.Position.Types
+import Text.Smiles.AtomType
 import Text.Smiles.Types
+import Text.Smiles.Parser
 import Chem
 import Geom
 import Data.Vect
 import Monocle
+import Data.Fin
 
 
 %default total
@@ -108,7 +111,7 @@ drawChildStar cur xs s = ?drawChildStar_rhs
 --------------------------------------------------------------------------------
 
 parameters {0 k : _}
-           (g : IGraph k SmilesBond SmilesAtom)
+           (g : IGraph k SmilesBond SmilesAtomAT)
            {se : DrawerSettings}
 
   partial
@@ -151,32 +154,24 @@ parameters {0 k : _}
 --      Test
 --------------------------------------------------------------------------------
 
--- yet only showing concept
-
-SmilesPAtom : Type
-SmilesPAtom =
-  Atom AromIsotope Charge (Point Mol) () HCount AtomType Chirality ()
-
-smilesAtomToPAtom : SmilesAtom -> Point Mol -> SmilesPAtom
-
-stateToAtom : State k -> Fin k -> Adj k SmilesBond SmilesAtom -> SmilesPAtom
-stateToAtom xs n a =
-  let atom := a.label
-      pos  := maybe origin coord $ index n xs
-   in smilesAtomToPAtom atom pos
+stateToAtom : State k -> Fin k -> Adj k SmilesBond SmilesAtomAT -> SmilesAtomP
+stateToAtom xs n a = { position := maybe origin coord $ index n xs } a.label
 
 parameters {k : _}
-           (g : IGraph k SmilesBond SmilesAtom)
+           (g : IGraph k SmilesBond SmilesAtomAT)
   initState : State k
   initState = replicate k Nothing
 
-  infoTransfer : State k -> IGraph k SmilesBond SmilesPAtom
-  infoTransfer xs = mapWithCtxt (stateToAtom xs) g
+  infoTransfer : State k -> Graph SmilesBond SmilesAtomP
+  infoTransfer xs = G _ $ mapWithCtxt (stateToAtom xs) g
 
-giveCoord :
-     IGraph k SmilesBond SmilesAtom
-  -> Info k
-  -> IGraph k SmilesBond SmilesPAtom
-giveCoord g i = ?giveCoord_rhs
+partial
+toPosition : Graph SmilesBond SmilesAtomAT -> Graph SmilesBond SmilesAtomP
+toPosition (G o ig) = infoTransfer ig (draw ig [?foo] (initState ig))
 
-toPosition : IGraph k SmilesBond SmilesAtom -> IGraph k SmilesBond SmilesPAtom
+partial
+drawSmilesMol: String -> Either String (Graph SmilesBond SmilesAtomP)
+drawSmilesMol s =
+  case readSmiles' s of
+    Left x  => Left x
+    Right x => Right $ toPosition $ perceiveSmilesAtomTypes x
