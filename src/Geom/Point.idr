@@ -5,7 +5,9 @@ import Geom.Angle
 import Geom.Matrix
 import Geom.Scale
 import Geom.Vector
+import Derive.Prelude
 
+%language ElabReflection
 %default total
 
 --------------------------------------------------------------------------------
@@ -85,6 +87,8 @@ record Point (t : AffineTransformation) where
   constructor P
   x : Double
   y : Double
+
+%runElab derive "Point" [Show]
 
 ||| The origin at `(0,0)`.
 export

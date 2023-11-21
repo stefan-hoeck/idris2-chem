@@ -112,9 +112,9 @@ drawChildStar cur xs s = ?drawChildStar_rhs
 
 parameters {0 k : _}
            (g : IGraph k SmilesBond SmilesAtomAT)
-           {se : DrawerSettings}
+--           {auto se : DrawerSettings}
 
-  partial
+  covering
   draw : List (Fin k) -> State k -> State k
   draw []        s = s
   draw (n :: ns) s =
@@ -147,7 +147,7 @@ parameters {0 k : _}
                  Just s2 := drawChildNode n x2 3 2 s1 | Nothing => s
                  Just s3 := drawChildNode n x2 3 3 s2 | Nothing => s
               in draw drawList s3
-           xs            => draw drawList $ drawChildStar n xs s
+           xs            => draw drawList s -- TODO: add 'drawChildStar n xs s'
 
 
 --------------------------------------------------------------------------------
@@ -165,13 +165,24 @@ parameters {k : _}
   infoTransfer : State k -> Graph SmilesBond SmilesAtomP
   infoTransfer xs = G _ $ mapWithCtxt (stateToAtom xs) g
 
-partial
+covering
 toPosition : Graph SmilesBond SmilesAtomAT -> Graph SmilesBond SmilesAtomP
-toPosition (G o ig) = infoTransfer ig (draw ig [?foo] (initState ig))
+toPosition (G 0 ig) = G 0 empty
+toPosition (G (S k) ig) = infoTransfer ig (draw ig [0] (initState ig))
 
-partial
+covering
 drawSmilesMol: String -> Either String (Graph SmilesBond SmilesAtomP)
 drawSmilesMol s =
   case readSmiles' s of
     Left x  => Left x
     Right x => Right $ toPosition $ perceiveSmilesAtomTypes x
+
+-- main : IO ()
+covering
+main : IO ()
+main =
+  case drawSmilesMol "CC(CC)CC" of
+    Left x  => putStrLn x
+    Right x => putStrLn $ show x.graph
+
+
