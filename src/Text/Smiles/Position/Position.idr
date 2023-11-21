@@ -177,12 +177,11 @@ drawSmilesMol s =
     Left x  => Left x
     Right x => Right $ toPosition $ perceiveSmilesAtomTypes x
 
--- main : IO ()
 covering
 main : IO ()
 main =
-  case drawSmilesMol "CC(CC)CC" of
+  case drawSmilesMol "CC(CC)(CC)CC" of
     Left x  => putStrLn x
-    Right x => putStrLn $ show x.graph
+    Right x => putStrLn $ pretty show show x.graph
 
 
