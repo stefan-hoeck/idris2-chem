@@ -180,6 +180,7 @@ drawSmilesMol s =
 
 -- for drawing tool
 --covering
+public export
 drawSmilesMol' : String -> Graph SmilesBond SmilesAtomP
 drawSmilesMol' smiles =
   case drawSmilesMol smiles of
