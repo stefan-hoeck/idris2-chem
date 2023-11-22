@@ -190,7 +190,7 @@ drawSmilesMol smiles =
 --covering
 main : IO ()
 main =
-  case drawSmilesMol "C(C)(C)" of
+  case drawSmilesMol' "C(C)(C)" of
     Left x  => putStrLn x
     Right x => putStrLn $ pretty show show x.graph
 
