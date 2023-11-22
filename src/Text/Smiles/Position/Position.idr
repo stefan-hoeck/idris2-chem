@@ -172,8 +172,8 @@ toPosition (G 0 ig) = G 0 empty
 toPosition (G (S k) ig) = infoTransfer ig (draw ig [0] (initState ig))
 
 --covering
-drawSmilesMol: String -> Either String (Graph SmilesBond SmilesAtomP)
-drawSmilesMol s =
+drawSmilesMol' : String -> Either String (Graph SmilesBond SmilesAtomP)
+drawSmilesMol' s =
   case readSmiles' s of
     Left x  => Left x
     Right x => Right $ toPosition $ perceiveSmilesAtomTypes x
@@ -181,9 +181,9 @@ drawSmilesMol s =
 -- for drawing tool
 --covering
 public export
-drawSmilesMol' : String -> Graph SmilesBond SmilesAtomP
-drawSmilesMol' smiles =
-  case drawSmilesMol smiles of
+drawSmilesMol : String -> Graph SmilesBond SmilesAtomP
+drawSmilesMol smiles =
+  case drawSmilesMol' smiles of
    Left _  => G 0 empty
    Right m => m
 
