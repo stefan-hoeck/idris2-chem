@@ -48,5 +48,6 @@ modules = Chem
         , Text.Smiles.Lexer
         , Text.Smiles.Parser
         , Text.Smiles.Types
+        , Text.Smiles.Position
         , Text.Smiles.Position.Types
         , Text.Smiles.Position.Position
