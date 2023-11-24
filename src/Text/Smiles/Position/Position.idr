@@ -114,8 +114,7 @@ parameters {0 k : _}
            (g : IGraph k SmilesBond SmilesAtomAT)
 --           {auto se : DrawerSettings}
 
--- TODO: There are (at this time) 5 `assert_total` functions here!!!!!!!!!!!!!
---  covering
+  covering
   draw : List (Fin k) -> State k -> State k
   draw []        s = s
   draw (n :: ns) s =
@@ -131,24 +130,24 @@ parameters {0 k : _}
        -- Starting Node: Repeat drawing of this node with its start coord and
        -- angle
        Nothing =>
-         assert_total $ draw (n :: ns) $ updateNode n Nothing origin ((1.0 / 6.0) * pi) s
+         draw (n :: ns) $ updateNode n Nothing origin ((1.0 / 6.0) * pi) s
        _       =>
          case toDrawN of
            -- draw other branch if exists
            []            => draw ns s
            [x]           =>
              let Just s1 := drawChildNode n x 1 1 s | Nothing => s
-              in assert_total $ draw drawList s1
+              in draw drawList s1
            [x1,x2]       =>
              let Just s1 := drawChildNode n x1 2 1 s  | Nothing => s
                  Just s2 := drawChildNode n x2 2 2 s1 | Nothing => s
-              in assert_total $ draw drawList s2
+              in draw drawList s2
            [x1,x2,x3]    =>
              let Just s1 := drawChildNode n x1 3 1 s  | Nothing => s
                  Just s2 := drawChildNode n x2 3 2 s1 | Nothing => s
                  Just s3 := drawChildNode n x2 3 3 s2 | Nothing => s
-              in assert_total $ draw drawList s3
-           xs            => assert_total $ draw drawList s -- TODO: add 'drawChildStar n xs s'
+              in draw drawList s3
+           xs            => draw drawList s -- TODO: add 'drawChildStar n xs s'
 
 
 --------------------------------------------------------------------------------
@@ -166,12 +165,12 @@ parameters {k : _}
   infoTransfer : State k -> Graph SmilesBond SmilesAtomP
   infoTransfer xs = G _ $ mapWithCtxt (stateToAtom xs) g
 
---covering
+covering
 toPosition : Graph SmilesBond SmilesAtomAT -> Graph SmilesBond SmilesAtomP
 toPosition (G 0 ig) = G 0 empty
 toPosition (G (S k) ig) = infoTransfer ig (draw ig [0] (initState ig))
 
---covering
+covering
 drawSmilesMol' : String -> Either String (Graph SmilesBond SmilesAtomP)
 drawSmilesMol' s =
   case readSmiles' s of
@@ -179,7 +178,7 @@ drawSmilesMol' s =
     Right x => Right $ toPosition $ perceiveSmilesAtomTypes x
 
 -- for drawing tool
---covering
+covering
 public export
 drawSmilesMol : String -> Graph SmilesBond SmilesAtomP
 drawSmilesMol smiles =
@@ -187,7 +186,7 @@ drawSmilesMol smiles =
    Left _  => G 0 empty
    Right m => m
 
---covering
+covering
 main : IO ()
 main =
   case drawSmilesMol' "C(C)(C)" of
