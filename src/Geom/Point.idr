@@ -122,8 +122,8 @@ interface GetPoint (0 a : Type) (0 t : AffineTransformation) | a where
 export %inline
 GetPoint (Point t) t where point = id
 
-||| Interface for converting a value to a point in the affine space
-||| represented by transformation `t`.
+||| Interface for modification of a value `a` by modifying its points in the
+||| affine space.
 public export
 interface ModPoint (0 a : Type) (0 t : AffineTransformation) | a where
   modPoint : (Point t -> Point t) -> a -> a
