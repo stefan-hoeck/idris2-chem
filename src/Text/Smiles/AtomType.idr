@@ -27,8 +27,8 @@ toBonds Arom = BS 0 0 0
 toBonds Dbl  = BS 0 1 0
 toBonds Trpl = BS 0 0 1
 toBonds Quad = BS 0 0 0 -- TODO: Should we even support this?
-toBonds FW   = BS 0 1 0
-toBonds BW   = BS 0 1 0
+toBonds FW   = BS 1 0 0
+toBonds BW   = BS 1 0 0
 
 -- Adjust number of bonds for nitrogen-like elements (N, P, As) with
 -- two aromatic bonds. If these have no additional single bonds, they are
