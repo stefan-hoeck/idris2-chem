@@ -2,10 +2,12 @@ module Chem.Data
 
 import Data.Array
 import Data.Vect
+import Derive.Prelude
 import Chem.Elem
 import Chem.Types
 
 %default total
+%language ElabReflection
 
 --------------------------------------------------------------------------------
 --          Element Data
@@ -15,8 +17,8 @@ import Chem.Types
 public export
 record ElemData where
   constructor ED
-  mass              : MolecularMass
-  exactMass         : MolecularMass
+  mass              : MolarMass
+  exactMass         : MolarMass
   radiusCovalent    : Double
   radiusVDW         : Maybe Double
   ionization        : Maybe Double
@@ -45,16 +47,10 @@ elemData e =
     (cast $ conIndexElem e)
     @{ltOpReflectsLT _ _ $ conIndexLemma e}
 
-||| Extract the molecular mass of an element (averaged over the isotopes in
-||| the natural mix).
 export %inline
-mass : Elem -> MolecularMass
-mass = mass . elemData
-
-||| Extract the exact molecular mass of an element's main isotope.
-export %inline
-exactMass : Elem -> MolecularMass
-exactMass = exactMass . elemData
+HasMolarMass Elem where
+  mass = mass . elemData
+  exactMass = exactMass . elemData
 
 ||| Returns the covalent radius (in Angstrom) of an element.
 export %inline
@@ -100,11 +96,27 @@ public export
 record IsotopeData where
   constructor ID
   massNr           : MassNr
-  exactMass        : MolecularMass
+  exactMass        : MolarMass
   naturalAbundance : Abundance
+
+%runElab derive "IsotopeData" [Show,Eq]
 
 export
 arrIsotopeData : IArray 118 (List IsotopeData)
+
+||| Get the list of known isotopes for the given element.
+export %inline
+isotopes : Elem -> List IsotopeData
+isotopes e =
+  atNat
+    arrIsotopeData
+    (cast $ conIndexElem e)
+    @{ltOpReflectsLT _ _ $ conIndexLemma e}
+
+||| Get additional information about an element.
+export %inline
+isotopeData : Elem -> MassNr -> Maybe IsotopeData
+isotopeData e mn = find ((mn ==) . massNr) $ isotopes e
 
 --------------------------------------------------------------------------------
 --          Proofs

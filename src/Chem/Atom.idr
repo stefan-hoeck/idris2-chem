@@ -1,5 +1,6 @@
 module Chem.Atom
 
+import Chem.Data
 import Chem.Elem
 import Chem.Formula
 import Data.Maybe.Upper
@@ -76,3 +77,24 @@ Cast e Elem => Cast (Atom e c p r NoH t ch l) Formula where
 export
 Cast e Elem => Cast (Atom e c p r HCount t ch l) Formula where
   cast a = singleton (cast a.elem) 1 <+> singleton H (cast a.hydrogen.value)
+
+public export
+interface HasMolecularMass a where
+  molecularMass      : a -> MolecularMass
+  exactMolecularMass : a -> MolecularMass
+
+export
+HasMolecularMass NoH where
+  molecularMass      _ = 0.0
+  exactMolecularMass _ = 0.0
+
+export
+HasMolecularMass HCount where
+  molecularMass      m = multMolecularMass (cast m.value) (cast $ mass H)
+  exactMolecularMass m = multMolecularMass (cast m.value) (cast $ exactMass H)
+
+export
+HasMolarMass e => HasMolecularMass h => HasMolecularMass (Atom e c p r h t ch x) where
+  molecularMass      a = cast (mass a.elem) <+> molecularMass a.hydrogen
+  exactMolecularMass a =
+    cast (exactMass a.elem) <+> exactMolecularMass a.hydrogen

@@ -129,6 +129,14 @@ addMolecularMass a1 a2 =
         Nothing0 => 1.0e60
 
 public export %inline
+multMolecularMass : Nat -> MolecularMass -> MolecularMass
+multMolecularMass a1 a2 =
+  let res = cast a1 * a2.value
+   in case hdec0 {p = Holds IsMolecularMass} res of
+        Just0 _ => MkMolecularMass res
+        Nothing0 => 1.0e60
+
+public export %inline
 Semigroup MolecularMass where
   (<+>) = addMolecularMass
 
@@ -179,6 +187,18 @@ Cast MolecularMass MolarMass where
 public export %inline
 Cast MolarMass MolecularMass where
   cast (MkMolarMass v) = MkMolecularMass v
+
+public export
+interface HasMolarMass a where
+  ||| Extract the molecular mass of an element or isotope.
+  ||| In case of an element, this returns the average molar mass
+  ||| in case of an isotope, it's the same as `exactMass`.
+  mass      : a -> MolarMass
+
+  ||| Extract the exact molecular mass of an element or isotope.
+  ||| In case of an `Elem`, this returns the exact mass of the most
+  ||| abundant isotope.
+  exactMass : a -> MolarMass
 
 --------------------------------------------------------------------------------
 --          Charge

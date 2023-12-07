@@ -1,5 +1,6 @@
 module Chem.Isotope
 
+import Chem.Data
 import Chem.Elem
 import Chem.Types
 import Derive.Prelude
@@ -30,6 +31,14 @@ Cast Isotope AromElem where cast (MkI e _) = cast e
 
 export %inline
 Cast AromElem Isotope where cast (MkAE e _) = cast e
+
+export
+HasMolarMass Isotope where
+  mass (MkI e $ Just m) = maybe (mass e) exactMass (isotopeData e m)
+  mass (MkI e Nothing)  = mass e
+
+  exactMass (MkI e $ Just m) = maybe (exactMass e) exactMass (isotopeData e m)
+  exactMass (MkI e Nothing)  = exactMass e
 
 ||| An element paired with an optional mass number plus a
 ||| boolean flag representing aromaticity.
@@ -63,3 +72,11 @@ Cast AromIsotope Isotope where cast (MkAI e m a) = MkI e m
 
 export %inline
 Cast Isotope AromIsotope where cast (MkI e m) = MkAI e m False
+
+export
+HasMolarMass AromIsotope where
+  mass (MkAI e (Just m) _) = maybe (mass e) exactMass (isotopeData e m)
+  mass (MkAI e Nothing _)  = mass e
+
+  exactMass (MkAI e (Just m) _) = maybe (exactMass e) exactMass (isotopeData e m)
+  exactMass (MkAI e Nothing _)  = exactMass e
