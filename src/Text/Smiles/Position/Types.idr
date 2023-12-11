@@ -22,3 +22,12 @@ record Info k where
 public export
 0 State : Nat -> Type
 State k = Vect k $ Maybe (Info k)
+
+-- Node info for placing neighbours
+public export
+record DrawInfo k where
+  constructor DI
+  index  : Fin k
+  parent : Fin k
+  coord  : Point Mol
+  angle  : Angle

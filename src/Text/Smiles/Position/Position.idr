@@ -14,21 +14,13 @@ import Data.Fin
 %default total
 
 --------------------------------------------------------------------------------
---      Settings
---------------------------------------------------------------------------------
-
-record DrawerSettings where
-  constructor DS
-  bondLength : Double
-
---------------------------------------------------------------------------------
 --      Util
 --------------------------------------------------------------------------------
 
 -- get the parent node if it exists
 %inline
-parent : Fin k -> State k -> Maybe (Fin k)
-parent n = maybe Nothing parent . index n
+getParent : Fin k -> State k -> Maybe (Fin k)
+getParent n = maybe Nothing parent . index n
 
 %inline
 getCoord : Fin k -> State k -> Maybe (Point Mol)
@@ -38,6 +30,31 @@ getCoord n = maybe Nothing (Just . coord) . index n
 getAngle : Fin k -> State k -> Maybe (Angle)
 getAngle n = maybe Nothing (Just . angle) . index n
 
+-- TODO: sort out already drawn nodes
+-- Neighbours without parent node
+lNeigh : IGraph k e n -> (cur,parent : Fin k) -> List (Fin k)
+lNeigh g n p = delete p $ map fst (pairs $ neighbours g n)
+
+initAngle : Angle
+initAngle = negate 1.0 / 6.0 * pi
+
+calcAngle : (neededAngles : Nat) -> Angle -> List Angle
+calcAngle 0 a = []
+calcAngle 1 a =
+  if (a >= zero && a <= halfPi) || (a >= pi && a <= threeHalfPi)
+    then [a + twoThirdPi]
+    else [a - twoThirdPi]
+calcAngle 2 a = [a + twoThirdPi, a - twoThirdPi]
+calcAngle 3 a = ?calcThreeAngle
+calcAngle c a = ?calcStarAngles
+
+oneAngle : Angle -> Angle
+oneAngle x =
+  if (x >= zero && x <= halfPi) || (x >= pi && x <= threeHalfPi)
+    then x + twoThirdPi
+    else x - twoThirdPi
+
+
 updateNode :
      Fin k
   -> (parent : Maybe (Fin k))
@@ -45,66 +62,24 @@ updateNode :
   -> Angle
   -> State k
   -> State k
-updateNode n par pt a s =
-  case index n s of
-    Nothing => replaceAt n (Just (I par pt a)) s
-    _       => updateAt n (map {parent := par , coord := pt , angle := a }) s
+updateNode n par pt a s = replaceAt n (Just (I par pt a)) s
 
-childAngle : (current : Angle) -> (count,place : Nat) -> Angle
-childAngle cur n p =
-  case n of
-   0 => zero  -- this case should not occur
-   1 => if (cur >= zero && cur <= halfPi) || (cur >= pi && cur <= threeHalfPi)
-           then cur - piThird
-           else cur + piThird
-   2 => if (cur >= zero && cur <= halfPi) || (cur >= pi && cur <= threeHalfPi)
-           then if (p == 1) then cur - piThird else cur + piThird
-           else if (p == 1) then cur + piThird else cur - piThird
-   3 => if p == 1 then cur + halfPi
-        else if p == 2 then cur
-        else if p == 3 then cur - halfPi
-        else zero  -- should not occur
-   _ => zero  -- should not occur
+needStartPlaced : Fin k -> State k -> Bool
+needStartPlaced x = isNothing . index x
 
-drawChildNode :
-     (current,child : Fin k)
-  -> (neigh,place : Nat)
-  -> State k
-  -> Maybe (State k)
-drawChildNode cur ch nc p s =
-  let Just curP := getCoord cur s | Nothing => Nothing
-      Just curA := getAngle cur s | Nothing => Nothing
-      vect      := polar BondLengthInAngstrom curA
-      newP      := translate vect curP
-      newA      := childAngle curA nc p
-   in pure $ updateNode ch (Just cur) newP newA s
+molOrigin : Point Mol
+molOrigin = P 0.0 0.0
 
--- TODO: do not forget to update the neighbour nodes
-drawChildStar : (current : Fin k) -> List (Fin k) -> State k -> State k
-drawChildStar cur xs s = ?drawChildStar_rhs
+translate : Point Mol -> Angle -> Point Mol
+translate p a = Point.translate (polar BondLengthInAngstrom a) p
 
----- computes the preferred angle for a new bond based on the bond type
----- angles to already existing bonds.
---bondAngle : (hasTriple : Bool) -> List Angle -> Angle
---bondAngle _     []  = (negate 1.0 / 6.0) * pi
---bondAngle True  [x] = x + pi
---bondAngle False [x] =
---  if (x >= zero && x <= halfPi) || (x >= pi && x <= threeHalfPi)
---     then x + twoThirdPi
---     else x - twoThirdPi
---bondAngle _     xs  = largestBisector xs
---
----- ideal position for a new atom bound to an existing one based on the
----- largest bisector of angles between existing bonds
---bestPos : IGraph k OBond OAtom -> SmilesBond -> Fin k -> Point Id -> Point Id
---bestPos g b n p =
---  let neigh    := values (lneighbours g n)
---      bonds    := b :: map (snd . fst) neigh
---      lVect    := map (\z => pointId z - p) (snd <$> neigh)
---      ws       := mapMaybe angle lVect
---      newAngle := bondAngle (any ((Trpl ==) . type) bonds) ws
---      transV   := polar BondLengthInPixels newAngle
---   in translate transV p
+concatToDI : State k -> Fin k -> List (DrawInfo k) -> List (DrawInfo k)
+concatToDI s n l =
+  let Just parent := getParent n s | Nothing => l
+      Just coord  := getCoord n s  | Nothing => l
+      Just angle  := getAngle n s  | Nothing => l
+   in DI n parent coord angle :: l
+
 
 --------------------------------------------------------------------------------
 --      Depth first traversal
@@ -112,85 +87,87 @@ drawChildStar cur xs s = ?drawChildStar_rhs
 
 parameters {0 k : _}
            (g : IGraph k SmilesBond SmilesAtomAT)
---           {auto se : DrawerSettings}
 
+  -- gets a list of the last drawn nodes, whose neighbours had to be drawn next
   covering
-  draw : List (Fin k) -> State k -> State k
-  draw []        s = s
-  draw (n :: ns) s =
-    -- get all neighbours that needs to be checked for drawing
-    let allNeigh := map fst (pairs (neighbours g n))
-        parent   := parent n s
-        toDrawN  := maybe allNeigh (\p => delete p allNeigh) parent
-        -- TODO: Prove that this list gets smaller
-        -- TODO: Sort `toDrawN` for deciding, which branch should be drawn first
-        drawList := toDrawN ++ ns
-    -- set coords for the neighbours
-     in case getCoord n s of
-       -- Starting Node: Repeat drawing of this node with its start coord and
-       -- angle
-       Nothing =>
-         draw (n :: ns) $ updateNode n Nothing origin ((1.0 / 6.0) * pi) s
-       _       =>
-         case toDrawN of
-           -- draw other branch if exists
-           []            => draw ns s
-           [x]           =>
-             let Just s1 := drawChildNode n x 1 1 s | Nothing => s
-              in draw drawList s1
-           [x1,x2]       =>
-             let Just s1 := drawChildNode n x1 2 1 s  | Nothing => s
-                 Just s2 := drawChildNode n x2 2 2 s1 | Nothing => s
-              in draw drawList s2
-           [x1,x2,x3]    =>
-             let Just s1 := drawChildNode n x1 3 1 s  | Nothing => s
-                 Just s2 := drawChildNode n x2 3 2 s1 | Nothing => s
-                 Just s3 := drawChildNode n x2 3 3 s2 | Nothing => s
-              in draw drawList s3
-           xs            => draw drawList s -- TODO: add 'drawChildStar n xs s'
+  placeNext : List (DrawInfo k) -> State k -> State k
+  placeNext []               s = s
+  placeNext (DI n p c a :: xs) s =
+        -- list of neighbours without parent
+    let lNeigh   := lNeigh g n p
+        newS     := ?drawAndUpdate
+        infoList := foldr (concatToDI newS) [] lNeigh
+     in placeNext (infoList ++ xs) newS
+
+  -- should place the start node and (if present) one neighbour. Respectivly,
+  -- one node is the parent node of the other and vice versa.
+  covering
+  placeInit : Fin k -> State k -> State k
+  placeInit n s = case map fst (pairs $ neighbours g n) of
+    -- no neighbours, isolated atom
+    []        => replaceAt n (Just (I Nothing origin initAngle)) s
+    (x :: xs) =>
+      -- place the first neighbour
+      let initState  := replaceAt n (Just (I Nothing molOrigin initAngle)) s
+          aFirstN    := oneAngle initAngle
+          pFirstN    := translate molOrigin aFirstN
+          secState   := replaceAt x (Just (I (Just n) pFirstN aFirstN)) initState
+          drawInfos  := [DI n x origin initAngle, DI x n pFirstN aFirstN]
+       -- call `placeNext` with the two placed nodes
+       in placeNext drawInfos secState
+
+-- draws only coherent chains!
+  covering
+  draw : (start : Fin k) -> State k -> State k
+  draw n s =
+    case needStartPlaced n s of
+      True  => placeInit n s
+      False =>
+        let listInfos := ?listDrawInfo
+         in placeNext listInfos s
 
 
 --------------------------------------------------------------------------------
 --      Test
 --------------------------------------------------------------------------------
 
-stateToAtom : State k -> Fin k -> Adj k SmilesBond SmilesAtomAT -> SmilesAtomP
-stateToAtom xs n a = { position := maybe origin coord $ index n xs } a.label
-
-parameters {k : _}
-           (g : IGraph k SmilesBond SmilesAtomAT)
-  initState : State k
-  initState = replicate k Nothing
-
-  infoTransfer : State k -> Graph SmilesBond SmilesAtomP
-  infoTransfer xs = G _ $ mapWithCtxt (stateToAtom xs) g
-
-covering
-toPosition : Graph SmilesBond SmilesAtomAT -> Graph SmilesBond SmilesAtomP
-toPosition (G 0 ig) = G 0 empty
-toPosition (G (S k) ig) = infoTransfer ig (draw ig [0] (initState ig))
-
-covering
-drawSmilesMol' : String -> Either String (Graph SmilesBond SmilesAtomP)
-drawSmilesMol' s =
-  case readSmiles' s of
-    Left x  => Left x
-    Right x => Right $ toPosition $ perceiveSmilesAtomTypes x
-
--- for drawing tool
-covering
-public export
-drawSmilesMol : String -> Graph SmilesBond SmilesAtomP
-drawSmilesMol smiles =
-  case drawSmilesMol' smiles of
-   Left _  => G 0 empty
-   Right m => m
-
-covering
-main : IO ()
-main =
-  case drawSmilesMol' "C(C)(C)" of
-    Left x  => putStrLn x
-    Right x => putStrLn $ pretty show show x.graph
-
-
+--stateToAtom : State k -> Fin k -> Adj k SmilesBond SmilesAtomAT -> SmilesAtomP
+--stateToAtom xs n a = { position := maybe origin coord $ index n xs } a.label
+--
+--parameters {k : _}
+--           (g : IGraph k SmilesBond SmilesAtomAT)
+--  initState : State k
+--  initState = replicate k Nothing
+--
+--  infoTransfer : State k -> Graph SmilesBond SmilesAtomP
+--  infoTransfer xs = G _ $ mapWithCtxt (stateToAtom xs) g
+--
+--covering
+--toPosition : Graph SmilesBond SmilesAtomAT -> Graph SmilesBond SmilesAtomP
+--toPosition (G 0 ig) = G 0 empty
+--toPosition (G (S k) ig) = infoTransfer ig (draw ig [0] (initState ig))
+--
+--covering
+--drawSmilesMol' : String -> Either String (Graph SmilesBond SmilesAtomP)
+--drawSmilesMol' s =
+--  case readSmiles' s of
+--    Left x  => Left x
+--    Right x => Right $ toPosition $ perceiveSmilesAtomTypes x
+--
+---- for drawing tool
+--covering
+--public export
+--drawSmilesMol : String -> Graph SmilesBond SmilesAtomP
+--drawSmilesMol smiles =
+--  case drawSmilesMol' smiles of
+--   Left _  => G 0 empty
+--   Right m => m
+--
+--covering
+--main : IO ()
+--main =
+--  case drawSmilesMol' "C(C)(C)" of
+--    Left x  => putStrLn x
+--    Right x => putStrLn $ pretty show show x.graph
+--
+--
