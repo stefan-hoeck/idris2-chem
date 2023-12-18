@@ -30,6 +30,12 @@ getCoord n = maybe Nothing (Just . coord) . index n
 getAngle : Fin k -> State k -> Maybe (Angle)
 getAngle n = maybe Nothing (Just . angle) . index n
 
+getCoordAndAngle : Fin k -> State k -> Maybe (Point Mol, Angle)
+getCoordAndAngle n s =
+  let Just coord := getCoord n s | Nothing => Nothing
+      Just angle := getAngle n s | Nothing => Nothing
+   in Just (coord,angle)
+
 -- TODO: sort out already drawn nodes
 -- Neighbours without parent node
 lNeigh : IGraph k e n -> (cur,parent : Fin k) -> List (Fin k)
@@ -107,24 +113,22 @@ parameters {0 k : _}
     -- no neighbours, isolated atom
     []        => replaceAt n (Just (I Nothing origin initAngle)) s
     (x :: xs) =>
-      -- place the first neighbour
-      let initState  := replaceAt n (Just (I Nothing molOrigin initAngle)) s
-          aFirstN    := oneAngle initAngle
-          pFirstN    := translate molOrigin aFirstN
-          secState   := replaceAt x (Just (I (Just n) pFirstN aFirstN)) initState
-          drawInfos  := [DI n x origin initAngle, DI x n pFirstN aFirstN]
-       -- call `placeNext` with the two placed nodes
-       in placeNext drawInfos secState
-
--- draws only coherent chains!
-  covering
-  draw : (start : Fin k) -> State k -> State k
-  draw n s =
-    case needStartPlaced n s of
-      True  => placeInit n s
-      False =>
-        let listInfos := ?listDrawInfo
-         in placeNext listInfos s
+      case getCoordAndAngle n s of
+        Nothing =>
+          -- place the first neighbour
+          let initState  := replaceAt n (Just (I Nothing molOrigin initAngle)) s
+              aFirstN    := oneAngle initAngle
+              pFirstN    := translate molOrigin aFirstN
+              secState   := replaceAt x (Just (I (Just n) pFirstN aFirstN)) initState
+              drawInfos  := [DI n x origin initAngle, DI x n pFirstN aFirstN]
+           -- call `placeNext` with the two placed nodes
+           in placeNext drawInfos secState
+        Just (c,a) =>
+          let aFirstN   := oneAngle a
+              pFirstN   := translate c aFirstN
+              secState  := replaceAt x (Just (I (Just n) pFirstN aFirstN)) s
+              drawInfos := [DI n x c a, DI x n  pFirstN aFirstN]
+           in placeNext drawInfos secState
 
 
 --------------------------------------------------------------------------------
