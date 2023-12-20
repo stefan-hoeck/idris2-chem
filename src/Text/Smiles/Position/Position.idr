@@ -22,15 +22,15 @@ import Data.Fin
 lNeigh : IGraph k e n -> Fin k -> List (Fin k)
 lNeigh g n = map fst (pairs $ neighbours g n)
 
--- total count (also drawn ones) of neighbours
-%inline
-getCountNeigh : Fin k -> IGraph k e n -> Nat
-getCountNeigh n g = length $ lNeigh g n
-
 -- TODO: sort out already drawn nodes
 -- Neighbours without parent node
 lNeigh' : IGraph k e n -> (cur,parent : Fin k) -> List (Fin k)
 lNeigh' g n p = delete p $ lNeigh g n
+
+-- total count (also drawn ones) of neighbours
+%inline
+getCountNeigh : Fin k -> IGraph k e n -> Nat
+getCountNeigh n g = length $ lNeigh g n
 
 -- get the parent node if it exists
 %inline
@@ -52,25 +52,10 @@ getCoordAndAngle n s =
    in Just (coord,angle)
 
 initAngle : Angle
-initAngle = negate 1.0 / 6.0 * pi
+initAngle = (negate 1.0 / 6.0) * pi
 
--- TODO: should be more general
-calcAngle : (neededAngles : Nat) -> Angle -> List Angle
-calcAngle 0 a = []
-calcAngle 1 a =
-  if (a >= zero && a <= halfPi) || (a >= pi && a <= threeHalfPi)
-    then [a + twoThirdPi]
-    else [a - twoThirdPi]
-calcAngle 2 a = [a + twoThirdPi, a - twoThirdPi]
-calcAngle 3 a = ?calcThreeAngle
-calcAngle c a = ?calcStarAngles
-
--- TODO: should be more general
-oneAngle : Angle -> Angle
-oneAngle x =
-  if (x >= zero && x <= halfPi) || (x >= pi && x <= threeHalfPi)
-    then x + twoThirdPi
-    else x - twoThirdPi
+molOrigin : Point Mol
+molOrigin = P 0.0 0.0
 
 updateNode :
      Fin k
@@ -80,9 +65,6 @@ updateNode :
   -> State k
   -> State k
 updateNode n par pt a s = replaceAt n (Just (I par pt a)) s
-
-molOrigin : Point Mol
-molOrigin = P 0.0 0.0
 
 translate : Point Mol -> Angle -> Point Mol
 translate p a = Point.translate (polar BondLengthInAngstrom a) p
@@ -94,6 +76,47 @@ toListDI s n l =
       Just angle  := getAngle n s  | Nothing => l
    in DI n parent coord angle :: l
 
+-- calculates the first angle
+firstAngle : Angle -> Angle
+firstAngle x =
+  if (x >= zero && x <= halfPi) || (x >= pi && x <= threeHalfPi)
+    then x - piThird
+    else x + piThird
+
+-- places the first neighbour
+firstPosition :
+     Fin k
+  -> (parent : DrawInfo k)
+  -> State k
+  -> (State k, Angle)
+firstPosition n (DI i _ c a) s =
+  let newA :=
+      if (a >= zero && a <= halfPi) || (a >= pi && a <= threeHalfPi)
+        then a - piThird
+        else a + piThird
+      newP := translate c newA
+   in (updateNode n (Just i) newP newA s, newA)
+
+-- calc angles and coordinates for neighbours of a node and add to state
+placeNeighbours : List (Fin k) -> (parent : DrawInfo k) -> State k -> State k
+placeNeighbours []      di s = s
+placeNeighbours [x]     di s = fst $ firstPosition x di s
+placeNeighbours [x,y]   di s =
+  let (firstState,fstA) := firstPosition x di s
+      secAngle         := largestBisector [di.angle-pi,fstA]
+      secPos           := translate di.coord secAngle
+   in updateNode y (Just di.index) secPos secAngle firstState
+placeNeighbours [x,y,z] di s =
+  let (firstState,fstA) := firstPosition x di s
+      bisectorAngle     := largestBisector [di.angle-pi,fstA]
+      small1            := bisectorAngle - fromDegree 30.0
+      small2            := bisectorAngle + fromDegree 30.0
+      pos1              := translate di.coord small1
+      pos2              := translate di.coord small2
+      secondState       := updateNode y (Just di.index) pos1 small1 firstState
+   in updateNode z (Just di.index) pos2 small2 secondState
+placeNeighbours xs      di s = ?drawNeighbours_rhs5
+
 
 --------------------------------------------------------------------------------
 --      Depth first traversal
@@ -102,18 +125,14 @@ toListDI s n l =
 parameters {0 k : _}
            (g : IGraph k SmilesBond SmilesAtomAT)
 
-  -- calc angles and coordinates for neighbours of a node
-  placeNeighbours : DrawInfo k -> List (Fin k) -> State k -> State k
-  placeNeighbours di xs s = ?drawNeighbours_rhs
-
   -- gets a list of the last drawn nodes, whose neighbours had to be drawn next
   covering
   placeNext : List (DrawInfo k) -> State k -> State k
   placeNext []               s = s
-  placeNext (t@(DI n p c a) :: xs) s =
+  placeNext (di@(DI n p c a) :: xs) s =
         -- list of neighbours without parent
     let lNeigh   := lNeigh' g n p
-        newS     := placeNeighbours t lNeigh s
+        newS     := placeNeighbours lNeigh di s
         infoList := foldr (toListDI newS) [] lNeigh
      in placeNext (infoList ++ xs) newS
 
@@ -129,17 +148,18 @@ parameters {0 k : _}
         Nothing =>
           -- place the first neighbour
           let initState  := updateNode n (Just x) molOrigin initAngle s
-                            -- TODO: use more general function
-              aFirstN    := oneAngle initAngle
+              aFirstN    := firstAngle initAngle
               pFirstN    := translate molOrigin aFirstN
               secState   := updateNode x (Just n) pFirstN aFirstN initState
               drawInfos  := [DI n x origin initAngle, DI x n pFirstN aFirstN]
            -- call `placeNext` with the two placed nodes
            in placeNext drawInfos secState
         Just (c,a) =>
-          let aFirstN   := oneAngle a
+              -- assign parent node to stat node
+          let initState := updateNode n (Just x) c a s
+              aFirstN   := firstAngle a
               pFirstN   := translate c aFirstN
-              secState  := updateNode x (Just n) pFirstN aFirstN s
+              secState  := updateNode x (Just n) pFirstN aFirstN initState
               drawInfos := [DI n x c a, DI x n  pFirstN aFirstN]
            in placeNext drawInfos secState
 
@@ -148,43 +168,43 @@ parameters {0 k : _}
 --      Test
 --------------------------------------------------------------------------------
 
---stateToAtom : State k -> Fin k -> Adj k SmilesBond SmilesAtomAT -> SmilesAtomP
---stateToAtom xs n a = { position := maybe origin coord $ index n xs } a.label
---
---parameters {k : _}
---           (g : IGraph k SmilesBond SmilesAtomAT)
---  initState : State k
---  initState = replicate k Nothing
---
---  infoTransfer : State k -> Graph SmilesBond SmilesAtomP
---  infoTransfer xs = G _ $ mapWithCtxt (stateToAtom xs) g
---
---covering
---toPosition : Graph SmilesBond SmilesAtomAT -> Graph SmilesBond SmilesAtomP
---toPosition (G 0 ig) = G 0 empty
---toPosition (G (S k) ig) = infoTransfer ig (draw ig [0] (initState ig))
---
---covering
---drawSmilesMol' : String -> Either String (Graph SmilesBond SmilesAtomP)
---drawSmilesMol' s =
---  case readSmiles' s of
---    Left x  => Left x
---    Right x => Right $ toPosition $ perceiveSmilesAtomTypes x
---
----- for drawing tool
---covering
---public export
---drawSmilesMol : String -> Graph SmilesBond SmilesAtomP
---drawSmilesMol smiles =
---  case drawSmilesMol' smiles of
---   Left _  => G 0 empty
---   Right m => m
---
---covering
---main : IO ()
---main =
---  case drawSmilesMol' "C(C)(C)" of
---    Left x  => putStrLn x
---    Right x => putStrLn $ pretty show show x.graph
---
---
+stateToAtom : State k -> Fin k -> Adj k SmilesBond SmilesAtomAT -> SmilesAtomP
+stateToAtom xs n a = { position := maybe origin coord $ index n xs } a.label
+
+parameters {k : _}
+           (g : IGraph k SmilesBond SmilesAtomAT)
+  initState : State k
+  initState = replicate k Nothing
+
+  infoTransfer : State k -> Graph SmilesBond SmilesAtomP
+  infoTransfer xs = G _ $ mapWithCtxt (stateToAtom xs) g
+
+covering
+toPosition : Graph SmilesBond SmilesAtomAT -> Graph SmilesBond SmilesAtomP
+toPosition (G 0 ig) = G 0 empty
+toPosition (G (S k) ig) = infoTransfer ig (placeInit ig 0 (initState ig))
+
+covering
+drawSmilesMol' : String -> Either String (Graph SmilesBond SmilesAtomP)
+drawSmilesMol' s =
+  case readSmiles' s of
+    Left x  => Left x
+    Right x => Right $ toPosition $ perceiveSmilesAtomTypes x
+
+-- for drawing tool
+covering
+public export
+drawSmilesMol : String -> Graph SmilesBond SmilesAtomP
+drawSmilesMol smiles =
+  case drawSmilesMol' smiles of
+   Left _  => G 0 empty
+   Right m => m
+
+covering
+main : IO ()
+main =
+  case drawSmilesMol' "C(C)(C)" of
+    Left x  => putStrLn x
+    Right x => putStrLn $ pretty show show x.graph
+
+
