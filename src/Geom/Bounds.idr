@@ -10,7 +10,7 @@ export
 data Bounds : Type where
   ||| Bounds without extent. Contains no points.
   Empty    : Bounds
-  
+
   ||| Concrete bounds.
   Rng      : (min, max : Double) -> Bounds
 
@@ -137,3 +137,15 @@ center ts = case bounds ts of
 export
 inRectangle : (p, edge1, edge2 : Point t) -> Bool
 inRectangle p e1 e2 = inBounds p (bounds $ the (List _) [e1,e2])
+
+||| Computes the distance of a point `p` to the line segment
+||| between points `pl1` and `pl2`.
+export
+distanceToSegment : (p, pl1, pl2 : Point t) -> Double
+distanceToSegment p pl1 pl2 =
+  let pp     := perpendicularPoint p (translate (pl1 - pl2) p) 1 True
+      Just q := intersect pl1 pl2 p pp
+        | Nothing => min (distance p pl1) (distance p pl2)
+   in if inRectangle q pl1 pl2
+         then distance p q
+         else min (distance p pl1) (distance p pl2)
