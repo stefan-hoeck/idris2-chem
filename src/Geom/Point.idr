@@ -192,16 +192,18 @@ perpendicularPoint p1 p2 d flag =
 ||| Tries to compute the intersection of two lines
 ||| from points p11 to p12 and p21 to p22.
 |||
-||| This tries to solve the following system of equaltions:
+||| This tries to solve the following system of equations:
 |||
 |||   (I)  : `x11 + r * (x12 - x11) = x21 + s * (x22 - x21)`
 |||   (II) : `y11 + r * (y12 - y11) = y21 + s * (y22 - y21)`
 export
 intersect : (p11,p12,p21,p22 : Point t) -> Maybe (Point t)
 intersect (P x11 y11) (P x12 y12) (P x21 y21) (P x22 y22) =
-  let p := P (x21 - x11) (y21 - y11)
-      m := M (x12 - x11) (x21 - x22) (y12 - y11) (y21 - y22)
-   in flip apply p <$> inverse m
+  let p       := P {t} (x21 - x11) (y21 - y11)
+      m       := M (x12 - x11) (x21 - x22) (y12 - y11) (y21 - y22)
+      Just m' := inverse m | Nothing => Nothing
+      P r s   := apply m' p
+   in Just $ P (x11 + r * (x12 - x11)) (y11 + r * (y12 - y11))
 
 ||| Computes the distance of a point `p` from a line defined
 ||| by two of its points (`pl1` and `pl2`).
