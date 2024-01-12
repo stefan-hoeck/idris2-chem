@@ -1,7 +1,8 @@
 module Text.Smiles.AtomType
 
-import Chem
 import Text.Smiles.Types
+import Chem
+import Geom
 
 %default total
 
@@ -16,6 +17,14 @@ SmilesAtomAT = Atom AromIsotope Charge () () HCount AtomType Chirality ()
 public export
 0 SmilesGraphAT : Type
 SmilesGraphAT = Graph SmilesBond SmilesAtomAT
+
+-- Sould we take SmilesAtom's or SmilesAtomAT?
+||| SMILES atom with percived position and atom type and computed
+||| implicit hydrogen count
+public export
+0 SmilesAtomP : Type
+SmilesAtomP =
+  Atom AromIsotope Charge (Point Mol) () HCount AtomType Chirality ()
 
 --------------------------------------------------------------------------------
 --          Utilities

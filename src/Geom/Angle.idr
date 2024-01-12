@@ -54,6 +54,10 @@ halfPi : Angle
 halfPi = angle (pi / 2)
 
 export
+piThird : Angle
+piThird = angle (pi / 3)
+
+export
 twoThirdPi : Angle
 twoThirdPi = angle (TwoPi / 3)
 
