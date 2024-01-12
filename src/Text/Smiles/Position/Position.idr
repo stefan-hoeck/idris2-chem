@@ -97,6 +97,21 @@ firstPosition n (DI i _ c a) s =
       newP := translate c newA
    in (updateNode n (Just i) newP newA s, newA)
 
+export
+stepAngles : (numSteps : Nat) -> List Geom.Angle.Angle
+stepAngles steps =
+  let step = angle (TwoPi / cast steps)
+   in map (\x => cast x * step) [0.. pred steps]
+
+starFormation : List (Fin k) -> List Angle -> DrawInfo k -> State k -> (List Angle,State k)
+starFormation []        drawn _  s = (drawn,s)
+starFormation (x :: xs) drawn di s =
+  let bisec      := largestBisector drawn
+      Just angle := closestAngle bisec $ stepAngles 24 | Nothing => ([],s)
+      newCoord   := translate  di.coord angle
+      newState   := updateNode x (Just di.index) newCoord angle s
+   in starFormation xs drawn di newState
+
 -- calc angles and coordinates for neighbours of a node and add to state
 placeNeighbours : List (Fin k) -> (parent : DrawInfo k) -> State k -> State k
 placeNeighbours []      di s = s
@@ -115,7 +130,7 @@ placeNeighbours [x,y,z] di s =
       pos2              := translate di.coord small2
       secondState       := updateNode y (Just di.index) pos1 small1 firstState
    in updateNode z (Just di.index) pos2 small2 secondState
-placeNeighbours xs      di s = ?drawNeighbours_rhs5
+placeNeighbours xs      di s = snd $ starFormation xs [di.angle] di s
 
 
 --------------------------------------------------------------------------------
