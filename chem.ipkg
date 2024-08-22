@@ -1,6 +1,7 @@
 package chem
 
 authors    = "stefan-hoeck"
+brief      = "Pure functional cheminformatics in Idris"
 version    = 0.1.0
 sourcedir  = "src"
 depends    = base         >= 0.5.1
