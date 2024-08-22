@@ -232,9 +232,12 @@ mfMedium = """
 M  END
 """
 
+readMol' : String -> ChemRes [MolParseErr] Molfile
+readMol' = readMol
+
 export
 bench : Benchmark Void
 bench = Group "Text.Molfile.Reader.readMol" [
-    Single "large"  (basic readMol mfLarge)
-  , Single "medium" (basic readMol mfMedium)
+    Single "large"  (basic readMol' mfLarge)
+  , Single "medium" (basic readMol' mfMedium)
   ]

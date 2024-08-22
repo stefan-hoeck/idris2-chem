@@ -1,2 +1,8 @@
 build/
 *.*~
+chem-inchi/support/*.o
+chem-inchi/support/*.d
+chem-inchi/support/idris2_inchi
+chem-inchi/support/idris2_inchi.so
+chem-inchi/lib/
+lib/
