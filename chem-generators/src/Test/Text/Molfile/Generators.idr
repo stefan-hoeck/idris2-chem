@@ -3,6 +3,7 @@ module Test.Text.Molfile.Generators
 import public Test.Chem.Generators
 import public Test.Data.Graph.Generators
 import public Text.Molfile
+import public Text.Molfile.SDF
 
 import Data.Vect
 
@@ -71,16 +72,14 @@ u : Gen ()
 u = pure ()
 
 export
-atom : Gen MolAtom
-atom = [| MkAtom isotope charge coords radical u u u u |]
+atom : Gen (Maybe AtomGroup) -> Gen MolAtom
+atom nr =
+  [| MkAtom isotope charge coords radical u u u nr |]
 
 export
 simpleAtom : Gen MolAtom
-simpleAtom = [| MkAtom (map cast elem) (pure 0) coords (pure NoRadical) u u u u |]
-
-export
-bondType : Gen BondType
-bondType = element [Single,Dbl,Triple]
+simpleAtom =
+  [| MkAtom (map cast elem) (pure 0) coords (pure NoRadical) u u u (pure Nothing) |]
 
 export
 bondStereo : Gen BondStereo
@@ -92,18 +91,53 @@ bondTopo = element [AnyTopology,Ring,Chain]
 
 export
 bond : Gen MolBond
-bond = [| MkBond bool bondType bondStereo |]
+bond = [| MkBond bool bondOrder bondStereo |]
 
 export
 bondEdge : Gen (Edge 999 MolBond)
 bondEdge = edge bond
 
+lbl : Gen String
+lbl = string (linear 1 10) alphaNum
+
+groups : Gen (List AtomGroup)
+groups = withIndex [<] 1 <$> list (linear 0 4) lbl
+  where
+    withIndex : SnocList AtomGroup -> Nat -> List String -> List AtomGroup
+    withIndex sa n []      = sa <>> []
+    withIndex sa n (l::ls) = withIndex (sa :< G n l) (S n) ls
+
+group : List AtomGroup -> Gen (Maybe AtomGroup)
+group []     = pure Nothing
+group (h::t) = maybe (element $ h :: Vect.fromList t)
+
 export
 molFile : Gen Molfile
-molFile =
+molFile = do
+  gs <- groups
   [| MkMolfile
        molLine
        molLine
        molLine
-       (lgraph (linear 0 30) (linear 0 30) bond atom)
+       (lgraph (linear 1 30) (linear 0 30) bond (atom $ group gs))
   |]
+
+--------------------------------------------------------------------------------
+-- SD Files
+--------------------------------------------------------------------------------
+
+export
+sdHeader : Gen SDHeader
+sdHeader = fromMaybe "" . refineSDHeader <$> string (linear 0 70) alphaNum
+
+export
+sdValue : Gen SDValue
+sdValue = fromMaybe "" . refineSDValue <$> string (linear 0 300) printableAscii
+
+export
+structureData : Gen StructureData
+structureData = [| SD sdHeader sdValue |]
+
+export
+sdFile : Gen SDFile
+sdFile = [| SDF molFile (list (linear 0 5) structureData) |]

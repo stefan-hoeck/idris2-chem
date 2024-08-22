@@ -54,3 +54,8 @@ readFormula s = go begin neutral (unpack s) suffixAcc
       Fail x e r =>
         let B v bs := boundedErr p1 x e r
          in Left . inject $ FE s (FC Virtual bs) v
+
+export
+readFormula' : String -> Either String Formula
+readFormula' =
+  mapFst (interpolate . project1) . readFormula {es = [FormulaErr]}

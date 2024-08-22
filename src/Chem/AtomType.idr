@@ -37,6 +37,13 @@ record Bonds where
 
 %runElab derive "Bonds" [Show,Eq,Ord]
 
+||| Converts a single bond to a value of type `Bonds`
+export
+toBonds : BondOrder -> Bonds
+toBonds Single = BS 1 0 0
+toBonds Dbl    = BS 0 1 0
+toBonds Triple = BS 0 0 1
+
 ||| Add single bonds from implicit hydrogens to the list of bonds
 ||| connected to an atom
 export %inline
@@ -91,6 +98,19 @@ atomTypeAndHydrogens e r c bs =
 export
 exactAtomType : Elem -> Radical -> Charge -> Bonds -> AtomType
 
+||| True, if the given atom type is considered to be invalid.
+|||
+||| Currently, the following atom types are considered to be invalid:
+||| "unknown", "N.oxide", "N.sp2.3"
+export
+isInvalid : AtomType -> Bool
+isInvalid at =
+  case at.name of
+    "unknown" => True
+    "N.oxide" => True
+    "N.sp2.3" => True
+    _         => False
+
 --------------------------------------------------------------------------------
 --          Implementation
 --------------------------------------------------------------------------------
@@ -131,13 +151,11 @@ pair n e c r (BS s d t) h l = (hash e c r s d t, AT n l h s d t)
 atMap : SortedMap Bits32 AtomType
 atMap =
   SortedMap.fromList
-    [ pair "Ag.neutral"             Ag 0    NoRadical (BS 0 0 0) None        0
-    , pair "Ag.1"                   Ag 0    NoRadical (BS 1 0 0) None        0
+    [ pair "Ag.1"                   Ag 0    NoRadical (BS 1 0 0) None        0
     , pair "Ag.plus"                Ag 1    NoRadical (BS 0 0 0) None        0
     , pair "Al.3minus"              Al (-3) NoRadical (BS 6 0 0) None        0
     , pair "Al"                     Al 0    NoRadical (BS 3 0 0) SP3         0
     , pair "Al.3plus"               Al 3    NoRadical (BS 0 0 0) S           0
-    , pair "Ar"                     Ar 0    NoRadical (BS 0 0 0) SP3         4
     , pair "As.minus"               As (-1) NoRadical (BS 6 0 0) None        0
     , pair "As.2"                   As 0    NoRadical (BS 1 1 0) SP2         1
     , pair "As"                     As 0    NoRadical (BS 3 0 0) SP3         1
@@ -145,12 +163,11 @@ atMap =
     , pair "As.plus"                As 1    NoRadical (BS 4 0 0) SP3         0
     , pair "As.3plus"               As 3    NoRadical (BS 0 0 0) None        0
     , pair "Au.1"                   Au 0    NoRadical (BS 1 0 0) None        0
+    , pair "B"                      B  0    NoRadical (BS 3 0 0) SP2         0
     , pair "B.minus"                B  (-1) NoRadical (BS 4 0 0) SP3         0
-    , pair "B"                      B  0    NoRadical (BS 3 0 0) SP3         0
     , pair "B.3plus"                B  3    NoRadical (BS 4 0 0) SP3         0
     , pair "Ba.2plus"               Ba 2    NoRadical (BS 0 0 0) None        0
     , pair "Be.2minus"              Be (-2) NoRadical (BS 4 0 0) SP3         0
-    , pair "Be.neutral"             Be 0    NoRadical (BS 0 0 0) None        0
     , pair "Br.minus"               Br (-1) NoRadical (BS 0 0 0) SP3         4
     , pair "Br"                     Br 0    NoRadical (BS 1 0 0) SP3         3
     , pair "Br.3"                   Br 0    NoRadical (BS 1 2 0) SP3         1
@@ -170,7 +187,6 @@ atMap =
     , pair "Ca.1"                   Ca 0    NoRadical (BS 0 1 0) None        0
     , pair "Ca.2"                   Ca 0    NoRadical (BS 2 0 0) None        0
     , pair "Ca.2plus"               Ca 2    NoRadical (BS 0 0 0) S           0
-    , pair "Cd.metallic"            Cd 0    NoRadical (BS 0 0 0) None        0
     , pair "Cd.2"                   Cd 0    NoRadical (BS 2 0 0) SP          0
     , pair "Cd.2plus"               Cd 2    NoRadical (BS 0 0 0) None        0
     , pair "Cl.minus"               Cl (-1) NoRadical (BS 0 0 0) SP3         4
@@ -183,7 +199,6 @@ atMap =
     , pair "Cl.plus.sp3"            Cl 1    NoRadical (BS 2 0 0) SP3         2
     , pair "Cl.plus.radical"        Cl 1    Singlet   (BS 1 0 0) SP3         2
     , pair "Cl.perchlorate.charged" Cl 3    NoRadical (BS 4 0 0) SP3         0
-    , pair "Co.metallic"            Co 0    NoRadical (BS 0 0 0) None        0
     , pair "Co.1"                   Co 0    NoRadical (BS 1 0 0) None        0
     , pair "Co.2"                   Co 0    NoRadical (BS 2 0 0) None        0
     , pair "Co.4"                   Co 0    NoRadical (BS 4 0 0) None        0
@@ -196,12 +211,10 @@ atMap =
     , pair "Co.plus.6"              Co 1    NoRadical (BS 6 0 0) None        0
     , pair "Co.2plus"               Co 2    NoRadical (BS 0 0 0) None        0
     , pair "Co.3plus"               Co 3    NoRadical (BS 0 0 0) None        0
-    , pair "Cr.neutral"             Cr 0    NoRadical (BS 0 0 0) None        0
     , pair "Cr.4"                   Cr 0    NoRadical (BS 2 2 0) SP3         0
     , pair "Cr"                     Cr 0    NoRadical (BS 6 0 0) Octahedral  0
     , pair "Cr.3plus"               Cr 3    NoRadical (BS 0 0 0) None        0
     , pair "Cr.6plus"               Cr 6    NoRadical (BS 0 0 0) None        0
-    , pair "Cu.metallic"            Cu 0    NoRadical (BS 0 0 0) None        0
     , pair "Cu.1"                   Cu 0    NoRadical (BS 1 0 0) None        0
     , pair "Cu.plus"                Cu 1    NoRadical (BS 0 0 0) None        0
     , pair "Cu.2plus"               Cu 2    NoRadical (BS 0 0 0) None        0
@@ -214,7 +227,6 @@ atMap =
     , pair "Fe.4minus"              Fe (-4) NoRadical (BS 6 0 0) None        0
     , pair "Fe.3minus"              Fe (-3) NoRadical (BS 6 0 0) None        0
     , pair "Fe.2minus"              Fe (-2) NoRadical (BS 6 0 0) None        0
-    , pair "Fe.metallic"            Fe 0    NoRadical (BS 0 0 0) None        0
     , pair "Fe.2"                   Fe 0    NoRadical (BS 2 0 0) None        0
     , pair "Fe.3"                   Fe 0    NoRadical (BS 3 0 0) None        0
     , pair "Fe.4"                   Fe 0    NoRadical (BS 4 0 0) None        0
@@ -232,9 +244,7 @@ atMap =
     , pair "H"                      H  0    NoRadical (BS 1 0 0) S           0
     , pair "H.radical"              H  0    Singlet   (BS 0 0 0) S           0
     , pair "H.plus"                 H  1    NoRadical (BS 0 0 0) S           0
-    , pair "He"                     He 0    NoRadical (BS 0 0 0) S           1
     , pair "Hg.minus"               Hg (-1) NoRadical (BS 2 0 0) None        0
-    , pair "Hg.metallic"            Hg 0    NoRadical (BS 0 0 0) None        0
     , pair "Hg.1"                   Hg 0    NoRadical (BS 0 1 0) None        0
     , pair "Hg.2"                   Hg 0    NoRadical (BS 2 0 0) None        0
     , pair "Hg.plus"                Hg 1    NoRadical (BS 1 0 0) None        0
@@ -249,26 +259,20 @@ atMap =
     , pair "I.plus.sp2"             I  1    NoRadical (BS 0 1 0) SP2         2
     , pair "I.plus.sp3"             I  1    NoRadical (BS 2 0 0) SP3         2
     , pair "I.plus.radical"         I  1    Singlet   (BS 1 0 0) SP3         2
-    , pair "In"                     In 0    NoRadical (BS 0 0 0) None        0
     , pair "In.1"                   In 0    NoRadical (BS 0 0 1) None        0
     , pair "In.3"                   In 0    NoRadical (BS 3 0 0) None        0
     , pair "In.3plus"               In 3    NoRadical (BS 0 0 0) None        0
-    , pair "K.metallic"             K  0    NoRadical (BS 0 0 0) None        0
     , pair "K.neutral"              K  0    NoRadical (BS 1 0 0) None        0
     , pair "K.plus"                 K  1    NoRadical (BS 0 0 0) S           0
-    , pair "Kr"                     Kr 0    NoRadical (BS 0 0 0) None        0
-    , pair "Li.neutral"             Li 0    NoRadical (BS 0 0 0) None        0
     , pair "Li"                     Li 0    NoRadical (BS 1 0 0) S           0
     , pair "Li.plus"                Li 1    NoRadical (BS 0 0 0) None        0
     , pair "Mg.neutral.1"           Mg 0    NoRadical (BS 0 1 0) None        0
     , pair "Mg.neutral.2"           Mg 0    NoRadical (BS 2 0 0) None        0
     , pair "Mg.neutral"             Mg 0    NoRadical (BS 4 0 0) None        0
     , pair "Mg.2plus"               Mg 2    NoRadical (BS 0 0 0) S           0
-    , pair "Mn.metallic"            Mn 0    NoRadical (BS 0 0 0) None        0
     , pair "Mn.2"                   Mn 0    NoRadical (BS 2 0 0) None        0
     , pair "Mn.2plus"               Mn 2    NoRadical (BS 0 0 0) None        0
     , pair "Mn.3plus"               Mn 3    NoRadical (BS 0 0 0) None        0
-    , pair "Mo.metallic"            Mo 0    NoRadical (BS 0 0 0) None        0
     , pair "Mo.4"                   Mo 0    NoRadical (BS 2 2 0) None        0
     , pair "N.minus.sp2"            N  (-1) NoRadical (BS 0 1 0) SP2         2
     , pair "N.minus.sp3"            N  (-1) NoRadical (BS 2 0 0) SP3         2
@@ -285,11 +289,8 @@ atMap =
     , pair "N.plus"                 N  1    NoRadical (BS 4 0 0) SP3         0
     , pair "N.plus.sp2.radical"     N  1    Singlet   (BS 1 1 0) SP2         0
     , pair "N.plus.sp3.radical"     N  1    Singlet   (BS 3 0 0) SP3         0
-    , pair "Na.neutral"             Na 0    NoRadical (BS 0 0 0) None        0
     , pair "Na"                     Na 0    NoRadical (BS 1 0 0) S           0
     , pair "Na.plus"                Na 1    NoRadical (BS 0 0 0) S           0
-    , pair "Ne"                     Ne 0    NoRadical (BS 0 0 0) None        0
-    , pair "Ni.metallic"            Ni 0    NoRadical (BS 0 0 0) None        0
     , pair "Ni"                     Ni 0    NoRadical (BS 2 0 0) None        0
     , pair "Ni.plus"                Ni 1    NoRadical (BS 1 0 0) None        0
     , pair "Ni.2plus"               Ni 2    NoRadical (BS 0 0 0) None        0
@@ -312,7 +313,6 @@ atMap =
     , pair "P.sp1.plus"             P  1    NoRadical (BS 0 2 0) SP          0
     , pair "P.anium"                P  1    NoRadical (BS 2 1 0) SP2         0
     , pair "P.ate.charged"          P  1    NoRadical (BS 4 0 0) SP3         0
-    , pair "Pb.neutral"             Pb 0    NoRadical (BS 0 0 0) None        0
     , pair "Pb.1"                   Pb 0    NoRadical (BS 0 1 0) SP          0
     , pair "Pb.2plus"               Pb 2    NoRadical (BS 0 0 0) None        0
     , pair "Po"                     Po 0    NoRadical (BS 2 0 0) None        0
@@ -321,11 +321,8 @@ atMap =
     , pair "Pt.6"                   Pt 0    NoRadical (BS 6 0 0) None        0
     , pair "Pt.2plus"               Pt 2    NoRadical (BS 0 0 0) None        0
     , pair "Pt.2plus.4"             Pt 2    NoRadical (BS 4 0 0) None        0
-    , pair "Pu"                     Pu 0    NoRadical (BS 0 0 0) None        0
-    , pair "Ra.neutral"             Ra 0    NoRadical (BS 0 0 0) None        0
     , pair "Rb.neutral"             Rb 0    NoRadical (BS 1 0 0) None        0
     , pair "Rb.plus"                Rb 1    NoRadical (BS 0 0 0) None        0
-    , pair "Rn"                     Rn 0    NoRadical (BS 0 0 0) None        0
     , pair "Ru.3minus.6"            Ru (-3) NoRadical (BS 6 0 0) Octahedral  0
     , pair "Ru.2minus.6"            Ru (-2) NoRadical (BS 6 0 0) Octahedral  0
     , pair "Ru.6"                   Ru 0    NoRadical (BS 6 0 0) SP3D2       0
@@ -348,7 +345,6 @@ atMap =
     , pair "Sb.4"                   Sb 0    NoRadical (BS 3 1 0) None        0
     , pair "Sc.3minus"              Sc (-3) NoRadical (BS 6 0 0) Octahedral  0
     , pair "Se.2minus"              Se (-2) NoRadical (BS 0 0 0) None        4
-    , pair "Se.2"                   Se 0    NoRadical (BS 0 0 0) None        0
     , pair "Se.1"                   Se 0    NoRadical (BS 0 1 0) SP2         2
     , pair "Se.sp2.2"               Se 0    NoRadical (BS 0 2 0) SP2         1
     , pair "Se.3"                   Se 0    NoRadical (BS 2 0 0) SP3         2
@@ -366,42 +362,21 @@ atMap =
     , pair "Sr.2plus"               Sr 2    NoRadical (BS 0 0 0) None        0
     , pair "Te.3"                   Te 0    NoRadical (BS 2 0 0) SP3         2
     , pair "Te.4plus"               Te 4    NoRadical (BS 0 0 0) None        1
-    , pair "Th"                     Th 0    NoRadical (BS 0 0 0) None        0
     , pair "Ti.3minus"              Ti (-3) NoRadical (BS 6 0 0) Octahedral  0
     , pair "Ti.2"                   Ti 0    NoRadical (BS 0 2 0) Octahedral  0
     , pair "Ti.sp3"                 Ti 0    NoRadical (BS 4 0 0) SP3         0
-    , pair "Tl"                     Tl 0    NoRadical (BS 0 0 0) None        0
     , pair "Tl.1"                   Tl 0    NoRadical (BS 1 0 0) SP          1
     , pair "Tl.plus"                Tl 1    NoRadical (BS 0 0 0) None        0
     , pair "V.3minus.4"             V  (-3) NoRadical (BS 3 1 0) Tetrahedral 0
     , pair "V.3minus"               V  (-3) NoRadical (BS 6 0 0) Octahedral  0
-    , pair "W.metallic"             W  0    NoRadical (BS 0 0 0) None        0
-    , pair "Xe"                     Xe 0    NoRadical (BS 0 0 0) None        0
     , pair "Xe.3"                   Xe 0    NoRadical (BS 4 0 0) SP3D2       0
-    , pair "Zn.metallic"            Zn 0    NoRadical (BS 0 0 0) None        0
     , pair "Zn.1"                   Zn 0    NoRadical (BS 0 1 0) None        0
     , pair "Zn"                     Zn 0    NoRadical (BS 2 0 0) None        0
     , pair "Zn.2plus"               Zn 2    NoRadical (BS 2 0 0) S           0
     ]
 
-c_allene, c_sp, c_sp2, c_sp3 : AtomType
-c_allene = AT "C.allene"  0 SP  0 2 0
-c_sp     = AT "C.sp"      0 SP  1 0 1
-c_sp2    = AT "C.sp2"     0 SP2 2 1 0
-c_sp3    = AT "C.sp3"     0 SP3 4 0 0
-
--- performance optimized implementation for neutral carbons
-atomType C NoRadical 0 bs =
-  case bs of
-    BS _ 0 0 => c_sp3
-    BS _ 1 0 => c_sp2
-    BS _ 0 1 => c_sp
-    BS 0 2 0 => c_allene
-    _        => unknown
-
--- in the general case, we try to find an atom type
--- by adding up to 4 single bonds to implicit hydrogen atoms
-atomType e r c (BS s d t) =
+tryAT : Elem -> Radical -> Charge -> Bonds -> AtomType
+tryAT e r c (BS s d t) =
   fromMaybe unknown $
         lookup (hash e c r s     d t) atMap
     <|> lookup (hash e c r (s+1) d t) atMap
@@ -409,6 +384,42 @@ atomType e r c (BS s d t) =
     <|> lookup (hash e c r (s+3) d t) atMap
     <|> lookup (hash e c r (s+4) d t) atMap
 
+elemental : Elem -> AtomType
+elemental H  = AT "H" 0 S 1 0 0
+elemental N  = AT "N.sp3" 0 SP3 3 0 0
+elemental O  = AT "O.sp3" 0 SP3 2 0 0
+elemental F  = AT "F" 0 SP3 1 0 0
+elemental Cl = AT "Cl" 0 SP3 1 0 0
+elemental Br = AT "Br" 0 SP3 1 0 0
+elemental I  = AT "I" 0 SP3 1 0 0
+elemental B  = AT "B" 0 SP2 3 0 0
+elemental P  = AT "P.red" 0 None 0 0 0
+elemental e  =
+  if isMetal e
+     then AT "\{e}.metallic" 0 None 0 0 0
+     else AT "\{e}.elemental" 0 None 0 0 0
+
+c_graphite, c_allene, c_sp, c_sp2, c_sp3 : AtomType
+c_graphite = AT "C.graphite" 0 None 0 0 0
+c_allene   = AT "C.allene"   0 SP   0 2 0
+c_sp       = AT "C.sp"       0 SP   1 0 1
+c_sp2      = AT "C.sp2"      0 SP2  2 1 0
+c_sp3      = AT "C.sp3"      0 SP3  4 0 0
+
+-- performance optimized implementation for neutral carbons
+atomType C NoRadical 0 bs =
+  case bs of
+    BS 0 0 0 => c_graphite
+    BS s 0 0 => if s <= 4 then c_sp3 else unknown
+    BS s 1 0 => if s <= 2 then c_sp2 else unknown
+    BS s 0 1 => if s <= 1 then c_sp  else unknown
+    BS 0 2 0 => c_allene
+    _        => unknown
+
+-- in the general case, we try to find an atom type
+-- by adding up to 4 single bonds to implicit hydrogen atoms
+atomType e NoRadical 0 (BS 0 0 0) = elemental e
+atomType e r c bs = tryAT e r c bs
 
 -- as with `radical` this is performance optimized for carbons
 exactAtomType C NoRadical 0 bs =

@@ -21,14 +21,14 @@ SmilesGraphAT = Graph SmilesBond SmilesAtomAT
 --          Utilities
 --------------------------------------------------------------------------------
 
-toBonds : SmilesBond -> Bonds
-toBonds Sngl = BS 1 0 0
-toBonds Arom = BS 0 0 0
-toBonds Dbl  = BS 0 1 0
-toBonds Trpl = BS 0 0 1
-toBonds Quad = BS 0 0 0 -- TODO: Should we even support this?
-toBonds FW   = BS 1 0 0
-toBonds BW   = BS 1 0 0
+sbToBonds : SmilesBond -> Bonds
+sbToBonds Sngl = BS 1 0 0
+sbToBonds Arom = BS 0 0 0
+sbToBonds Dbl  = BS 0 1 0
+sbToBonds Trpl = BS 0 0 1
+sbToBonds Quad = BS 0 0 0 -- TODO: Should we even support this?
+sbToBonds FW   = BS 1 0 0
+sbToBonds BW   = BS 1 0 0
 
 -- Adjust number of bonds for nitrogen-like elements (N, P, As) with
 -- two aromatic bonds. If these have no additional single bonds, they are
@@ -60,7 +60,7 @@ calcAT : Fin k -> Adj k SmilesBond SmilesAtom -> SmilesAtomAT
 calcAT n (A at@(SubsetAtom e a) ns) =
   let iso     := MkAI e Nothing a
       arom    := count (Arom ==) ns
-      bonds   := addAromaticBonds e arom $ foldMap toBonds ns
+      bonds   := addAromaticBonds e arom $ foldMap sbToBonds ns
       (h,tpe) := atomTypeAndHydrogens e NoRadical 0 bonds
    in MkAtom iso 0 () () h tpe None ()
 
@@ -70,7 +70,7 @@ calcAT n (A (Bracket x) ns) =
       bs   :=
           addAromaticBonds e arom               -- add aromatic bonds
         . {single $= (+ cast x.hydrogen.value)} -- add bonds to implicit Hs
-        $ foldMap toBonds ns                    -- compute non-aromatic bonds
+        $ foldMap sbToBonds ns                    -- compute non-aromatic bonds
    in {type := exactAtomType e NoRadical x.charge bs} x
 
 export %inline

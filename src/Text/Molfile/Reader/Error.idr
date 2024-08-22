@@ -8,24 +8,33 @@ import Text.Parse.Manual
 %language ElabReflection
 
 public export
-data MolFileError : Type where
-  EEdge                 : MolFileError
-  EHeader               : MolFileError
-  EChiralFlag           : String -> MolFileError
-  EVersion              : String -> MolFileError
-  ESymbol               : String -> MolFileError
-  ERadical              : String -> MolFileError
-  EStereoParity         : String -> MolFileError
-  EStereoCareBox        : String -> MolFileError
-  EH0Designator         : String -> MolFileError
-  EBondType             : String -> MolFileError
-  EBondStereo           : String -> MolFileError
-  EBondTopo             : String -> MolFileError
+data MolErr : Type where
+  EEdge                 : MolErr
+  EHeader               : MolErr
+  EChiralFlag           : String -> MolErr
+  EDot                  : Char -> MolErr
+  EVersion              : String -> MolErr
+  ESymbol               : String -> MolErr
+  ERadical              : String -> MolErr
+  EStereoParity         : String -> MolErr
+  EStereoCareBox        : String -> MolErr
+  EH0Designator         : String -> MolErr
+  EBondType             : String -> MolErr
+  EBondStereo           : String -> MolErr
+  EBondTopo             : String -> MolErr
+  EOutOfBounds          : Nat -> MolErr
+  EInvalid              : String -> MolErr
+  ECoordinate           : String -> MolErr
+  EOI                   : MolErr
 
-%runElab derive "MolFileError" [Show,Eq]
+%runElab derive "MolErr" [Show,Eq]
 
 export
-Interpolation MolFileError where
+packError : SnocList Char -> (String -> MolErr) -> Either MolErr a
+packError sc f = Left . f . pack $ sc <>> []
+
+export
+Interpolation MolErr where
   interpolate v = "Invalid " ++ case v of
     EEdge                   => "bond"
     EHeader                 => ".mol-file header"
@@ -39,32 +48,20 @@ Interpolation MolFileError where
     EBondType s             => "bond type: '\{s}'"
     EBondStereo s           => "bond stereo: '\{s}'"
     EBondTopo s             => "bond topology: '\{s}'"
-
-public export
-0 Error : Type
-Error = ParseError Void MolFileError
-
-export %inline
-custom : MolFileError -> Either Error a
-custom = Left . Custom
-
-export
-customPack : SnocList Char -> (String -> MolFileError) -> Either Error a
-customPack sc f = custom (f . pack $ sc <>> [])
+    EOutOfBounds s          => "value: '\{show s}'"
+    EInvalid s              => "string: '\{s}'"
+    EDot c                  => "dot: \{show c}"
+    ECoordinate s           => "coordinate: '\{s}'"
+    EOI                     => "end of input"
 
 public export
 record MolParseErr where
   constructor MPE
-  mol     : String
-  context : FileContext
-  error   : Error
-
-export
-fromBounded : String -> Origin -> Bounded Error -> MolParseErr
-fromBounded s o (B v bs) = MPE s (FC o bs) v
+  line  : Nat
+  error : MolErr
 
 %runElab derive "MolParseErr" [Eq,Show]
 
 export
 Interpolation MolParseErr where
-  interpolate (MPE s c e) = printParseError s c e
+  interpolate (MPE l e) = "Error in .mol file line \{show l}: \{e}"

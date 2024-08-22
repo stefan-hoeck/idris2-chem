@@ -1,5 +1,6 @@
 module Profile.Text.Molfile
 
+import Text.Parse.Manual
 import public Profile
 import public Text.Molfile
 
@@ -231,12 +232,9 @@ mfMedium = """
 M  END
 """
 
-readMol' : String -> ChemRes [MolParseErr] Molfile
-readMol' = readMol Virtual
-
 export
 bench : Benchmark Void
 bench = Group "Text.Molfile.Reader.readMol" [
-    Single "large"  (basic readMol' mfLarge)
-  , Single "medium" (basic readMol' mfMedium)
+    Single "large"  (basic readMol mfLarge)
+  , Single "medium" (basic readMol mfMedium)
   ]

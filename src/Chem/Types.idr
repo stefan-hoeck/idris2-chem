@@ -164,27 +164,30 @@ Interpolation MolarMass where
 namespace MolarMass
   %runElab derive "MolarMass" [Show,Eq,Ord,RefinedDouble]
 
-public export %inline
-addMolarMass : MolarMass -> MolarMass -> MolarMass
-addMolarMass a1 a2 =
-  let res = a1.value + a2.value
-   in case hdec0 {p = Holds IsMolecularMass} res of
-        Just0 _ => MkMolarMass res
-        Nothing0 => 1.0e60
+export
+molarMass : Double -> MolarMass
+molarMass v =
+  case hdec0 {p = Holds IsMolecularMass} v of
+    Just0 _ => MkMolarMass v
+    Nothing0 => if v < 0.0 then 0 else 1.0e60
 
-public export %inline
+export %inline
+addMolarMass : MolarMass -> MolarMass -> MolarMass
+addMolarMass a1 a2 = molarMass (a1.value + a2.value)
+
+export %inline
 Semigroup MolarMass where
   (<+>) = addMolarMass
 
-public export %inline
+export %inline
 Monoid MolarMass where
   neutral = 0.0
 
-public export %inline
+export %inline
 Cast MolecularMass MolarMass where
   cast (MkMolecularMass v) = MkMolarMass v
 
-public export %inline
+export %inline
 Cast MolarMass MolecularMass where
   cast (MkMolarMass v) = MkMolecularMass v
 
@@ -199,6 +202,10 @@ interface HasMolarMass a where
   ||| In case of an `Elem`, this returns the exact mass of the most
   ||| abundant isotope.
   exactMass : a -> MolarMass
+
+export
+multByAbundance : Abundance -> MolarMass -> MolarMass
+multByAbundance a m = molarMass (a.value * m.value)
 
 --------------------------------------------------------------------------------
 --          Charge
@@ -301,6 +308,21 @@ data Hybridization : Type where
   Octahedral  : Hybridization
 
 %runElab derive "Hybridization" [Show,Eq,Ord,Finite]
+
+--------------------------------------------------------------------------------
+--          Bonds
+--------------------------------------------------------------------------------
+
+public export
+data BondOrder = Single | Dbl | Triple
+
+export %inline
+Interpolation BondOrder where
+  interpolate Single        = "1"
+  interpolate Dbl           = "2"
+  interpolate Triple        = "3"
+
+%runElab derive "BondOrder" [Eq,Show,Ord]
 
 --------------------------------------------------------------------------------
 --          Error Type

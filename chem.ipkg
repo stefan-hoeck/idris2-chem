@@ -12,14 +12,25 @@ depends    = base         >= 0.5.1
            , finite
 
 modules = Chem
+        , Chem.Aromaticity
         , Chem.Atom
         , Chem.AtomType
         , Chem.Data
         , Chem.Elem
         , Chem.Formula
         , Chem.Isotope
+        , Chem.Query
+        , Chem.Rings
+        , Chem.Rings.Relevant
         , Chem.Types
         , Chem.Util
+
+        , Chem.QSAR.HAcceptor
+        , Chem.QSAR.HDonor
+        , Chem.QSAR.JPlogP
+        , Chem.QSAR.RotatableBonds
+        , Chem.QSAR.TPSA
+        , Chem.QSAR.Util
 
         , Geom
         , Geom.Angle
@@ -36,6 +47,7 @@ modules = Chem
         , Text.Molfile.Reader.Error
         , Text.Molfile.Reader.Types
         , Text.Molfile.Reader.Util
+        , Text.Molfile.SDF
         , Text.Molfile.Types
         , Text.Molfile.Writer
 

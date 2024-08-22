@@ -76,3 +76,7 @@ aromIsotope = [| mkAI aromElem (maybe massNr) |]
   where
     mkAI : AromElem -> Maybe MassNr -> AromIsotope
     mkAI (MkAE e a) m = MkAI e m a
+
+export
+bondOrder : Gen BondOrder
+bondOrder = element [Single,Dbl,Triple]
