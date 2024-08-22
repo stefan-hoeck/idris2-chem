@@ -59,6 +59,52 @@ symbol : Elem -> String
 symbol = show
 
 --------------------------------------------------------------------------------
+--          Basic Properties
+--------------------------------------------------------------------------------
+
+export
+isNobleGas : Elem -> Bool
+isNobleGas He = True
+isNobleGas Ne = True
+isNobleGas Ar = True
+isNobleGas Kr = True
+isNobleGas Rn = True
+isNobleGas _  = False
+
+export
+isHalogen : Elem -> Bool
+isHalogen F  = True
+isHalogen Cl = True
+isHalogen Br = True
+isHalogen I  = True
+isHalogen _  = False
+
+export
+isNonmetal : Elem -> Bool
+isNonmetal H  = True
+isNonmetal C  = True
+isNonmetal N  = True
+isNonmetal P  = True
+isNonmetal O  = True
+isNonmetal S  = True
+isNonmetal Se = True
+isNonmetal e  = isNobleGas e || isHalogen e
+
+export
+isMetalloid : Elem -> Bool
+isMetalloid B  = True
+isMetalloid Si = True
+isMetalloid Ge = True
+isMetalloid As = True
+isMetalloid Sb = True
+isMetalloid Te = True
+isMetalloid _  = False
+
+export
+isMetal : Elem -> Bool
+isMetal e = not (isNonmetal e || isMetalloid e)
+
+--------------------------------------------------------------------------------
 --          Aromaticity
 --------------------------------------------------------------------------------
 

@@ -231,6 +231,27 @@ public export
 0 Coordinates : Type
 Coordinates = Vect 3 Coordinate
 
+public export
+record AtomGroup where
+  constructor G
+  nr    : Nat
+  lbl   : String
+
+%runElab derive "AtomGroup" [Show,Eq]
+
+||| Regular atom loaded from a .mol file.
+|||
+||| Note: .mol files support additional atom symbols
+||| (for instance, for queries), but for real-world molecules,
+||| this is the type to use.
+|||
+||| The type parameters are used for implicit hydrogens and atom types,
+||| which are `()` for freshly loaded `MolAtom`s but more specific after
+||| atom type perception.
+public export
+0 MolAtom' : (h,t,c : Type) -> Type
+MolAtom' h t c = Atom Isotope Charge Coordinates Radical h t c (Maybe AtomGroup)
+
 ||| Regular atom loaded from a .mol file.
 |||
 ||| Note: .mol files support additional atom symbols
@@ -238,11 +259,17 @@ Coordinates = Vect 3 Coordinate
 ||| this is the type to use.
 public export
 0 MolAtom : Type
-MolAtom = Atom Isotope Charge Coordinates Radical () () () ()
+MolAtom = MolAtom' () () ()
+
+||| .mol-file atom with perceived atom type and computed
+||| implicit hydrogen count
+public export
+0 MolAtomAT : Type
+MolAtomAT = MolAtom' HCount AtomType ()
 
 public export
 Cast Elem MolAtom where
-  cast el = MkAtom (cast el) 0 [0,0,0] NoRadical () () () ()
+  cast el = MkAtom (cast el) 0 [0,0,0] NoRadical () () () Nothing
 
 --------------------------------------------------------------------------------
 --          Bonds
@@ -252,19 +279,8 @@ Cast Elem MolAtom where
 -- BondType
 
 public export
-data BondType = Single | Dbl | Triple
-
-export %inline
-Interpolation BondType where
-  interpolate Single        = "1"
-  interpolate Dbl           = "2"
-  interpolate Triple        = "3"
-
-%runElab derive "BondType" [Eq,Show,Ord]
-
-public export
 data QueryBondType : Type where
-  BT            : BondType -> QueryBondType
+  BT            : BondOrder -> QueryBondType
   Arom          : QueryBondType
   SngOrDbl      : QueryBondType
   SngOrAromatic : QueryBondType
@@ -324,45 +340,64 @@ record MolBond where
   ||| We need this to figure out in which direction wedged bonds should
   ||| point.
   firstSmaller : Bool
-  type         : BondType
+  type         : BondOrder
   stereo       : BondStereo
 
 %runElab derive "MolBond" [Eq,Show]
 
---------------------------------------------------------------------------------
---          Properties
---------------------------------------------------------------------------------
-
-------------------------------
--- N8
-
-public export
-record N8 where
-  constructor MkN8
-  value : Nat
-  {auto 0 prf : ((1 `LTE`) && (`LTE` 8)) value}
+export %inline
+Cast MolBond BondOrder where cast = type
 
 export %inline
-Interpolation N8 where
-  interpolate = show . value
+Cast BondOrder MolBond where cast t = MkBond False t NoBondStereo
 
-namespace N8
-  %runElab derive "N8" [Show,Eq,Ord,RefinedInteger]
+export %inline
+Cast MolBond BondStereo where cast = stereo
+
+export %inline
+Cast BondStereo MolBond where cast = MkBond False Single
 
 --------------------------------------------------------------------------------
 --          MolFile
 --------------------------------------------------------------------------------
 
 public export
-0 MolGraph : Type
-MolGraph = Graph MolBond MolAtom
+data SGroupType = SUP | Other
+
+%runElab derive "SGroupType" [Show,Eq]
 
 public export
-record Molfile where
+0 MolGraph' : (h,t,c : Type) -> Type
+MolGraph' h t c = Graph MolBond (MolAtom' h t c)
+
+public export
+0 MolGraph : Type
+MolGraph = MolGraph' () () ()
+
+||| .mol-file graph with perceived atom types and computed
+||| implicit hydrogen counts
+public export
+0 MolGraphAT : Type
+MolGraphAT = MolGraph' HCount AtomType ()
+
+public export
+record Molfile' (h,t,c : Type) where
   constructor MkMolfile
   name    : MolLine
   info    : MolLine
   comment : MolLine
-  graph   : MolGraph
+  graph   : MolGraph' h t c
 
-%runElab derive "Molfile" [Show,Eq]
+%runElab derive "Molfile'" [Show,Eq]
+
+export %inline
+emptyMolFile : Molfile' h t c
+emptyMolFile = MkMolfile "" "" "" (G 0 empty)
+
+public export
+0 Molfile : Type
+Molfile = Molfile' () () ()
+
+public export
+0 MolfileAT : Type
+MolfileAT = Molfile' HCount AtomType ()

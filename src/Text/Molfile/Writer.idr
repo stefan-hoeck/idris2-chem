@@ -1,6 +1,7 @@
 module Text.Molfile.Writer
 
 import Chem
+import Data.SortedMap
 import Data.String
 import Data.Vect
 import Text.Molfile.Types
@@ -36,21 +37,35 @@ fill n = padLeft n ' ' . interpolate
 --          Properties
 --------------------------------------------------------------------------------
 
+0 GroupMap : Nat -> Type
+GroupMap k = SortedMap Nat (String, SnocList $ Fin k)
+
+
 record Props (k : Nat) where
   constructor P
   isos     : List String
   charges  : List String
   radicals : List String
+  abbr     : GroupMap k
 
 dispGroup : String -> List String -> String
 dispGroup pre vs = fastConcat $ pre :: fill 3 (length vs) :: vs
 
+abbreviations : List (String,String,List String) -> List String
+abbreviations ls =
+  map (dispGroup "M  STY" . map (\(x,_) => x ++ " SUP")) (grouped 8 ls) ++
+  map (\(x,y,_) => "M  SMT\{x} \{y}") ls ++
+  (ls >>= \(x,_,vs) => map (dispGroup "M  SAL\{x}") (grouped 15 vs))
+
+dispGrp : (Nat,String,SnocList $ Fin k) -> (String,String,List String)
+dispGrp (x,y,z) = (fill 4 x, y, map (fill 4) z <>> [])
+
 props : Props k -> List String
-props (P is cs rs) =
+props (P is cs rs abbr) =
   map (dispGroup "M  ISO") (grouped 8 is) ++
   map (dispGroup "M  CHG") (grouped 8 cs) ++
-  map (dispGroup "M  RAD") (grouped 8 rs)
-
+  map (dispGroup "M  RAD") (grouped 8 rs) ++
+  abbreviations (dispGrp <$> SortedMap.toList abbr)
 
 --------------------------------------------------------------------------------
 --          Writer
@@ -69,9 +84,16 @@ prependNonEmpty : String -> List String -> List String
 prependNonEmpty "" = id
 prependNonEmpty s  = (s::)
 
+appendLbl : Maybe AtomGroup -> Fin k -> GroupMap k -> GroupMap k
+appendLbl Nothing  _       m = m
+appendLbl (Just $ G n l) x m =
+  case lookup n m of
+    Just (l,sx) => insert n (l, sx :< x) m
+    Nothing     => insert n (l, [<x]) m
+
 adjProps :
      Fin k
-  -> Adj k b (Atom Isotope Charge Coordinates Radical h t c l)
+  -> Adj k b (Atom Isotope Charge Coordinates Radical h t c (Maybe AtomGroup))
   -> Props k
   -> Props k
 adjProps n (A a _) p =
@@ -83,36 +105,45 @@ adjProps n (A a _) p =
    in { isos     $= prependNonEmpty i
       , charges  $= prependNonEmpty c
       , radicals $= prependNonEmpty r
+      , abbr     $= appendLbl a.label n
       } p
+
+%inline atomRem : String
+atomRem = " 0  0  0  0  0  0  0  0  0  0  0  0"
+
+%inline bondRem : String
+bondRem = "  0  0  0"
+
 
 ||| General format:
 |||   xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
 export
 atom : Atom Isotope Charge Coordinates Radical h t c l -> String
-atom (MkAtom a c pos _ _ _ _ _) = fastConcat [ coords pos, fill @{IP_ISO} 4 a]
+atom (MkAtom a c pos _ _ _ _ _) =
+  fastConcat [ coords pos, fill @{IP_ISO} 4 a, atomRem]
 
 ||| General format:
 |||   111222tttsssxxxrrrccc
 export
 bond : Edge k MolBond -> String
 bond (E x y $ MkBond True t s) =
- fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s]
+ fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s, bondRem]
 bond (E x y $ MkBond False t s) =
- fastConcat [ fill 3 y, fill 3 x, fill 3 t, fill 3 s]
+ fastConcat [ fill 3 y, fill 3 x, fill 3 t, fill 3 s, bondRem]
+
+groupMap : (0 k : Nat) -> List AtomGroup -> GroupMap k
+groupMap _ = SortedMap.fromList . map (\g => (g.nr, (g.lbl, [<])))
 
 export
-writeMol :
-     (name, info, comment : MolLine)
-  -> Graph MolBond (Atom Isotope Charge Coordinates Radical h t c l)
-  -> String
-writeMol n i c (G o g) =
-  let ps := props $ foldrKV adjProps (P [] [] []) g.graph
+molLines : (name, info, comment : MolLine) -> MolGraph' h t c -> List String
+molLines n i c (G 0 _) = []
+molLines n i c (G o g) =
+  let ps := props $ foldrKV adjProps (P [] [] [] empty) g.graph
       es := map bond (edges g)
       as := foldr (\a,ls => atom a.label :: ls) (es ++ ps) g.graph
       cs := MkCounts o (length es) NonChiral V2000
-   in fastUnlines $
-      n.value :: i.value :: c.value :: counts cs :: as ++ ["M  END"]
+   in n.value :: i.value :: c.value :: counts cs :: as ++ ["M  END"]
 
 export %inline
-writeMolfile : Molfile -> String
-writeMolfile (MkMolfile n i c g) = writeMol n i c g
+writeMolfile : Molfile' h t c -> String
+writeMolfile (MkMolfile n i c g) = unlines $ molLines n i c g

@@ -1,0 +1,12 @@
+package chem-inchi
+
+authors    = "stefan-hoeck"
+version    = 0.1.0
+sourcedir  = "src"
+depends    = chem
+
+modules = Text.Inchi
+
+prebuild = "make -C support"
+
+preinstall = "make -C support install"

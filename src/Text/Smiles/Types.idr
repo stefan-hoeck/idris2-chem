@@ -181,6 +181,12 @@ namespace RingNr
 public export
 data SmilesBond = Sngl | Arom | Dbl | Trpl | Quad | FW | BW
 
+export
+Cast SmilesBond BondOrder where
+  cast Dbl  = Dbl
+  cast Trpl = Triple
+  cast _    = Single
+
 export %inline
 Interpolation SmilesBond where
   interpolate Sngl = "-"

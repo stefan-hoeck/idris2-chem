@@ -1,5 +1,6 @@
 module Geom.Point
 
+import Derive.Prelude
 import Data.Refined
 import Geom.Angle
 import Geom.Matrix
@@ -7,12 +8,13 @@ import Geom.Scale
 import Geom.Vector
 
 %default total
+%language ElabReflection
 
 --------------------------------------------------------------------------------
 --          Affine Transformations
 --------------------------------------------------------------------------------
 
-||| An affine transformation is linear transformation (currently, a rotation
+||| An affine transformation is a linear transformation (currently, a rotation
 ||| or scaling) followed by a translation in the new coordinate system.
 |||
 ||| We use affine transformations to keep track of the coordinate system
@@ -31,7 +33,7 @@ public export
 record AffineTransformation where
   constructor AT
   transform : LinearTransformation
-  translate : Vector
+  translate : Vector Id
 
 ||| The identity transformation
 public export
@@ -62,7 +64,7 @@ namespace Affine
   ||| Creates an affine transformation corresponding to a translation
   ||| by the given vector.
   export %inline
-  translate : Vector -> AffineTransformation
+  translate : Vector Id -> AffineTransformation
   translate v = AT Id v
 
 --------------------------------------------------------------------------------
@@ -86,6 +88,8 @@ record Point (t : AffineTransformation) where
   x : Double
   y : Double
 
+%runElab deriveIndexed "Point" [Show,Eq,Ord]
+
 ||| The origin at `(0,0)`.
 export
 origin : Point t
@@ -94,16 +98,16 @@ origin = P 0 0
 ||| The difference between two points is the vector connecting
 ||| the points.
 export
-(-) : Point t -> Point t -> Vector
+(-) : Point t -> Point t -> Vector t.transform
 (-) (P x1 y1) (P x2 y2) = V (x1 - x2) (y1 - y2)
 
 ||| Convert a point from one affine space to its image in another
 ||| affine space.
 export
 convert : {s,t : _} -> Point s -> Point t
-convert (P x y) =
+convert p =
   let AT l (V dx dy) := t <+> inverse s
-      V x2 y2 := transform l (V x y)
+      V x2 y2 := transform l (p - origin)
    in P (x2 + dx) (y2 + dy)
 
 export %inline
@@ -116,54 +120,70 @@ export %inline
 ||| Interface for converting a value to a point in the affine space
 ||| represented by transformation `t`.
 public export
-interface GetPoint (0 a : Type) (0 t : AffineTransformation) | a where
-  point : a -> Point t
+interface GetPoint (0 a : Type) where
+  gtrans : AffineTransformation
+  point  : a -> Point gtrans
 
-export %inline
-GetPoint (Point t) t where point = id
+public export
+{t : _} -> GetPoint (Point t) where
+  gtrans = t
+  point  = id
 
 ||| Interface for modification of a value `a` by modifying its points in the
 ||| affine space.
 public export
-interface ModPoint (0 a : Type) (0 t : AffineTransformation) | a where
-  modPoint : (Point t -> Point t) -> a -> a
+interface ModPoint (0 a : Type) where
+  mtrans   : AffineTransformation
+  modPoint : (Point mtrans -> Point mtrans) -> a -> a
 
-export %inline
-ModPoint (Point t) t where modPoint f p = f p
+public export
+{t : _} -> ModPoint (Point t) where
+  mtrans       = t
+  modPoint f p = f p
 
 ||| Places an object at a new point in space.
 export %inline
-setPoint : ModPoint a t => Point t -> a -> a
+setPoint : (m : ModPoint a) => Point (mtrans @{m}) -> a -> a
 setPoint = modPoint . const
 
 ||| Return the coordinates of a point in the reference affine space.
 export %inline
-pointId : {t : _} -> GetPoint a t => a -> Point Id
+pointId : GetPoint a => a -> Point Id
 pointId = convert . point
 
 ||| Translate an object in 2D space by the given vector.
 export
-translate : ModPoint a t => Vector -> a -> a
+translate : (m : ModPoint a) => Vector (transform $ mtrans @{m}) -> a -> a
 translate (V dx dy) = modPoint (\(P x y) => P (x + dx) (y + dy))
 
 ||| Scale an object in 2D space by the given factor.
 export
-scale : ModPoint a t => Scale -> a -> a
+scale : ModPoint a => Scale -> a -> a
 scale v = modPoint (\(P x y) => P (x * v.value) (y * v.value))
+
+||| Rotates an object by the given angle around the given poin
+export
+rotateAt : (m : ModPoint a) => Point (mtrans @{m}) -> Angle -> a -> a
+rotateAt o a = modPoint $ \p => let v := p-o in translate (rotate a v - v) p
+
+||| Rotates an object by the given angle around the origin
+export %inline
+rotate : ModPoint a => Angle -> a -> a
+rotate = rotateAt origin
 
 ||| Calculate the distance between two objects.
 export %inline
-distance : GetPoint a t => a -> a -> Double
+distance : GetPoint a => a -> a -> Double
 distance x y = length (point x - point y)
 
 ||| Calculate the distance of an object from zero.
 export %inline
-distanceFromZero : GetPoint a t => a -> Double
+distanceFromZero : GetPoint a => a -> Double
 distanceFromZero = distance origin . point
 
 ||| Checks, if two objects are no further apart than `delta`.
 export %inline
-near : GetPoint a t => (x,y : a) -> (delta : Double) -> Bool
+near : GetPoint a => (x,y : a) -> (delta : Double) -> Bool
 near x y = (distance x y <=)
 
 --------------------------------------------------------------------------------
@@ -180,12 +200,13 @@ apply (M a b c d) (P x y) = P (a * x + b * y) (c * x + d * y)
 ||| from the line (positive -> right top, negative -> left bottom).
 export
 perpendicularPoint :
-     (p1,p2 : Point k)
+     {k : _}
+  -> (p1,p2 : Point k)
   -> (distance : Double)
   -> (positive : Bool)
   -> Point k
 perpendicularPoint p1 p2 d flag =
-  let v   := scale d . normalize $ p2 - p1
+  let v   := scaleTo d $ p2 - p1
       phi := if flag then halfPi else negate halfPi
    in translate (rotate phi v) p1
 
@@ -208,7 +229,7 @@ intersect (P x11 y11) (P x12 y12) (P x21 y21) (P x22 y22) =
 ||| Computes the distance of a point `p` from a line defined
 ||| by two of its points (`pl1` and `pl2`).
 export
-distanceToLine : (p, pl1, pl2 : Point t) -> Maybe Double
+distanceToLine : {t : _} -> (p, pl1, pl2 : Point t) -> Maybe Double
 distanceToLine p pl1 pl2 =
   let pp := perpendicularPoint p (translate (pl1 - pl2) p) 1 True
    in distance p <$> intersect pl1 pl2 p pp

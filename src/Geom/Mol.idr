@@ -60,35 +60,44 @@ toCoords (P x y) cs@[_,_,z] =
       Just cy := toCoord (negate y) | Nothing => cs
    in [cx,cy,z]
 
-export
-GetPoint (Vect 3 Coordinate) Mol where
+public export
+GetPoint (Vect 3 Coordinate) where
+  gtrans = Mol
   point [x,y,_] = P (cast x) (negate $ cast y)
 
-export
-ModPoint (Vect 3 Coordinate) Mol where
+public export
+ModPoint (Vect 3 Coordinate) where
+  mtrans = Mol
   modPoint f cs = toCoords (f $ point cs) cs
 
-export %inline
-GetPoint MolAtom Mol where
+public export
+GetPoint MolAtom where
+  gtrans = Mol
   point = point . position
 
-export %inline
-ModPoint MolAtom Mol where
+public export
+ModPoint MolAtom where
+  mtrans = Mol
   modPoint f = {position $= modPoint f}
 
-export %inline
-GetPoint MolAtomAT Mol where
+public export
+GetPoint MolAtomAT where
+  gtrans = Mol
   point = point . position
 
-export %inline
-ModPoint MolAtomAT Mol where
+public export
+ModPoint MolAtomAT where
+  mtrans = Mol
   modPoint f = {position $= modPoint f}
 
-export %inline
-ModPoint a t => ModPoint (Graph b a) t where modPoint = map . modPoint
+public export
+(m : ModPoint a) => ModPoint (Graph b a) where
+  mtrans = mtrans @{m}
+  modPoint = map . modPoint
 
-export %inline
-{k : _} -> ModPoint a t => ModPoint (IGraph k b a) t where
+public export
+{k : _} -> (m : ModPoint a) => ModPoint (IGraph k b a) where
+  mtrans   = mtrans @{m}
   modPoint = map . modPoint
 
 --------------------------------------------------------------------------------
@@ -97,12 +106,12 @@ export %inline
 
 ||| Calculate the length of an edge in a molecule
 export
-bondLength : GetPoint a t => {k : _} -> IGraph k b a -> Edge k b -> Double
+bondLength : GetPoint a => {k : _} -> IGraph k b a -> Edge k b -> Double
 bondLength g (E x y _) = distance (point $ lab g x) (point $ lab g y)
 
 ||| Calculate the average length of bonds in a molecule.
 export
-averageBondLength : GetPoint a t => {k : _} -> IGraph k b a -> Maybe Double
+averageBondLength : GetPoint a => {k : _} -> IGraph k b a -> Maybe Double
 averageBondLength g = case edges g of
   [] => Nothing
   es => Just $ sum (bondLength g <$> es) / cast (length es)
@@ -110,11 +119,13 @@ averageBondLength g = case edges g of
 ||| Normalize a molecule to an average bond length of 1.25 Angstrom.
 export
 normalizeMol :
-     {auto mod : ModPoint a Mol}
-  -> {auto get : GetPoint a Mol}
+     {auto mod : ModPoint a}
+  -> {auto get : GetPoint a}
   -> {k : _}
+  -> {auto 0 mp : mtrans @{mod} === Mol}
+  -> {auto 0 gp : gtrans @{get} === Mol}
   -> IGraph k b a
   -> IGraph k b a
 normalizeMol g = case averageBondLength g of
   Nothing => g
-  Just v  => scale {t = Mol} (BondLengthInAngstrom / scale v) g
+  Just v  => scale (BondLengthInAngstrom / scale v) g

@@ -1908,7 +1908,7 @@
 		<scalar dictRef="bo:atomicNumber">17</scalar>
 	</isotope>
 	<isotope id="Cl35" number="35" elementType="Cl">
-		<scalar dictRef="bo:relativeAbundance">75.78</scalar>
+		<scalar dictRef="bo:relativeAbundance">75.76</scalar>
 		<scalar dictRef="bo:exactMass" errorValue="0.04E-6">34.96885268</scalar>
 		<scalar dictRef="bo:spin">3/2+</scalar>
 		<scalar dictRef="bo:magneticMoment">+0.82187</scalar>
@@ -1919,7 +1919,7 @@
 		<scalar dictRef="bo:atomicNumber">17</scalar>
 	</isotope>
 	<isotope id="Cl37" number="37" elementType="Cl">
-		<scalar dictRef="bo:relativeAbundance">24.22</scalar>
+		<scalar dictRef="bo:relativeAbundance">24.24</scalar>
 		<scalar dictRef="bo:exactMass" errorValue="0.05E-6">36.96590259</scalar>
 		<scalar dictRef="bo:spin">3/2+</scalar>
 		<scalar dictRef="bo:magneticMoment">+0.68412</scalar>

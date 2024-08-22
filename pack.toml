@@ -14,11 +14,6 @@ type   = "local"
 path   = "test"
 ipkg   = "test.ipkg"
 
-[custom.all.chem-doc]
-type   = "local"
-path   = "doc"
-ipkg   = "doc.ipkg"
-
 [custom.all.chem-app]
 type   = "local"
 path   = "app"
@@ -29,22 +24,33 @@ type   = "local"
 path   = "chem-data"
 ipkg   = "chem-data.ipkg"
 
+[custom.all.chem-inchi]
+type   = "local"
+path   = "chem-inchi"
+ipkg   = "chem-inchi.ipkg"
+
 [custom.all.chem-profile]
 type   = "local"
 path   = "profile"
 ipkg   = "profile.ipkg"
 
-# [custom.all.quantifiers-extra]
-# type   = "git"
-# url    = "https://github.com/stefan-hoeck/idris2-quantifiers-extra"
-# commit = "latest:main"
-# ipkg   = "quantifiers-extra.ipkg"
+[custom.all.ref1]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-ref1"
+commit = "latest:main"
+ipkg   = "ref1.ipkg"
 
 [custom.all.array]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-array"
 commit = "latest:main"
 ipkg   = "array.ipkg"
+
+[custom.all.bytestring]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-bytestring"
+commit = "latest:main"
+ipkg   = "bytestring.ipkg"
 
 [custom.all.indexed-graph]
 type   = "git"

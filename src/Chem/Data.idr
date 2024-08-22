@@ -47,11 +47,6 @@ elemData e =
     (cast $ conIndexElem e)
     @{ltOpReflectsLT _ _ $ conIndexLemma e}
 
-export %inline
-HasMolarMass Elem where
-  mass = mass . elemData
-  exactMass = exactMass . elemData
-
 ||| Returns the covalent radius (in Angstrom) of an element.
 export %inline
 radiusCovalent : Elem -> Double
@@ -117,6 +112,30 @@ isotopes e =
 export %inline
 isotopeData : Elem -> MassNr -> Maybe IsotopeData
 isotopeData e mn = find ((mn ==) . massNr) $ isotopes e
+
+||| An array of natural masses of the elements, defined as the average
+||| of the exact mass of each isotope weighted by natural abundance.
+export
+naturalMasses : IArray 118 MolarMass
+naturalMasses = mapWithIndex calcMass arrIsotopeData
+  where
+    calcMass : Fin 118 -> List IsotopeData -> MolarMass
+    calcMass x [] = mass $ at arrElemData x
+    calcMass x is =
+      let ab := sum $ map (value . naturalAbundance) is
+          m  := foldMap (\(ID _ m a) => multByAbundance a m) is
+       in molarMass (m.value / ab)
+
+export
+naturalMass : Elem -> MolarMass
+naturalMass e =
+  atNat naturalMasses (cast $ conIndexElem e)
+    @{ltOpReflectsLT _ _ $ conIndexLemma e}
+
+export %inline
+HasMolarMass Elem where
+  mass = naturalMass
+  exactMass = exactMass . elemData
 
 --------------------------------------------------------------------------------
 --          Proofs
@@ -423,8 +442,8 @@ arrIsotopeData =
       , ID {massNr = 32, exactMass = 31.972071, naturalAbundance = 0.9493}
       ]
 
-    , [ ID {massNr = 37, exactMass = 36.96590259, naturalAbundance = 0.2422}
-      , ID {massNr = 35, exactMass = 34.96885268, naturalAbundance = 0.7578}
+    , [ ID {massNr = 37, exactMass = 36.96590259, naturalAbundance = 0.2424}
+      , ID {massNr = 35, exactMass = 34.96885268, naturalAbundance = 0.7576}
       ]
 
     , [ ID {massNr = 40, exactMass = 39.96238312, naturalAbundance = 0.996003}

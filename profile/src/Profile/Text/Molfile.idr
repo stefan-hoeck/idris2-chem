@@ -1,5 +1,6 @@
 module Profile.Text.Molfile
 
+import Text.Parse.Manual
 import public Profile
 import public Text.Molfile
 
@@ -232,7 +233,7 @@ M  END
 """
 
 readMol' : String -> ChemRes [MolParseErr] Molfile
-readMol' = readMol Virtual
+readMol' = readMol
 
 export
 bench : Benchmark Void
