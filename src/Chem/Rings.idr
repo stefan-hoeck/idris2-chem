@@ -87,7 +87,7 @@ parameters (ps : MArray k (Maybe $ PreRing k))
   addRing x = mod1 rs (addFused False x)
 
   findRings : (v : Fin k) -> (curr, prev : PreRing k) -> F1' [ps,rs]
-  
+
   findRings' : List (Fin k) -> (v : Fin k) -> (next, curr, prev : PreRing k) -> F1' [ps,rs]
 
   findRings v curr prev t =
@@ -103,7 +103,7 @@ parameters (ps : MArray k (Maybe $ PreRing k))
          in findRings' xs v next curr prev t
       Just pr # t =>
         if inPreRing x prev
-          then 
+          then
             let _ # t := addRing (merge next pr) t
              in findRings' xs v next curr prev t
           else findRings' xs v next curr prev t
@@ -119,6 +119,6 @@ export
 rings : {k : _} -> (g : IGraph k e n) -> List (Bool, Ring k)
 rings g =
   run1 $ \t =>
-    let A rs t := ref1 (the (List (Bool, Ring k)) []) t
-        A ps t := newMArray k (the (Maybe $ PreRing k) Nothing) t
+    let rs # t := ref1 (the (List (Bool, Ring k)) []) t
+        ps # t := newMArray k (the (Maybe $ PreRing k) Nothing) t
      in findAll ps rs g (allFinsFast k) t
