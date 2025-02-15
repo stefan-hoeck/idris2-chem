@@ -37,23 +37,29 @@ ipkg   = "profile.ipkg"
 [custom.all.ref1]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-ref1"
-commit = "latest:main"
+commit = "latest:universal"
 ipkg   = "ref1.ipkg"
 
 [custom.all.array]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-array"
-commit = "latest:main"
+commit = "latest:universal"
 ipkg   = "array.ipkg"
 
 [custom.all.bytestring]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-bytestring"
-commit = "latest:main"
+commit = "latest:universal"
 ipkg   = "bytestring.ipkg"
 
 [custom.all.indexed-graph]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-indexed-graph"
-commit = "latest:main"
+commit = "latest:universal"
 ipkg   = "indexed-graph.ipkg"
+
+[custom.all.containers]
+type   = "git"
+url    = "https://github.com/idris-community/idris2-containers"
+commit = "latest:universal"
+ipkg   = "containers.ipkg"

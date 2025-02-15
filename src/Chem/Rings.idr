@@ -79,16 +79,16 @@ addFused f y (x :: xs) =
     then addFused True (R $ value y .|. (value (snd x))) xs
     else x :: addFused False y xs
 
-parameters (ps : MArray k (Maybe $ PreRing k))
-           (rs : Ref1 (List (Bool, Ring k)))
+parameters (ps : MArray s k (Maybe $ PreRing k))
+           (rs : Ref s (List (Bool, Ring k)))
            (g  : IGraph k e n)
 
-  addRing : Ring k -> F1' [ps,rs]
+  addRing : Ring k -> F1' s
   addRing x = mod1 rs (addFused False x)
 
-  findRings : (v : Fin k) -> (curr, prev : PreRing k) -> F1' [ps,rs]
+  findRings : (v : Fin k) -> (curr, prev : PreRing k) -> F1' s
 
-  findRings' : List (Fin k) -> (v : Fin k) -> (next, curr, prev : PreRing k) -> F1' [ps,rs]
+  findRings' : List (Fin k) -> (v : Fin k) -> (next, curr, prev : PreRing k) -> F1' s
 
   findRings v curr prev t =
     let _ # t := set ps v (Just curr) t
@@ -108,8 +108,8 @@ parameters (ps : MArray k (Maybe $ PreRing k))
              in findRings' xs v next curr prev t
           else findRings' xs v next curr prev t
 
-  findAll : List (Fin k) -> (1 t : T1 [ps,rs]) -> R1 [] (List (Bool, Ring k))
-  findAll []        = T1.do release ps; readAndRelease rs
+  findAll : List (Fin k) -> F1 s (List (Bool, Ring k))
+  findAll []        = read1 rs
   findAll (x :: xs) = T1.do
     Nothing <- get ps x | Just _ => findAll xs
     findRings x (PR 0) (PR 0)
@@ -119,6 +119,6 @@ export
 rings : {k : _} -> (g : IGraph k e n) -> List (Bool, Ring k)
 rings g =
   run1 $ \t =>
-    let rs # t := ref1 (the (List (Bool, Ring k)) []) t
+    let rs # t := ref (the (List (Bool, Ring k)) []) t
         ps # t := newMArray k (the (Maybe $ PreRing k) Nothing) t
      in findAll ps rs g (allFinsFast k) t
