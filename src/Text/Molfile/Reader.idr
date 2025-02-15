@@ -28,13 +28,13 @@ record Result where
   mol   : Molfile
 
 %inline
-right : a -> (r : MArray k (Adj k x y)) -> T1 [r] -@ R1 [] (Either e (a, IGraph k x y))
-right sg r t = let (u # t) := freeze r t in Right (sg, IG u) # t
+right : a -> MArray s k (Adj k x y) -> F1 s (Either e (a, IGraph k x y))
+right sg r t = let u # t := unsafeFreeze r t in Right (sg, IG u) # t
 
 -- Fails with an error and discards the allocated linear array at the
 -- same time.
-failAndDiscard : e -> (r : MArray k a) -> (1 t : T1 [r]) -> R1 [] (Either e b)
-failAndDiscard err r t = let _ # t := release r t in Left err # t
+failAndDiscard : e -> MArray s k a -> F1 s (Either e b)
+failAndDiscard err r t = Left err # t
 
 export
 lineTok : Parser a -> (Nat,String) -> Either MolParseErr a
@@ -50,7 +50,7 @@ GroupMap = SortedMap Nat String
 MParser k =
      List (Nat,String)
   -> GroupMap
-  -> FromMArray
+  -> WithMArray
        k
        (Adj k MolBond MolAtom)
        (Either MolParseErr ((List (Nat,String),GroupMap), IGraph k MolBond MolAtom))
@@ -104,12 +104,12 @@ typ = Util.do
 nx : (x : Nat) -> Parser a -> Parser (List a)
 nx x f = Util.do
   n <- nat 3 (\n => if 1 <= n && n <= x then Just n else Nothing)
-  repeat n f [<] 
+  repeat n f [<]
 
 lbl : Parser (Nat, String)
 lbl = Util.[| MkPair (nat 5 Just) (packChars) |]
 
-applyProps : List (Prop k) -> (r : MArray k (Adj k MolBond MolAtom)) -> F1' [r]
+applyProps : List (Prop k) -> MArray s k (Adj k MolBond MolAtom) -> F1' s
 applyProps xs r = traverse1_ (\(n,f) => modify r n (map f)) xs
 
 addGroups : List (Nat,SGroupType) -> GroupsMod
@@ -204,7 +204,7 @@ bond = Util.do
 prop : {k : _} -> Parser (STMod k)
 prop ('M'::' '::' '::'C'::'H'::'G'::t) = map Right <$> nx 8 charge t
 prop ('M'::' '::' '::'I'::'S'::'O'::t) = map Right <$> nx 8 iso t
-prop ('M'::' '::' '::'R'::'A'::'D'::t) = map Right <$> nx 8 rad t 
+prop ('M'::' '::' '::'R'::'A'::'D'::t) = map Right <$> nx 8 rad t
 prop ('M'::' '::' '::'S'::'T'::'Y'::t) = map (Left . addGroups) <$> nx 8 typ t
 prop ('M'::' '::' '::'S'::'A'::'L'::t) = map Right <$> atomList t
 prop ('M'::' '::' '::'S'::'M'::'T'::t) = map (Left . setLbl) <$> lbl t
@@ -257,7 +257,7 @@ readMolFrom (h1::h2::h3::c::t) = Prelude.do
   info               <- lineTok molLine h2
   comment            <- lineTok molLine h3
   MkCounts as bs _ _ <- lineTok counts c
-  ((ls,m),g) <- create as adjIni (atoms as bs t empty)
+  ((ls,m),g) <- alloc as adjIni (atoms as bs t empty)
   pure $ R ls $ MkMolfile name info comment (G as $ map (adjLbl m) g)
 readMolFrom ls = Left (MPE 0 EHeader)
 

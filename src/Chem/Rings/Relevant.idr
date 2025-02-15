@@ -37,7 +37,7 @@ public export
 0 Cycle : Nat -> Type
 Cycle k = List (Fin k)
 
-revOnto : SnocList a -> SnocList a -> SnocList a 
+revOnto : SnocList a -> SnocList a -> SnocList a
 revOnto sx [<] = sx
 revOnto sx (sy:<y) = revOnto (sx :< y) sy
 
@@ -63,7 +63,7 @@ parameters {o    : Nat}
   append (P l kp p fs ls) n = P (S l) (kp && smaller n) (p :< n) fs n
 
   covering
-  shortestL : SnocList (Path o) -> Queue (Path o) -> MVis o (List (Path o))
+  shortestL : SnocList (Path o) -> Queue (Path o) -> MVis s o (List (Path o))
   shortestL sp q r t =
     case dequeue q of
       Nothing => (sp <>> []) # t
@@ -98,7 +98,7 @@ parameters {o    : Nat}
     where
       %inline cycle : (p1,p2 : SnocList (Fin o)) -> Cycle k
       cycle p1 p2 = fst . lab g <$> toCycle root p1 p2
-  
+
       addCs : SnocList (Cycle k) -> Path o -> List (Path o) -> SnocList (Cycle k)
       addCs sc p [] = sc
       addCs sc p@(P len1 _ p1 f1 l1) (P len2 _ p2 f2 l2::qs) =
@@ -107,7 +107,7 @@ parameters {o    : Nat}
             False := adjacent g l1 l2 | True  => addCs (sc :< cycle p1 p2) p qs
             ns    := keys $ intersect (neighboursAsAL g l1) (neighboursAsAL g l2)
          in addCs (sc <>< map (cycle p1 . (p2 :<)) (filter smaller ns)) p qs
-    
+
       -- for the current path, we take from the remaining paths those
       -- that are at most one node longer and try to pair them to
       -- form a cycle.
