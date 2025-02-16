@@ -119,6 +119,6 @@ export
 rings : {k : _} -> (g : IGraph k e n) -> List (Bool, Ring k)
 rings g =
   run1 $ \t =>
-    let rs # t := ref (the (List (Bool, Ring k)) []) t
-        ps # t := newMArray k (the (Maybe $ PreRing k) Nothing) t
+    let rs # t := ref1 (the (List (Bool, Ring k)) []) t
+        ps # t := marray1 k (the (Maybe $ PreRing k) Nothing) t
      in findAll ps rs g (allFinsFast k) t
