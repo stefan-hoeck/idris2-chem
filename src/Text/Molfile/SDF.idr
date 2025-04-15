@@ -20,8 +20,14 @@ import Text.Molfile.Writer
 --------------------------------------------------------------------------------
 
 public export
+IsHeaderChar : Char -> Bool
+IsHeaderChar '>' = False
+IsHeaderChar '<' = False
+IsHeaderChar c   = not (isControl c) && c < '\128'
+
+public export
 0 IsHeader : String -> Type
-IsHeader = Len (<= 70) && Str (All $ AlphaNum || ('_' ===))
+IsHeader = Len (<= 70) && Str (All $ Holds IsHeaderChar)
 
 ||| Header of a SDF data entry. This is put in angles (`<>`) in an SD file.
 public export
@@ -152,7 +158,7 @@ header ('>'::xs) =
   case break ('<' ==) xs of
     (_, '<'::t) => readH [<] t
     _           => Left $ EInvalid $ pack xs
-header xs        = Left (EInvalid $ pack xs) 
+header xs        = Left (EInvalid $ pack xs)
 
 
 value : SDHeader -> SnocList String -> SDParser
