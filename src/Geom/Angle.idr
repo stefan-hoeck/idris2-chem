@@ -70,15 +70,13 @@ zero : Angle
 zero = angle 0
 
 ||| Returns the absolute distance between two angles
+|||
+||| Unlike `minDelta`, this just subtracts the smaller angle
+||| from the larger one. Therefore, `delta zero halfPi = halfPi`
+||| and `delta zero threeHalfPi = threeHalfPi`.
 export
 delta : Angle -> Angle -> Angle
 delta (A x _) (A y _) = angle (abs $ x - y)
-
-||| From a list of angles, returns the one closest to the given angle
--- TODO: remove this
-export %inline
-closestAngle : Angle -> List Angle -> Maybe Angle
-closestAngle = minBy . delta
 
 ||| Addition of two angles
 export %inline
@@ -100,6 +98,16 @@ negate (A x _) = angle $ TwoPi - x
 export %inline
 (*) : Double -> Angle -> Angle
 v * A x _ = angle $ v * x
+
+||| Returns the shortest distance between two angles.
+||| (either clockwise or counterclockwise.)
+|||
+||| Unlike `delta`, this computes the *smaller* angle
+||| between the two input values.
+||| Therefore, `minDelta zero halfPi = minDelta zero threeHalfPi = halfPi`.
+export
+minDelta : Angle -> Angle -> Angle
+minDelta x y = min (delta x y) (negate (delta x y))
 
 ||| Convert and angle to centigrees
 export %inline
