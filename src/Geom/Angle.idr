@@ -124,6 +124,11 @@ export
 bisector : Angle -> Angle -> Angle
 bisector x y = x + 0.5 * (y - x)
 
+||| From a list of angles, returns the one closest to the given angle
+export %inline
+closestAngle : Angle -> List Angle -> Maybe Angle
+closestAngle = minBy . delta
+
 export
 largestBisector : List Angle -> Angle
 largestBisector xs =
