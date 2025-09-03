@@ -2,6 +2,7 @@ module Test.Text.Lex.Formula
 
 import Test.Chem.Generators
 import Text.Lex.Formula
+import Text.ParseError
 
 %default total
 
