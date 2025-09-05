@@ -76,12 +76,8 @@ Interpolation SmilesToken where
   interpolate (TA x rs) = "\{x}\{fastConcat $ map interpolate (rs <>> [])}"
 
 public export
-0 LexErr : Type
-LexErr = ParseError Void SmilesErr
-
-public export
 0 Err : Type
-Err = ParseError SmilesToken SmilesErr
+Err = InnerError SmilesErr
 
 export
 ringBounds : Nat -> RingNr -> Bounds
@@ -128,7 +124,7 @@ strictFromDigs f [] = eoiAt p
 
 atom : SmilesAtom -> AutoTok e SmilesAtom
 atom a (']' :: xs) = Succ a xs
-atom _ (x :: xs)   = single (Expected $ Left "]") p
+atom _ (x :: xs)   = single (Expected "]") p
 atom _ []          = eoiAt p
 
 charge : AromIsotope -> Chirality -> HCount -> AutoTok e SmilesAtom
@@ -192,11 +188,11 @@ bracket xs = case maybeFromDigs Nothing (map Just . refineMassNr) xs of
 --          Tokenizer
 --------------------------------------------------------------------------------
 
-unknownChars : List Char -> (start : Nat) -> Bounded (ParseError e t)
+unknownChars : List Char -> (start : Nat) -> Bounded (InnerError e)
 unknownChars cs s =
-  B (Unknown . Left $ pack cs) $ BS (P 0 s) (P 0 $ s + length cs)
+  B (Unknown $ pack cs) $ BS (P 0 s) (P 0 $ s + length cs)
 
-unexpectedRing : (end : Nat) -> RingNr -> Bounded LexErr
+unexpectedRing : (end : Nat) -> RingNr -> Bounded Err
 unexpectedRing s rn = B (Custom UnexpectedRing) $ ringBounds s rn
 
 rng :
@@ -205,14 +201,14 @@ rng :
   -> (ringNr     : RingNr)
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
-  -> Either (Bounded LexErr) (List (SmilesToken,Nat))
+  -> Either (Bounded Err) (List (SmilesToken,Nat))
 
 tok :
      SnocList (SmilesToken,Nat)
   -> (column : Nat)
   -> (cs : List Char)
   -> (0 acc : SuffixAcc cs)
-  -> Either (Bounded LexErr) (List (SmilesToken,Nat))
+  -> Either (Bounded Err) (List (SmilesToken,Nat))
 tok st c ('C'::'l'::t) (SA r) = tok (st :< (subset Cl,c)) (c+2) t r
 tok st c ('C'     ::t) (SA r) = tok (st :< (subset C,c))  (c+1) t r
 tok st c ('c'     ::t) (SA r) = tok (st :< (subsetA C,c)) (c+1) t r
@@ -271,5 +267,5 @@ rng (st :< (TA a rs,x):< (TB b, y)) c rn cs acc =
 rng st c rn cs acc = Left (unexpectedRing c rn)
 
 export
-lexSmiles : String -> Either (Bounded LexErr) (List (SmilesToken,Nat))
+lexSmiles : String -> Either (Bounded Err) (List (SmilesToken,Nat))
 lexSmiles s = tok [<] 0 (unpack s) suffixAcc

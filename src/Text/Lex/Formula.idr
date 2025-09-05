@@ -12,17 +12,8 @@ import Text.Lex.Manual
 %default total
 
 public export
-record FormulaErr where
-  constructor FE
-  formula : String
-  context : FileContext
-  error   : ParseError Void Void
-
-%runElab derive "FormulaErr" [Eq,Show]
-
-export
-Interpolation FormulaErr where
-  interpolate (FE s c e) = printParseError s c e
+0 FormulaErr : Type
+FormulaErr = ParseError Void
 
 lexNat : Elem -> SafeTok Formula
 lexNat e []        = Succ (singleton e 1) []
@@ -31,7 +22,7 @@ lexNat e (x :: xs) =
      then singleton e <$> dec1 (digit x) xs
      else Succ (singleton e 1) (x::xs)
 
-lexPair : StrictTok e Formula
+lexPair : StrictTok Void Formula
 lexPair cs = case lexElement {orig} cs of
   Succ val xs => lexNat val xs
   Fail x y z  => Fail x y z
@@ -51,9 +42,7 @@ readFormula s = go begin neutral (unpack s) suffixAcc
       Succ v xs2 @{p}     =>
         let p2 := endPos p1 p
          in go p2 (f <+> v) xs2 r
-      Fail x e r =>
-        let B v bs := boundedErr p1 x e r
-         in Left . inject $ FE s (FC Virtual bs) v
+      Fail x e r => Left . inject $ toParseError Virtual s (boundedErr p1 x e r)
 
 export
 readFormula' : String -> Either String Formula

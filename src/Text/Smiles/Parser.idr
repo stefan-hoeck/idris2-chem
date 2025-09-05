@@ -15,21 +15,8 @@ import Text.Smiles.Types
 --------------------------------------------------------------------------------
 
 public export
-record SmilesParseErr where
-  constructor SPE
-  smiles  : String
-  context : FileContext
-  error   : Err
-
-export
-fromBounded : String -> Origin -> Bounded Err -> SmilesParseErr
-fromBounded s o (B v bs) = SPE s (FC o bs) v
-
-%runElab derive "SmilesParseErr" [Eq,Show]
-
-export
-Interpolation SmilesParseErr where
-  interpolate (SPE s c e) = printParseError s c e
+0 SmilesParseErr : Type
+SmilesParseErr = ParseError SmilesErr
 
 record RingInfo (k : Nat) where
   constructor R
@@ -208,9 +195,9 @@ readSmilesFrom :
   -> ChemRes es SmilesGraph
 readSmilesFrom o s =
   let Right ts := lexSmiles s
-        | Left e => Left $ inject (fromBounded s o (voidLeft <$> e))
+        | Left e => Left $ inject (toParseError o s e)
       Right m  := start ts
-        | Left e => Left $ inject (fromBounded s o e)
+        | Left e => Left $ inject (toParseError o s e)
    in Right m
 
 export %inline
