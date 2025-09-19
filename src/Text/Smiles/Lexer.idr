@@ -124,7 +124,7 @@ strictFromDigs f [] = eoiAt p
 
 atom : SmilesAtom -> AutoTok e SmilesAtom
 atom a (']' :: xs) = Succ a xs
-atom _ (x :: xs)   = single (Expected "]") p
+atom _ (x :: xs)   = single (Expected ["]"] (singleton x)) p
 atom _ []          = eoiAt p
 
 charge : AromIsotope -> Chirality -> HCount -> AutoTok e SmilesAtom
