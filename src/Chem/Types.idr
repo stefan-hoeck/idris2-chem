@@ -224,6 +224,10 @@ Interpolation Charge where
 namespace Charge
   %runElab derive "Charge" [Show,Eq,Ord,RefinedInteger]
 
+export
+Finite Charge where
+  values = mapMaybe refineCharge [(-16)..16]
+
 ||| Increase a charge value by one.
 |||
 ||| Returns the unmodified input if it is already the maximal valid value.
@@ -260,6 +264,10 @@ Interpolation HCount where
 
 namespace HCount
   %runElab derive "HCount" [Show,Eq,Ord,RefinedInteger]
+
+export
+Finite HCount where
+  values = mapMaybe refineHCount [0..9]
 
 ||| Placeholder for atoms without implicit hydrogens.
 |||

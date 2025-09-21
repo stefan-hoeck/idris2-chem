@@ -1,6 +1,7 @@
 module Text.Smiles.Types
 
 import Chem
+import Derive.Finite
 import Derive.Prelude
 import Derive.Refined
 
@@ -26,6 +27,10 @@ Interpolation TBIx where
 namespace TBIx
   %runElab derive "TBIx" [Show,Eq,Ord,RefinedInteger]
 
+export
+Finite TBIx where
+  values = mapMaybe refineTBIx [1..20]
+
 ||| Index for octahedral chirality flags as given in the
 ||| OpenSMILES specification
 public export
@@ -40,6 +45,10 @@ Interpolation OHIx where
 
 namespace OHIx
   %runElab derive "OHIx" [Show,Eq,Ord,RefinedInteger]
+
+export
+Finite OHIx where
+  values = mapMaybe refineOHIx [1..20]
 
 ||| Chirality flag of a bracket atom
 public export
@@ -61,7 +70,7 @@ Interpolation Chirality where
   interpolate (TB x) = "@TB\{x}"
   interpolate (OH x) = "@OH\{x}"
 
-%runElab derive "Chirality" [Ord,Eq,Show]
+%runElab derive "Chirality" [Ord,Eq,Show,Finite]
 
 --------------------------------------------------------------------------------
 --          Atoms
@@ -105,6 +114,19 @@ data SmilesAtom : Type where
 %runElab derive "SmilesAtom" [Show,Eq]
 
 export
+subset : List SmilesAtom
+subset =
+  [ SubsetAtom B False, SubsetAtom C True
+  , SubsetAtom C False, SubsetAtom B True
+  , SubsetAtom N False, SubsetAtom N True
+  , SubsetAtom O False, SubsetAtom O True
+  , SubsetAtom P False, SubsetAtom P True
+  , SubsetAtom S False, SubsetAtom S True
+  , SubsetAtom F False, SubsetAtom Cl False
+  , SubsetAtom Br False, SubsetAtom I False
+  ]
+
+export
 Cast SmilesAtom Elem where
   cast (SubsetAtom elem arom) = elem
   cast (Bracket x)            = cast x.elem
@@ -137,22 +159,33 @@ aromElem : Elem -> Bool -> String
 aromElem e True  = toLower $ symbol e
 aromElem e False = symbol e
 
+export
 encodeCharge : Charge -> String
 encodeCharge 0    = ""
 encodeCharge 1    = "+"
 encodeCharge (-1) = "-"
 encodeCharge v    = if v.value > 0 then "+\{v}" else "\{v}"
 
+export
 encodeH : HCount -> String
 encodeH 0 = ""
 encodeH 1 = "H"
 encodeH n = "H\{n}"
 
+encodeElem : Elem -> Bool -> String
+encodeElem e True  = toLower $ Elem.symbol e
+encodeElem e False = symbol e
+
+export
 encodeAtom : SmilesAtom -> String
-encodeAtom (SubsetAtom e b)  = aromElem e b
+encodeAtom (SubsetAtom e b)  = encodeElem e b
 encodeAtom (Bracket $ MkAtom (MkAI e mn ar) chrg () () h () ch ()) =
   let mns := maybe "" (show . value) mn
-   in "[\{mns}\{aromElem e ar}\{ch}\{encodeH h}\{encodeCharge chrg}]"
+   in "[\{mns}\{encodeElem e ar}\{ch}\{encodeH h}\{encodeCharge chrg}]"
+
+export %inline
+aromIsotope : Maybe MassNr -> AromElem -> AromIsotope
+aromIsotope m (MkAE e a) = MkAI e m a
 
 export %inline
 Interpolation SmilesAtom where
@@ -177,6 +210,10 @@ Interpolation RingNr where
 namespace RingNr
   %runElab derive "RingNr" [Show,Eq,Ord,RefinedInteger]
 
+export
+Finite RingNr where
+  values = mapMaybe refineRingNr [0..99]
+
 ||| A bond in a SMILES string
 public export
 data SmilesBond = Sngl | Arom | Dbl | Trpl | Quad | FW | BW
@@ -197,7 +234,20 @@ Interpolation SmilesBond where
   interpolate FW   = "/"
   interpolate BW   = "\\"
 
-%runElab derive "SmilesBond" [Show,Eq,Ord]
+%runElab derive "SmilesBond" [Show,Eq,Ord, Finite]
+
+public export
+record Ring where
+  constructor R
+  ring   : RingNr
+  bond   : Maybe SmilesBond
+
+%runElab derive "Ring" [Show,Eq,Finite]
+
+export
+Interpolation Ring where
+  interpolate (R r (Just b)) = "\{b}\{r}"
+  interpolate (R r Nothing)  = "\{r}"
 
 public export
 0 SmilesGraph : Type

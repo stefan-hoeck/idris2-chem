@@ -142,6 +142,20 @@ Cast AromElem Elem where cast = elem
 export %inline
 Cast Elem AromElem where cast e = MkAE e False
 
+public export %inline
+nonAromElem : (e : Elem) -> AromElem
+nonAromElem e = MkAE e False
+
+public export %inline
+aromElem : (e : Elem) -> (0 p : ValidAromatic e True) => AromElem
+aromElem e = MkAE e True
+
+export
+Finite AromElem where
+  values =
+    [ aromElem B, aromElem C, aromElem N, aromElem O, aromElem P, aromElem S
+    , aromElem Se, aromElem As] ++ map nonAromElem values
+
 --------------------------------------------------------------------------------
 --          Implementations
 --------------------------------------------------------------------------------
