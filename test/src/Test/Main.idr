@@ -15,7 +15,6 @@ import Test.Chem.QSAR.TPSA
 import Test.Text.Lex.Elem
 import Test.Text.Lex.Formula
 import Test.Text.Molfile
-import Test.Text.Smiles.Lexer
 import Test.Text.Smiles.Parser
 
 main : IO ()
@@ -23,7 +22,6 @@ main =
   test
     [ Lex.Elem.props
     , Chem.Elem.props
-    , Smiles.Lexer.props
     , Smiles.Parser.props
     , Molfile.props
     , Formula.props

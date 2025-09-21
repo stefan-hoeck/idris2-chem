@@ -8,6 +8,7 @@ depends    = base         >= 0.5.1
            , elab-util
            , refined
            , parser
+           , ilex
            , indexed-graph
            , quantifiers-extra
            , finite
@@ -57,6 +58,5 @@ modules = Chem
 
         , Text.Smiles
         , Text.Smiles.AtomType
-        , Text.Smiles.Lexer
         , Text.Smiles.Parser
         , Text.Smiles.Types
