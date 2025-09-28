@@ -1,6 +1,6 @@
 module Profile.Text.Molfile
 
-import Text.Parse.Manual
+import Text.ParseError
 import public Profile
 import public Text.Molfile
 
@@ -232,7 +232,7 @@ mfMedium = """
 M  END
 """
 
-readMol' : String -> ChemRes [MolParseErr] Molfile
+readMol' : String -> ChemRes [ParseError MolErr] Molfile
 readMol' = readMol
 
 export

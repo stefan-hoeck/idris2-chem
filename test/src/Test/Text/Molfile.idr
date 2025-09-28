@@ -1,8 +1,7 @@
 module Test.Text.Molfile
 
 import Text.Molfile
-import Text.Molfile.SDF
-import Text.Molfile.Reader.Util
+import Text.ParseError
 import Test.Text.Molfile.Examples
 import Test.Text.Molfile.Generators
 
@@ -13,18 +12,8 @@ import Test.Text.Molfile.Generators
 --          Properties
 --------------------------------------------------------------------------------
 
-rw :  Eq a => Show a => Gen a -> Parser a -> (a -> String) -> Property
-rw gen tok wt = property $ do
-  v <- forAll gen
-  let str : String
-      str = wt v
-
-  footnote ("Encoded: " ++ str)
-
-  lineTok tok (0,str) === Right v
-
 propRead : String -> Property
-propRead s = property1 $ case readMol {es = [MolParseErr]} s of
+propRead s = property1 $ case readMol {es = [ParseError MolErr]} s of
   Right v         => pure ()
   Left (Here err) => failWith Nothing "\{err}"
 
@@ -35,7 +24,7 @@ prop_readRoundTrip = property $ do
 
   footnote "Encoded:\n\{s}"
 
-  Right m === readMol {es = [MolParseErr]} s
+  Right m === readMol {es = [ParseError MolErr]} s
 
 prop_sdfRoundTrip : Property
 prop_sdfRoundTrip = property $ do
@@ -44,15 +33,12 @@ prop_sdfRoundTrip = property $ do
 
   footnote "Encoded:\n\{s}"
 
-  Right sdfs === readSDF {es = [MolParseErr]} s
+  Right sdfs === readSDF {es = [ParseError MolErr]} s
 
 export
 props : Group
 props = MkGroup "Molfile Properties"
-  [ ("prop_count", rw counts counts counts)
-  , ("prop_atom",  rw simpleAtom atom atom)
-  , ("prop_bond",  rw bondEdge bond bond)
-  , ("prop_sg1",   propRead sg1)
+  [ ("prop_sg1",   propRead sg1)
   , ("prop_readRoundTrip", prop_readRoundTrip)
   , ("prop_sdfRoundTrip", prop_sdfRoundTrip)
   ]

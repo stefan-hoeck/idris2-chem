@@ -2,46 +2,39 @@
 ||| go to their own dedicated module
 module Text.Molfile.Types
 
+import Data.ByteString
+import Data.SortedMap
+import Derive.Finite
 import Derive.Prelude
 import Derive.Refined
-import public Data.Refined.String
-import public Data.Refined.Integer
+import Text.ILex
+import public Text.Molfile.SData
 import public Chem
-import public Data.Nat
-import public Data.String
 import public Data.Vect
 
---------------------------------------------------------------------------------
---          Pragmas
---------------------------------------------------------------------------------
-
 %default total
-
 %language ElabReflection
-
 %hide Language.Reflection.TT.Count
 
 --------------------------------------------------------------------------------
 --          V2000 Mol Lines
 --------------------------------------------------------------------------------
 
-public export
-0 IsMolLine : String -> Type
-IsMolLine = Len (<= 80) && Str (All Printable)
-
 ||| An uninterpreted line in a v2000 mol file
 public export
 record MolLine where
   constructor MkMolLine
   value : String
-  {auto 0 prf : IsMolLine value}
 
 export %inline
 Interpolation MolLine where
   interpolate = value
 
-namespace MolLine
-  %runElab derive "MolLine" [Show,Eq,Ord,RefinedString]
+export %inline
+Cast ByteString MolLine where
+  cast = MkMolLine . toString . dropWhileEnd isNL
+
+%runElab derive "MolLine" [Show,Eq,Ord,FromString]
 
 --------------------------------------------------------------------------------
 --          Counts Line
@@ -53,12 +46,10 @@ namespace MolLine
 public export
 data MolVersion = V2000 | V3000
 
-export %inline
-Interpolation MolVersion where
-  interpolate V2000 = "V2000"
-  interpolate V3000 = "V3000"
+%runElab derive "MolVersion" [Eq,Ord,Show,Finite]
 
-%runElab derive "MolVersion" [Eq,Ord,Show]
+export %inline
+Interpolation MolVersion where interpolate = show
 
 ------------------------------
 -- ChiralFlag
@@ -66,23 +57,12 @@ Interpolation MolVersion where
 public export
 data ChiralFlag = NonChiral | Chiral
 
-%runElab derive "ChiralFlag" [Eq,Ord,Show]
+%runElab derive "ChiralFlag" [Eq,Ord,Show,Finite]
 
 export %inline
 Interpolation ChiralFlag where
   interpolate NonChiral = "0"
   interpolate Chiral    = "1"
-
-
-public export
-record Counts where
-  constructor MkCounts
-  atoms     : Nat
-  bonds     : Nat
-  chiral    : ChiralFlag
-  version   : MolVersion
-
-%runElab derive "Counts" [Eq,Show]
 
 --------------------------------------------------------------------------------
 --          Atoms
@@ -106,7 +86,7 @@ Interpolation AtomSymbol where
   interpolate LP     = "LP"
   interpolate RSharp = "R#"
 
-%runElab derive "AtomSymbol" [Show, Eq]
+%runElab derive "AtomSymbol" [Show,Eq,Finite]
 
 public export %inline
 Cast Elem AtomSymbol where cast = El
@@ -123,7 +103,7 @@ data StereoParity =
   | EvenStereo
   | AnyStereo
 
-%runElab derive "StereoParity" [Eq,Ord,Show]
+%runElab derive "StereoParity" [Eq,Ord,Show,Finite]
 
 export %inline
 Interpolation StereoParity where
@@ -144,7 +124,7 @@ Interpolation StereoCareBox where
   interpolate IgnoreStereo = "0"
   interpolate MatchStereo  = "1"
 
-%runElab derive "StereoCareBox" [Eq,Ord,Show]
+%runElab derive "StereoCareBox" [Eq,Ord,Show,Finite]
 
 ------------------------------
 -- Valence
@@ -166,6 +146,10 @@ Interpolation Valence where
 namespace Valence
   %runElab derive "Valence" [Show,Eq,Ord,RefinedInteger]
 
+export
+Finite Valence where
+  values = mapMaybe refineValence [0..15]
+
 ------------------------------
 -- H0Designator
 
@@ -178,7 +162,7 @@ Interpolation H0Designator where
   interpolate H0NotSpecified = "0"
   interpolate NoHAllowed     = "1"
 
-%runElab derive "H0Designator" [Eq,Ord,Show]
+%runElab derive "H0Designator" [Eq,Ord,Show,Finite]
 
 ------------------------------
 -- Hydrogen Count
@@ -197,6 +181,10 @@ Interpolation HydrogenCount where
 
 namespace HydrogenCount
   %runElab derive "HydrogenCount" [Show,Eq,Ord,RefinedInteger]
+
+export
+Finite HydrogenCount where
+  values = mapMaybe refineHydrogenCount [0..5]
 
 ||| We encode coordinates as a sufficiently precise integer
 ||| to prevent loss of precision during parsing.
@@ -313,7 +301,7 @@ Interpolation BondStereo where
   interpolate UpOrDown     = "4"
   interpolate Down         = "6"
 
-%runElab derive "BondStereo" [Ord, Eq, Show]
+%runElab derive "BondStereo" [Ord,Eq,Show,Finite]
 
 ------------------------------
 -- BondTopo
@@ -328,7 +316,7 @@ Interpolation BondTopo where
   interpolate Ring        = "1"
   interpolate Chain       = "2"
 
-%runElab derive "BondTopo" [Eq,Show,Ord]
+%runElab derive "BondTopo" [Eq,Show,Ord,Finite]
 
 public export
 record MolBond where
@@ -364,7 +352,7 @@ Cast BondStereo MolBond where cast = MkBond False Single
 public export
 data SGroupType = SUP | Other
 
-%runElab derive "SGroupType" [Show,Eq]
+%runElab derive "SGroupType" [Show,Eq,Finite]
 
 public export
 0 MolGraph' : (h,t,c : Type) -> Type
@@ -387,12 +375,13 @@ record Molfile' (h,t,c : Type) where
   info    : MolLine
   comment : MolLine
   graph   : MolGraph' h t c
+  dat     : List StructureData
 
 %runElab derive "Molfile'" [Show,Eq]
 
 export %inline
 emptyMolFile : Molfile' h t c
-emptyMolFile = MkMolfile "" "" "" (G 0 empty)
+emptyMolFile = MkMolfile "" "" "" (G 0 empty) []
 
 public export
 0 Molfile : Type
@@ -401,3 +390,156 @@ Molfile = Molfile' () () ()
 public export
 0 MolfileAT : Type
 MolfileAT = Molfile' HCount AtomType ()
+
+--------------------------------------------------------------------------------
+--          Error
+--------------------------------------------------------------------------------
+
+public export
+data MolErr : Type where
+  MCharge     : Integer -> MolErr
+  MMass       : Integer -> MolErr
+  MRadical    : Integer -> MolErr
+  MBondOrder  : Integer -> MolErr
+  MBondStereo : Integer -> MolErr
+  MEntries    : MolErr
+  MNode       : Nat -> MolErr
+
+%runElab derive "MolErr" [Show,Eq]
+
+export
+Interpolation MolErr where
+  interpolate v = "Invalid " ++ case v of
+    MCharge     x => "charge: \{show x}"
+    MMass       x => "mass number: \{show x}"
+    MRadical    x => "radical: \{show x}"
+    MBondOrder  x => "bond order: \{show x}"
+    MBondStereo x => "bond stereo: \{show x}"
+    MNode       x => "node: \{show x}"
+    MEntries      => ".mol file: More than one entry"
+
+--------------------------------------------------------------------------------
+--          Readers
+--------------------------------------------------------------------------------
+
+public export
+0 ErrPair : Type
+ErrPair = (ByteString,MolErr)
+
+%inline
+SPACE : Bits8
+SPACE = 32
+
+export %inline
+refineInt :
+     {auto cst : Cast Integer a}
+  -> (a -> Maybe b)
+  -> (a -> MolErr)
+  -> ByteString
+  -> Either ErrPair b
+refineInt f err bs =
+ let va      := cast {to = a} (integer $ trim bs)
+     Just vb := f va | Nothing => Left (bs, err va)
+  in Right vb
+
+export
+blockcharge : ByteString -> Either ErrPair Charge
+blockcharge bs =
+  case decimalSep SPACE bs of
+    0 => Right 0
+    1 => Right 3
+    2 => Right 2
+    3 => Right 1
+    5 => Right (-1)
+    6 => Right (-2)
+    7 => Right (-3)
+    n => Left (bs,MCharge n)
+
+export %inline
+charge : ByteString -> Either ErrPair Charge
+charge = refineInt refineCharge (MCharge . cast)
+
+export %inline
+massNr : ByteString -> Either ErrPair MassNr
+massNr = refineInt refineMassNr (MMass . cast)
+
+export
+radical : ByteString -> Either ErrPair Radical
+radical bs =
+  case decimalSep SPACE bs of
+    1 => Right Singlet
+    2 => Right Doublet
+    3 => Right Triplet
+    0 => Right NoRadical
+    n => Left (bs, MRadical n)
+
+export
+sgroupType : ByteString ->  SGroupType
+sgroupType bs =
+  case toString $ trim bs of
+    "SUP" => SUP
+    _     => Other
+
+export
+bondOrder : ByteString -> Either ErrPair BondOrder
+bondOrder bs =
+  case decimalSep SPACE bs of
+    1 => Right Single
+    2 => Right Dbl
+    3 => Right Triple
+    n => Left (bs, MBondOrder n)
+
+export
+bondStereo : ByteString -> Either ErrPair BondStereo
+bondStereo bs =
+  case decimalSep SPACE bs of
+    0 => Right NoBondStereo
+    1 => Right Up
+    3 => Right CisOrTrans
+    4 => Right UpOrDown
+    6 => Right Down
+    n => Left (bs, MBondStereo n)
+
+export %inline
+nat : ByteString -> Nat
+nat = cast . decimalSep SPACE
+
+export
+node : {k : _} -> ByteString -> Either ErrPair (Fin k)
+node bs =
+  case tryNatToFin (pred $ nat bs) of
+    Just n  => Right n
+    Nothing => Left (bs, MNode $ nat bs)
+
+export
+uedge : {k : _} -> Fin k -> ByteString -> Either ErrPair (Edge k ())
+uedge x bs =
+  case tryNatToFin (pred $ nat bs) >>= \y => mkEdge x y () of
+    Just n  => Right n
+    Nothing => Left (bs, MNode $ nat bs)
+
+%inline
+toCoord : Integer -> Coordinate
+toCoord = fromMaybe 0 . refineCoordinate
+
+export
+coord : (start, length : Nat) -> ByteString -> Coordinate
+coord start length bs =
+ let BS n bv := substring start length bs
+  in go n bv
+  where
+    go : (k : Nat) -> ByteVect n -> (x : Ix k n) => Coordinate
+    go (S k) bv =
+      case bv `ix` k of
+        32 => go k bv -- ' '
+        45 => toCoord (negate $ decimalSepBV bv 46 0 k) -- '-'
+        b  => toCoord (decimalSepBV bv 46 (decimaldigit b) k)
+    go 0     bv = 0
+
+export %inline
+setMass : MassNr -> Isotope -> Isotope
+setMass v = {mass := Just v}
+
+export %inline
+groupLbl : SortedMap Nat String -> AtomGroup -> AtomGroup
+groupLbl m g@(G n l) = maybe g (G n) (lookup n m)

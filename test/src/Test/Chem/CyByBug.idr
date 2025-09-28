@@ -4,6 +4,7 @@ import Chem
 import Chem.Aromaticity
 import Chem.Query
 import Text.Molfile
+import Text.ParseError
 import Hedgehog
 
 %default total
@@ -13,7 +14,7 @@ Grph = Graph MolBond MolAtomAT
 
 readGrph : String -> Either String Grph
 readGrph s =
-  case readMol {es = [MolParseErr]} s of
+  case readMol {es = [ParseError MolErr]} s of
     Left (Here err) => Left "\{err}"
     Right g         => Right $ perceiveMolAtomTypes g.graph
 
