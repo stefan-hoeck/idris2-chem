@@ -335,7 +335,7 @@ sdata =
 
 sdvalue : Steps q CSz CSTCK
 sdvalue =
-  [ newline (star ' ' >> newline) endSDValue
+  [ newline newline endSDValue
   , convline (star dot >> newline) (pushStr SDValue . toString . dropWhileEnd isNL)
   ]
 
