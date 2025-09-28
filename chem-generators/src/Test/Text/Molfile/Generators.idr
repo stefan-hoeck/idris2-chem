@@ -3,7 +3,6 @@ module Test.Text.Molfile.Generators
 import public Test.Chem.Generators
 import public Test.Data.Graph.Generators
 import public Text.Molfile
-import public Text.Molfile.SDF
 
 import Data.Vect
 
@@ -11,8 +10,7 @@ import Data.Vect
 
 export
 molLine : Gen MolLine
-molLine =
-  fromMaybe "" . refineMolLine <$> string (linear 0 80) printableAscii
+molLine = MkMolLine <$> string (linear 0 80) printableAscii
 
 export
 molVersion : Gen MolVersion
@@ -21,22 +19,6 @@ molVersion = element [V2000, V3000]
 export
 chiralFlag : Gen ChiralFlag
 chiralFlag = element [NonChiral, Chiral]
-
-export
-count : Gen Nat
-count = nat (linear 0 999)
-
-export
-smallCount : Gen Nat
-smallCount = nat (linear 0 30)
-
-export
-counts : Gen Counts
-counts = [| MkCounts count count chiralFlag molVersion |]
-
-export
-smallCounts : Gen Counts
-smallCounts = [| MkCounts smallCount smallCount chiralFlag molVersion |]
 
 export
 stereoParity : Gen StereoParity
@@ -112,21 +94,6 @@ group []     = pure Nothing
 group (h::t) = maybe (element $ h :: Vect.fromList t)
 
 export
-molFile : Gen Molfile
-molFile = do
-  gs <- groups
-  [| MkMolfile
-       molLine
-       molLine
-       molLine
-       (lgraph (linear 1 30) (linear 0 30) bond (atom $ group gs))
-  |]
-
---------------------------------------------------------------------------------
--- SD Files
---------------------------------------------------------------------------------
-
-export
 sdHeader : Gen SDHeader
 sdHeader = fromMaybe "" . refineSDHeader <$> string (linear 0 70) alphaNum
 
@@ -139,5 +106,13 @@ structureData : Gen StructureData
 structureData = [| SD sdHeader sdValue |]
 
 export
-sdFile : Gen SDFile
-sdFile = [| SDF molFile (list (linear 0 5) structureData) |]
+molFile : Gen Molfile
+molFile = do
+  gs <- groups
+  [| MkMolfile
+       molLine
+       molLine
+       molLine
+       (lgraph (linear 1 30) (linear 0 30) bond (atom $ group gs))
+       (list (linear 0 5) structureData)
+  |]

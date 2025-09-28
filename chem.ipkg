@@ -45,11 +45,8 @@ modules = Chem
 
         , Text.Molfile
         , Text.Molfile.AtomType
-        , Text.Molfile.Reader
-        , Text.Molfile.Reader.Error
-        , Text.Molfile.Reader.Types
-        , Text.Molfile.Reader.Util
-        , Text.Molfile.SDF
+        , Text.Molfile.Parser
+        , Text.Molfile.SData
         , Text.Molfile.Types
         , Text.Molfile.Writer
 

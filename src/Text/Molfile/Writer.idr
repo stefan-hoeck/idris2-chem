@@ -72,8 +72,8 @@ props (P is cs rs abbr) =
 --------------------------------------------------------------------------------
 
 export
-counts : Counts -> String
-counts (MkCounts na nb c v) =
+counts : (na,nb : Nat) -> ChiralFlag -> MolVersion -> String
+counts na nb c v =
   fastConcat [fill 3 na, fill 3 nb, fill 6 c, fill 27 v]
 
 coords : Vect 3 Coordinate -> String
@@ -141,9 +141,31 @@ molLines n i c (G o g) =
   let ps := props $ foldrKV adjProps (P [] [] [] empty) g.graph
       es := map bond (edges g)
       as := foldr (\a,ls => atom a.label :: ls) (es ++ ps) g.graph
-      cs := MkCounts o (length es) NonChiral V2000
-   in n.value :: i.value :: c.value :: counts cs :: as ++ ["M  END"]
+   in n.value :: i.value :: c.value :: counts o (length es) NonChiral V2000 :: as ++ ["M  END"]
 
 export %inline
 writeMolfile : Molfile' h t c -> String
-writeMolfile (MkMolfile n i c g) = unlines $ molLines n i c g
+writeMolfile (MkMolfile n i c g _) = unlines $ molLines n i c g
+
+--------------------------------------------------------------------------------
+-- Writing SD-files
+--------------------------------------------------------------------------------
+
+export %inline
+sdfDelimiter : String
+sdfDelimiter = "$$$$"
+
+writeV : SDValue -> List String
+writeV "" = [""]
+writeV v  = (map pack . grouped 200 $ unpack v.value) ++ [""]
+
+writeStructureData : StructureData -> List String
+writeStructureData (SD h v) = "> <\{h}>" :: writeV v
+
+writeSDFile : Molfile' h t c -> List String
+writeSDFile (MkMolfile n i c g ds) =
+  molLines n i c g ++ (ds >>= writeStructureData) ++ [sdfDelimiter]
+
+export
+writeSDF : List (Molfile' h t c) -> String
+writeSDF = unlines . (>>= writeSDFile)
