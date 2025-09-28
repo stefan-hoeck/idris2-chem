@@ -178,7 +178,7 @@ parameters {auto sk : CSTCK q}
   remString = T1.do
     p  <- read1 sk.pos
     bs <- read1 sk.bytes_
-    pure (toString $ trim $ drop p bs)
+    pure (toString $ dropWhileEnd isNL $ drop p bs)
 
   %inline
   read : (ByteString -> a) -> (len : Nat) -> F1 q a
@@ -265,8 +265,7 @@ parameters {auto sk : CSTCK q}
     mod1 sk.groups (insert n "")
 
   smt = T1.do
-    drop 6
-    n <- read nat 3
+    n <- read nat 5
     s <- remString
     mod1 sk.groups $ \m => case lookup n m of
       Just _  => insert n s m
@@ -324,6 +323,7 @@ prop2 =
   , line 6 ("M  STY" >> styExpr >> newline) sty
   , line 6 ("M  SMT " >> smtExpr >> newline) smt
   , newline' ("M  END" >> star dot >> opt newline) EndMol
+  , newline' ("M  " >> star dot >> newline) Prop2
   ]
 
 sdata : Steps q CSz CSTCK
@@ -336,7 +336,7 @@ sdata =
 sdvalue : Steps q CSz CSTCK
 sdvalue =
   [ newline (star ' ' >> newline) endSDValue
-  , convline (star dot >> newline) (pushStr SDValue . toString . trimRight)
+  , convline (star dot >> newline) (pushStr SDValue . toString . dropWhileEnd isNL)
   ]
 
 ctabTrans : Lex1 q CSz CSTCK

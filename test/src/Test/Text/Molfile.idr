@@ -28,7 +28,7 @@ prop_readRoundTrip = property $ do
 
 prop_sdfRoundTrip : Property
 prop_sdfRoundTrip = property $ do
-  sdfs <- forAll (list (linear 1 10) molFile)
+  sdfs <- forAll (list (linear 1 10) sdFile)
   let s := writeSDF sdfs
 
   footnote "Encoded:\n\{s}"

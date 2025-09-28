@@ -114,5 +114,17 @@ molFile = do
        molLine
        molLine
        (lgraph (linear 1 30) (linear 0 30) bond (atom $ group gs))
+       (pure [])
+  |]
+
+export
+sdFile : Gen Molfile
+sdFile = do
+  gs <- groups
+  [| MkMolfile
+       molLine
+       molLine
+       molLine
+       (lgraph (linear 1 30) (linear 0 30) bond (atom $ group gs))
        (list (linear 0 5) structureData)
   |]

@@ -32,7 +32,7 @@ Interpolation MolLine where
 
 export %inline
 Cast ByteString MolLine where
-  cast = MkMolLine . toString . trimRight
+  cast = MkMolLine . toString . dropWhileEnd isNL
 
 %runElab derive "MolLine" [Show,Eq,Ord,FromString]
 
