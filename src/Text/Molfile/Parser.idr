@@ -66,6 +66,17 @@ coordinate =
     optmin = ' ' <|> '-' <|> digit
     rem    = '.' >> repeat 4 digit
 
+spaces : RExp False
+spaces = star ' '
+
+mv30 : RExp True
+mv30 = "M  V30" >> spaces
+
+begin3, end3 : RExp True -> RExp True
+begin3 x = mv30 >> "BEGIN" >> spaces >> x >> star dot >> newline
+end3   x = mv30 >> "END" >> spaces >> x >> spaces >> newline
+countsExpr = mv30 >> "COUNTS" >> spaces
+
 --------------------------------------------------------------------------------
 -- Stack and State
 --------------------------------------------------------------------------------
@@ -73,7 +84,8 @@ coordinate =
 %runElab deriveParserState "CSz" "CST"
   [ "CErr", "H1", "H2", "H3", "Counts", "EndMol", "CDone" -- general states
   , "Coords2", "Sym2", "Chrg2", "Bnd2", "Prop2" -- V2000 states
-  , "SData", "SDValue"
+  , "Counts3", "CAtom3", "CBond3" -- V3000 states
+  , "SData", "SDValue" -- SD Files
   ]
 
 record MGraph (q : Type) where
@@ -167,6 +179,34 @@ parameters {auto sk : CSTCK q}
   failErr p = fail p >> pure CErr
 
   %inline
+  h1,h2,h3 : ByteString -> F1 q CST
+  h1 bs = writeAs sk.h1 (cast bs) H2
+  h2 bs = writeAs sk.h2 (cast bs) H3
+  h3 bs = writeAs sk.h3 (cast bs) Counts
+
+  checkBond : F1 q CST
+  checkBond = T1.do
+    S k <- read1 sk.count | 0 => pure Prop2
+    writeAs sk.count k Bnd2
+
+  end : F1 q CST
+  end = T1.do
+    h1   <- replace1 sk.h1 ""
+    h2   <- replace1 sk.h2 ""
+    h3   <- replace1 sk.h3 ""
+    sds  <- getList sk.sdvals
+    mg   <- read1 sk.mgraph
+    grps <- replace1 sk.groups SM.empty
+    lupdNodes mg.graph $ {label $= map (groupLbl grps)}
+    g  <- Array.Core.unsafeFreeze mg.graph
+    push1 sk.stack_ (MkMolfile h1 h2 h3 (G _ $ IG g) sds)
+    pure H1
+
+--------------------------------------------------------------------------------
+-- V2000 Transitions
+--------------------------------------------------------------------------------
+
+  %inline
   inc : Nat -> F1 q Nat
   inc k = read1 sk.pos >>= \n => writeAs sk.pos (k+n) n
 
@@ -186,31 +226,6 @@ parameters {auto sk : CSTCK q}
     bs <- read1 sk.bytes_
     p  <- inc len
     pure (f $ substring p len bs)
-
-
-  end : F1 q CST
-  end = T1.do
-    h1   <- replace1 sk.h1 ""
-    h2   <- replace1 sk.h2 ""
-    h3   <- replace1 sk.h3 ""
-    sds  <- getList sk.sdvals
-    mg   <- read1 sk.mgraph
-    grps <- replace1 sk.groups SM.empty
-    lupdNodes mg.graph $ {label $= map (groupLbl grps)}
-    g  <- Array.Core.unsafeFreeze mg.graph
-    push1 sk.stack_ (MkMolfile h1 h2 h3 (G _ $ IG g) sds)
-    pure H1
-
-  %inline
-  h1,h2,h3 : ByteString -> F1 q CST
-  h1 bs = writeAs sk.h1 (cast bs) H2
-  h2 bs = writeAs sk.h2 (cast bs) H3
-  h3 bs = writeAs sk.h3 (cast bs) Counts
-
-  checkBond : F1 q CST
-  checkBond = T1.do
-    S k <- read1 sk.count | 0 => pure Prop2
-    writeAs sk.count k Bnd2
 
   atom : Charge -> F1 q CST
   atom cg = T1.do
@@ -289,10 +304,10 @@ parameters {auto sk : CSTCK q}
     linsEdge mg.graph ({label := MkBond (x == e.node1) o s} e)
     checkBond
 
-  counts, coords : ByteString -> F1 q CST
+  counts2, coords : ByteString -> F1 q CST
   coords x = writeAs sk.coords [coord 0 10 x,coord 10 10 x,coord 20 10 x] Sym2
 
-  counts bs =
+  counts2 bs =
     case nat (substring 0 3 bs) of -- number of atoms
       0   => pure Prop2
       S k => T1.do
@@ -311,7 +326,13 @@ parameters {auto sk : CSTCK q}
     pure SData
 
 --------------------------------------------------------------------------------
--- Parser
+-- V3000 Transitions
+--------------------------------------------------------------------------------
+
+skipLines : Nat -> RExp True -> CST -> (RExp True, Step q CSz CSTCK)
+
+--------------------------------------------------------------------------------
+-- V2000
 --------------------------------------------------------------------------------
 
 prop2 : Steps q CSz CSTCK
@@ -339,18 +360,31 @@ sdvalue =
   , convline (star dot >> newline) (pushStr SDValue . toString . dropWhileEnd isNL)
   ]
 
+--------------------------------------------------------------------------------
+-- V3000
+--------------------------------------------------------------------------------
+
+spaced : CST -> Steps q CSz CSTCK -> DFA q CSz CSTCK
+spaced x ss = dfa $ conv' (plus ' ') x :: ss
+
+--------------------------------------------------------------------------------
+-- Parser
+--------------------------------------------------------------------------------
+
 ctabTrans : Lex1 q CSz CSTCK
 ctabTrans =
   lex1
     [ E H1       $ dfa [convline (star dot >> newline) h1]
     , E H2       $ dfa [convline (star dot >> newline) h2]
     , E H3       $ dfa [convline (star dot >> newline) h3]
-    , E Counts   $ dfa [newline' v3000 CErr, convline v2000 counts]
+    , E Counts   $ dfa [newline' v3000 Counts3, convline v2000 counts2]
     , E Coords2  $ dfa [conv (repeat 3 coordinate >> ' ') coords]
     , E Sym2     $ dfa $ writeValsN (fill 3 . dispIso) isotope Chrg2 isos
     , E Chrg2    $ dfa [newline szeroes (atom 0), line 2 (sdigits 5) chrg]
     , E Bnd2     $ dfa [line 0 (sdigits 6) bond]
     , E Prop2    $ dfa prop2
+    , E Counts3  $ dfa [skipLines 2 (begin3 "CTAB" >> countsExpr) CAtom3]
+    -- , E CAtom3   $ spaced [conv (plus digit) (
     , E EndMol   $ dfa sdata
     , E SData    $ dfa sdata
     , E SDValue  $ dfa sdvalue
