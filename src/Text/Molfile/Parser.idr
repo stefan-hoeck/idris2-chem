@@ -323,7 +323,7 @@ prop2 =
   , line 6 ("M  STY" >> styExpr >> newline) sty
   , line 6 ("M  SMT " >> smtExpr >> newline) smt
   , newline' ("M  END" >> star dot >> opt newline) EndMol
-  , newline' ("M  " >> star dot >> newline) Prop2
+  , newline' (oneof ['M','V','G','A'] >> "  " >> star dot >> newline) Prop2
   ]
 
 sdata : Steps q CSz CSTCK
