@@ -295,7 +295,7 @@ data NoH = HasNoH
 public export
 data Radical = NoRadical | Singlet | Doublet | Triplet
 
-%runElab derive "Radical" [Show,Eq,Ord]
+%runElab derive "Radical" [Show,Eq,Ord,Finite]
 
 --------------------------------------------------------------------------------
 --          Hybridization

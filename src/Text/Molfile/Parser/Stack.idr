@@ -19,24 +19,36 @@ import public Text.Molfile.Types
 
 %runElab deriveParserState "CSz" "CST"
   [ "CErr", "H1", "H2", "H3", "Counts", "EndMol", "CDone" -- general states
-  , "Coords2", "Sym2", "Chrg2", "Bnd2", "Prop2" -- V2000 states
-  , "Counts3", "CAtom3", "CBond3" -- V3000 states
   , "SData", "SDValue" -- SD Files
+
+  -- V2000 States
+  , "Coords2", "Sym2", "Chrg2", "Bnd2", "Prop2"
+
+  -- V3000 States
+  , "CountsV3", "ACount", "BCount", "CountEnd", "EmptyV3"
+  , "Atom3", "Index3", "Coords3", "Sym3", "AAMap", "Prop3", "AtomEnd"
+  , "BondBegin", "BondEnd", "Bnd3", "BndProp3"
+  , "RestV3"
   ]
 
+||| A molecular graph in the making.
 public export
 record MGraph (q : Type) where
   constructor MG
-  atoms : Nat
-  atom  : Ref q (Fin $ S atoms)
-  graph : MArray q (S atoms) (Adj (S atoms) MolBond MolAtom)
+  atoms   : Nat
+  atom    : Ref q (Fin $ S atoms)
+  indices : Ref q (SortedMap Nat $ Fin (S atoms))
+  bond    : Ref q (Maybe $ Edge (S atoms) MolBond)
+  graph   : MArray q (S atoms) (Adj (S atoms) MolBond MolAtom)
 
 export
 mgraph : (atoms : Nat) -> F1 q (MGraph q)
 mgraph atoms = T1.do
   atm <- ref1 FZ
+  ixs <- ref1 SM.empty
+  bnd <- ref1 Nothing
   g   <- marray1 (S atoms) (A (cast {from = Elem} C) empty)
-  pure (MG atoms atm g)
+  pure (MG atoms atm ixs bnd g)
 
 public export
 record CSTCK (q : Type) where
@@ -54,6 +66,7 @@ record CSTCK (q : Type) where
   stack_     : Ref q (SnocList Molfile)
   groups     : Ref q (SortedMap Nat String)
   count      : Ref q Nat
+  isEmpty    : Ref q Bool
 
   -- sdata
   sdhead     : Ref q SDHeader
@@ -81,10 +94,11 @@ init = T1.do
   gs  <- ref1 [<]
   grp <- ref1 SM.empty
   cnt <- ref1 Z
+  ie  <- ref1 False
   sdh <- ref1 ""
   sdd <- ref1 [<]
   err <- ref1 Nothing
   bs  <- ref1 empty
   str <- ref1 [<]
   pos <- ref1 Z
-  pure (CK l c ps h1 h2 h3 gr gs grp cnt sdh sdd err bs str pos)
+  pure (CK l c ps h1 h2 h3 gr gs grp cnt ie sdh sdd err bs str pos)

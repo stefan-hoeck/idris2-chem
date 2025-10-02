@@ -1,5 +1,6 @@
 module Text.Molfile.Parser.Util
 
+import Data.ByteString
 import Data.SortedMap as SM
 import Data.Array.Mutable
 import Data.Finite
@@ -7,6 +8,10 @@ import Syntax.T1
 import Text.Molfile.Parser.Stack
 
 %default total
+
+--------------------------------------------------------------------------------
+-- Readers and Utilities
+--------------------------------------------------------------------------------
 
 ||| Isotopes recognized directly by the parser.
 |||
@@ -23,11 +28,162 @@ dispIso (MkI H (Just 2)) = "D"
 dispIso (MkI H (Just 3)) = "T"
 dispIso (MkI e _)        = symbol e
 
+||| Radical pretty printer
+export
+dispRadical : Radical -> String
+dispRadical NoRadical = "0"
+dispRadical Singlet   = "1"
+dispRadical Doublet   = "2"
+dispRadical Triplet   = "3"
+
 ||| Converts the given byte string to a string, removing any trailing
 ||| end of line characters (`'\n'` and `'\r'`).
 export
 stringTillEOL : ByteString -> String
 stringTillEOL = toString . dropWhileEnd isNL
+
+%inline
+toCoord : Integer -> Coordinate
+toCoord = fromMaybe 0 . refineCoordinate
+
+coord : ByteString -> Coordinate
+coord (BS n bv) = go n
+  where
+    postdot : Integer -> Nat -> (k : Nat) -> (x : Ix k n) => Integer
+    postdot n 0     _     = n
+    postdot n (S x) 0     = postdot (n*10) x 0
+    postdot n (S x) (S k) = postdot (n*10 + decimaldigit (bv `ix` k)) x k
+
+    predot : Integer -> (k : Nat) -> (x : Ix k n) => Integer
+    predot n (S k) = case bv `ix` k of
+      46 => postdot n 4 k
+      b  => predot (n*10 + decimaldigit b) k
+    predot n 0     = n * 10_000
+
+    go : (k : Nat) -> (x : Ix k n) => Coordinate
+    go (S k) = case bv `ix` k of
+      45 => toCoord (negate $ predot 0 k) -- 45 = '-'
+      b  => toCoord (predot (decimaldigit b) k)
+    go 0     = 0
+
+public export
+0 ErrPair : Type
+ErrPair = (ByteString,MolErr)
+
+public export %inline
+SPACE : Bits8
+SPACE = 32
+
+export %inline
+refineInt :
+     {auto cst : Cast Integer a}
+  -> (a -> Maybe b)
+  -> (a -> MolErr)
+  -> ByteString
+  -> Either ErrPair b
+refineInt f err bs =
+ let va      := cast {to = a} (integer $ trim bs)
+     Just vb := f va | Nothing => Left (bs, err va)
+  in Right vb
+
+export
+blockcharge : ByteString -> Either ErrPair Charge
+blockcharge bs =
+  case decimalSep SPACE bs of
+    0 => Right 0
+    1 => Right 3
+    2 => Right 2
+    3 => Right 1
+    5 => Right (-1)
+    6 => Right (-2)
+    7 => Right (-3)
+    n => Left (bs,MCharge n)
+
+export %inline
+charge : ByteString -> Either ErrPair Charge
+charge = refineInt refineCharge (MCharge . cast)
+
+export %inline
+massNr : ByteString -> Either ErrPair MassNr
+massNr = refineInt refineMassNr (MMass . cast)
+
+export
+radical : ByteString -> Either ErrPair Radical
+radical bs =
+  case decimalSep SPACE bs of
+    1 => Right Singlet
+    2 => Right Doublet
+    3 => Right Triplet
+    0 => Right NoRadical
+    n => Left (bs, MRadical n)
+
+export
+sgroupType : ByteString ->  SGroupType
+sgroupType bs =
+  case toString $ trim bs of
+    "SUP" => SUP
+    _     => Other
+
+export
+bondOrder : ByteString -> Either ErrPair BondOrder
+bondOrder bs =
+  case decimalSep SPACE bs of
+    1 => Right Single
+    2 => Right Dbl
+    3 => Right Triple
+    n => Left (bs, MBondOrder n)
+
+export
+bondStereo : ByteString -> Either ErrPair BondStereo
+bondStereo bs =
+  case decimalSep SPACE bs of
+    0 => Right NoBondStereo
+    1 => Right Up
+    3 => Right CisOrTrans
+    4 => Right UpOrDown
+    6 => Right Down
+    n => Left (bs, MBondStereo n)
+
+export %inline
+nat : ByteString -> Nat
+nat = cast . decimalSep SPACE
+
+export
+node : {k : _} -> ByteString -> Either ErrPair (Fin k)
+node bs =
+  case tryNatToFin (pred $ nat bs) of
+    Just n  => Right n
+    Nothing => Left (bs, MNode $ nat bs)
+
+export
+uedge : {k : _} -> Fin k -> ByteString -> Either ErrPair (Edge k ())
+uedge x bs =
+  case tryNatToFin (pred $ nat bs) >>= \y => mkEdge x y () of
+    Just n  => Right n
+    Nothing => Left (bs, MNode $ nat bs)
+
+export %inline
+setMass : MassNr -> Isotope -> Isotope
+setMass v = {mass := Just v}
+
+export %inline
+groupLbl : SortedMap Nat String -> AtomGroup -> AtomGroup
+groupLbl m g@(G n l) = maybe g (G n) (lookup n m)
+
+parameters (ixs : SortedMap Nat (Fin k))
+  export
+  lkpNode : ByteString -> Either ErrPair (Fin k)
+  lkpNode bs =
+    case lookup (nat bs) ixs of
+      Just n  => Right n
+      Nothing => Left (bs, MNode $ nat bs)
+
+  export
+  lkpEdge : Fin k -> ByteString -> Either ErrPair (Edge k ())
+  lkpEdge x bs =
+    case lookup (nat bs) ixs >>= \y => mkEdge x y () of
+      Just n  => Right n
+      Nothing => Left (bs, MNode $ nat bs)
 
 --------------------------------------------------------------------------------
 -- Expressions
@@ -65,6 +221,26 @@ sdigit = ' ' <|> digit
 export
 zeroes : RExp True
 zeroes = star (' ' <|> '0') >> newline
+
+export
+spaces : RExp False
+spaces = star ' '
+
+public export
+m_end : RExp True
+m_end = "M  END" >> spaces
+
+||| Expression for coordinates.
+|||
+||| We use the same expression for V2000 and V3000 making the V2000 reader
+||| slightly less restrictive than in the specs.
+export
+coordinates : RExp True
+coordinates =
+ let pre   := ('-' >> repeatRange 1 4 digit) <|> repeatRange 1 5 digit
+     rem   := '.' >> repeatRange 1 4 digit
+     coord := pre >> opt rem
+  in coord >> plus ' ' >> coord >> plus ' ' >> coord
 
 --------------------------------------------------------------------------------
 -- State Transitions
@@ -106,6 +282,15 @@ parameters {auto sk : CSTCK q}
     x  <- read1 mg.atom
     modify mg.graph x {label $= f}
 
+  ||| Converts a bytestring into a set of coordinates and
+  ||| writes it to the current atom.
+  export
+  coords : CST -> ByteString -> F1 q CST
+  coords res bs =
+   let (x,r) := break (SPACE ==) (trimLeft bs)
+       (y,z) := break (SPACE ==) (trimLeft r)
+    in modAtom {position := [coord x,coord y,coord $ trimLeft z]} >> pure res
+
   ||| Returns the current position in the bytestring
   ||| and increases it by the given number of bytes.
   export %inline
@@ -134,16 +319,21 @@ parameters {auto sk : CSTCK q}
   export
   end : F1 q CST
   end = T1.do
-    h1   <- replace1 sk.h1 ""
-    h2   <- replace1 sk.h2 ""
-    h3   <- replace1 sk.h3 ""
-    sds  <- getList sk.sdvals
-    mg   <- read1 sk.mgraph
-    grps <- replace1 sk.groups SM.empty
-    lupdNodes mg.graph $ {label $= map (groupLbl grps)}
-    g  <- Array.Core.unsafeFreeze mg.graph
-    push1 sk.stack_ (MkMolfile h1 h2 h3 (G _ $ IG g) sds)
-    pure H1
+    h1  <- replace1 sk.h1 ""
+    h2  <- replace1 sk.h2 ""
+    h3  <- replace1 sk.h3 ""
+    sds <- getList sk.sdvals
+    replace1 sk.isEmpty False >>= \case
+      False => T1.do
+        mg   <- read1 sk.mgraph
+        grps <- replace1 sk.groups SM.empty
+        lupdNodes mg.graph $ {label $= map (groupLbl grps)}
+        g  <- Array.Core.unsafeFreeze mg.graph
+        push1 sk.stack_ (MkMolfile h1 h2 h3 (G _ $ IG g) sds)
+        pure H1
+      True  => T1.do
+        push1 sk.stack_ (MkMolfile h1 h2 h3 (G 0 empty) sds)
+        pure H1
 
   sdheader : ByteString -> F1 q CST
   sdheader bs = writeAs sk.sdhead (readHeader bs) SDValue

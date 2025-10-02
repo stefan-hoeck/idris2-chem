@@ -16,21 +16,6 @@ export
 v2000 : RExp True
 v2000 = repeat 34 sdigit >> oneof ['V','v'] >> "2000" >> newline
 
-||| Expression for fixed-length V2000 coordinate, left-padded with
-||| spaces.
-export
-coordinateV2 : RExp True
-coordinateV2 =
-      ("   " >> optmin >> digit          >> rem)
-  <|> ("  "  >> optmin >> repeat 2 digit >> rem)
-  <|> (" "   >> optmin >> repeat 3 digit >> rem)
-  <|> (         optmin >> repeat 4 digit >> rem)
-
-  where
-    optmin, rem : RExp True
-    optmin = ' ' <|> '-' <|> digit
-    rem    = '.' >> repeat 4 digit
-
 ||| An arbitrary number of spaces and digits followed by a line break.
 export
 sdigits : Nat -> RExp True
@@ -60,18 +45,11 @@ parameters {auto sk : CSTCK q}
   countsV2 : ByteString -> F1 q CST
   countsV2 bs =
     case nat (substring 0 3 bs) of -- number of atoms
-      0   => pure Prop2
+      0   => writeAs sk.isEmpty True Prop2
       S k => T1.do
         g <- mgraph k
         write1 sk.count (nat $ substring 3 3 bs)
         writeAs sk.mgraph g Coords2
-
-  ||| Converts a bytestring into a set of coordinates and
-  ||| writes it to the current atom.
-  export
-  coordsV2 : ByteString -> F1 q CST
-  coordsV2 x =
-    modAtom {position := [coord 0 10 x,coord 10 10 x,coord 20 10 x]} >> pure Sym2
 
   checkBond : F1 q CST
   checkBond = T1.do
@@ -179,6 +157,7 @@ prop2 =
   , line 6 ("M  SAL" >> star sdigit >> newline) sal
   , line 6 ("M  STY" >> styExpr >> newline) sty
   , line 6 ("M  SMT " >> smtExpr >> newline) smt
-  , newline' ("M  END" >> star dot >> opt newline) EndMol
+  , conv' m_end CDone
+  , newline' (m_end >> newline) EndMol
   , newline' (oneof ['M','V','G','A'] >> "  " >> star dot >> newline) Prop2
   ]

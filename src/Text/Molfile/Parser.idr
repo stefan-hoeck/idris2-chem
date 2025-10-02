@@ -22,17 +22,38 @@ ctabTrans =
     [ E H1       $ dfa [convline (star dot >> newline) h1]
     , E H2       $ dfa [convline (star dot >> newline) h2]
     , E H3       $ dfa [convline (star dot >> newline) h3]
-    , E Counts   $ dfa [newline' v3000 Counts3, convline v2000 countsV2]
-    , E Coords2  $ dfa [conv (repeat 3 coordinateV2 >> ' ') coordsV2]
-    , E Sym2     $ dfa $ valsN (fill 3 . dispIso) (setIso Chrg2) isos
+    , E Counts   $ dfa [mv30prefix 2 v3000 CountsV3, convline v2000 countsV2]
+    , E SData    $ dfa sdata
+    , E SDValue  $ dfa sdvalue
+    , E EndMol   $ dfa sdata
+
+    -- V2000
+    , E Coords2  $ spaced Coords2 [conv coordinates (coords Sym2)]
+    , E Sym2     $ spaced Sym2 $ valsN (fill 3 . dispIso) (setIso Chrg2) isos
     , E Chrg2    $ dfa [newline zeroes atomV2, line 2 (sdigits 5) chargeV2]
     , E Bnd2     $ dfa [line 0 (sdigits 6) bond]
     , E Prop2    $ dfa prop2
-    , E Counts3  $ dfa [skipLines 2 (beginV3 "CTAB" >> countsExpr) CAtom3]
-    -- , E CAtom3   $ spaced [conv (plus digit) (
-    , E EndMol   $ dfa sdata
-    , E SData    $ dfa sdata
-    , E SDValue  $ dfa sdvalue
+
+    -- V3000
+    , E CountsV3   $ spaced CountsV3 [cexpr' "COUNTS" ACount]
+    , E EmptyV3    $ dfa emptyEnd
+    , E ACount     $ spaced ACount [conv (plus digit) newV3]
+    , E BCount     $ spaced BCount [conv (plus digit) bondsV3]
+    , E CountEnd   $ dfa [newlines' 2 (dots >> newline >> beginV3 "ATOM") Atom3]
+    -- Atoms V3000
+    , E Atom3      $ dfa [cexpr' mv30 Index3]
+    , E Index3     $ spaced Index3 [conv (plus digit) indexV3]
+    , E Sym3       $ spaced Sym3 (vals dispIso (setIso Coords3) isos)
+    , E Coords3    $ spaced Coords3 [conv coordinates (coords AAMap)]
+    , E AAMap      $ dfa [conv' (plus ' ' >> plus digit) Prop3]
+    , E Prop3      $ spaced Prop3 prop3
+    , E AtomEnd    $ dfa [newline (endV3 "ATOM") checkBondV3]
+    -- Bonds V3000
+    , E BondBegin  $ dfa [newline' (beginV3 "BOND") Bnd3]
+    , E Bnd3       $ dfa [conv bondExprV3 bondV3]
+    , E BndProp3   $ spaced BndProp3 bondProp3
+    , E BondEnd    $ dfa [newline' (endV3 "BOND") RestV3]
+    , E RestV3     $ dfa rest3
     ]
 
 ctabErr : Arr32 CSz (CSTCK q -> F1 q (BoundedErr MolErr))

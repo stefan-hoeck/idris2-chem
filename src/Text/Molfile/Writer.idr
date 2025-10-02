@@ -5,6 +5,7 @@ import Data.SortedMap
 import Data.String
 import Data.Vect
 import Text.Molfile.Types
+import Text.Molfile.Parser.Util
 
 %default total
 
@@ -18,16 +19,10 @@ Interpolation Nat where interpolate = show
 %inline
 Interpolation (Fin n) where interpolate = show . S . finToNat
 
-Interpolation Radical where
-  interpolate NoRadical = "0"
-  interpolate Singlet   = "1"
-  interpolate Doublet   = "2"
-  interpolate Triplet   = "3"
+%inline
+Interpolation Radical where interpolate = dispRadical
 
-[IP_ISO] Interpolation Isotope where
-  interpolate (MkI H $ Just 2) = "D"
-  interpolate (MkI H $ Just 3) = "T"
-  interpolate (MkI e _)        = symbol e
+[IP_ISO] Interpolation Isotope where interpolate = dispIso
 
 export
 fill : Interpolation a => Nat -> a -> String
