@@ -33,6 +33,21 @@ export
 styExpr : RExp True
 styExpr = repeat 3 sdigit >> star (repeat 4 sdigit >> ' ' >> repeat 3 upper)
 
+||| Expression for V2000 coordinates.
+export
+coordinatesV2 : RExp True
+coordinatesV2 =
+  repeat 3 $
+        ("   " >> optmin >> digit          >> rem)
+    <|> ("  "  >> optmin >> repeat 2 digit >> rem)
+    <|> (" "   >> optmin >> repeat 3 digit >> rem)
+    <|> (         optmin >> repeat 4 digit >> rem)
+
+  where
+    optmin, rem : RExp True
+    optmin = ' ' <|> '-' <|> digit
+    rem    = '.' >> repeat 4 digit
+
 --------------------------------------------------------------------------------
 -- State Transitions
 --------------------------------------------------------------------------------
@@ -50,6 +65,16 @@ parameters {auto sk : CSTCK q}
         g <- mgraph k
         write1 sk.count (nat $ substring 3 3 bs)
         writeAs sk.mgraph g Coords2
+
+  ||| Converts a bytestring into a set of coordinates and
+  ||| writes it to the current atom.
+  export
+  coordsV2 : ByteString -> F1 q CST
+  coordsV2 bs =
+   let x := substring 0  10 bs
+       y := substring 10 10 bs
+       z := substring 20 10 bs
+    in modAtom {position := [coord x,coord y,coord z]} >> pure Sym2
 
   checkBond : F1 q CST
   checkBond = T1.do
@@ -157,7 +182,7 @@ prop2 =
   , line 6 ("M  SAL" >> star sdigit >> newline) sal
   , line 6 ("M  STY" >> styExpr >> newline) sty
   , line 6 ("M  SMT " >> smtExpr >> newline) smt
-  , conv' m_end CDone
+  , newline m_end (end >> pure CDone)
   , newline' (m_end >> newline) EndMol
   , newline' (oneof ['M','V','G','A'] >> "  " >> star dot >> newline) Prop2
   ]

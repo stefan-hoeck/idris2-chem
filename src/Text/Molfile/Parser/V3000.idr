@@ -49,6 +49,15 @@ export
 bondExprV3 : RExp True
 bondExprV3 = mv30 >> repeat 4 (spaces >> plus digit)
 
+||| Expression for V3000 coordinates.
+export
+coordinatesV3 : RExp True
+coordinatesV3 =
+ let pre   := ('-' >> repeatRange 1 4 digit) <|> repeatRange 1 5 digit
+     rem   := '.' >> repeatRange 1 4 digit
+     coord := pre >> opt rem
+  in coord >> plus ' ' >> coord >> plus ' ' >> coord
+
 
 --------------------------------------------------------------------------------
 -- State Transitions
@@ -116,16 +125,25 @@ parameters {auto sk : CSTCK q}
     S k <- read1 sk.count | 0 => pure BondEnd
     writeAs sk.count k Bnd3
 
+  ||| Converts a bytestring into a set of coordinates and
+  ||| writes it to the current atom.
+  export
+  coordsV3 : ByteString -> F1 q CST
+  coordsV3 bs =
+   let (x,r) := break (SPACE ==) (trimLeft bs)
+       (y,z) := break (SPACE ==) (trimLeft r)
+    in modAtom {position := [coord x,coord y,coord z]} >> pure AAMap
+
   export
   bondV3 : ByteString -> F1 q CST
   bondV3 bs = T1.do
-    [_,_,_tp,a1,a2] <- pure (splitNonEmpty SPACE bs) | _ => checkBondV3
-    mg              <- read1 sk.mgraph
-    ixs             <- read1 mg.indices
-    let Right x     := lkpNode ixs a1   | Left x => failErr x
-        Right e     := lkpEdge ixs x a2 | Left x => failErr x
-        Right o     := bondOrder tp     | Left x => failErr x
-        lbl         := MkBond (x < e.node2) o NoBondStereo
+    [_,_,_,tp,a1,a2] <- pure (splitNonEmpty SPACE bs) | _ => checkBondV3
+    mg               <- read1 sk.mgraph
+    ixs              <- read1 mg.indices
+    let Right x      := lkpNode ixs a1   | Left x => failErr x
+        Right e      := lkpEdge ixs x a2 | Left x => failErr x
+        Right o      := bondOrder tp     | Left x => failErr x
+        lbl          := MkBond (x < e.node2) o NoBondStereo
     writeAs mg.bond (Just $ {label := lbl} e) BndProp3
 
 chargeV3 : Charge -> Step1 q CSz CSTCK

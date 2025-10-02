@@ -46,6 +46,7 @@ stringTillEOL = toString . dropWhileEnd isNL
 toCoord : Integer -> Coordinate
 toCoord = fromMaybe 0 . refineCoordinate
 
+export
 coord : ByteString -> Coordinate
 coord (BS n bv) = go n
   where
@@ -62,6 +63,7 @@ coord (BS n bv) = go n
 
     go : (k : Nat) -> (x : Ix k n) => Coordinate
     go (S k) = case bv `ix` k of
+      32 => go k
       45 => toCoord (negate $ predot 0 k) -- 45 = '-'
       b  => toCoord (predot (decimaldigit b) k)
     go 0     = 0
@@ -230,18 +232,6 @@ public export
 m_end : RExp True
 m_end = "M  END" >> spaces
 
-||| Expression for coordinates.
-|||
-||| We use the same expression for V2000 and V3000 making the V2000 reader
-||| slightly less restrictive than in the specs.
-export
-coordinates : RExp True
-coordinates =
- let pre   := ('-' >> repeatRange 1 4 digit) <|> repeatRange 1 5 digit
-     rem   := '.' >> repeatRange 1 4 digit
-     coord := pre >> opt rem
-  in coord >> plus ' ' >> coord >> plus ' ' >> coord
-
 --------------------------------------------------------------------------------
 -- State Transitions
 --------------------------------------------------------------------------------
@@ -282,15 +272,6 @@ parameters {auto sk : CSTCK q}
     x  <- read1 mg.atom
     modify mg.graph x {label $= f}
 
-  ||| Converts a bytestring into a set of coordinates and
-  ||| writes it to the current atom.
-  export
-  coords : CST -> ByteString -> F1 q CST
-  coords res bs =
-   let (x,r) := break (SPACE ==) (trimLeft bs)
-       (y,z) := break (SPACE ==) (trimLeft r)
-    in modAtom {position := [coord x,coord y,coord $ trimLeft z]} >> pure res
-
   ||| Returns the current position in the bytestring
   ||| and increases it by the given number of bytes.
   export %inline
@@ -317,7 +298,7 @@ parameters {auto sk : CSTCK q}
 
   ||| Finalizes the current molecule
   export
-  end : F1 q CST
+  end : F1' q
   end = T1.do
     h1  <- replace1 sk.h1 ""
     h2  <- replace1 sk.h2 ""
@@ -330,10 +311,7 @@ parameters {auto sk : CSTCK q}
         lupdNodes mg.graph $ {label $= map (groupLbl grps)}
         g  <- Array.Core.unsafeFreeze mg.graph
         push1 sk.stack_ (MkMolfile h1 h2 h3 (G _ $ IG g) sds)
-        pure H1
-      True  => T1.do
-        push1 sk.stack_ (MkMolfile h1 h2 h3 (G 0 empty) sds)
-        pure H1
+      True  => push1 sk.stack_ (MkMolfile h1 h2 h3 (G 0 empty) sds)
 
   sdheader : ByteString -> F1 q CST
   sdheader bs = writeAs sk.sdhead (readHeader bs) SDValue
@@ -358,8 +336,8 @@ setIso x i = \(_ # t) => let _ # t := modAtom {elem := i} t in x # t
 export
 sdata : Steps q CSz CSTCK
 sdata =
-  [ newline ("$$$$" >> newline) end
-  , cexpr  "$$$$" (ignore1 end >> pure CDone)
+  [ newline ("$$$$" >> newline) (end >> pure H1)
+  , cexpr  "$$$$" (end >> pure CDone)
   , convline ( '>' >> star dot >> newline) sdheader
   ]
 

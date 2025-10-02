@@ -28,8 +28,8 @@ ctabTrans =
     , E EndMol   $ dfa sdata
 
     -- V2000
-    , E Coords2  $ spaced Coords2 [conv coordinates (coords Sym2)]
-    , E Sym2     $ spaced Sym2 $ valsN (fill 3 . dispIso) (setIso Chrg2) isos
+    , E Coords2  $ spaced Coords2 [conv coordinatesV2 coordsV2]
+    , E Sym2     $ dfa $ valsN (fill 4 . (" "++) . dispIso) (setIso Chrg2) isos
     , E Chrg2    $ dfa [newline zeroes atomV2, line 2 (sdigits 5) chargeV2]
     , E Bnd2     $ dfa [line 0 (sdigits 6) bond]
     , E Prop2    $ dfa prop2
@@ -44,7 +44,7 @@ ctabTrans =
     , E Atom3      $ dfa [cexpr' mv30 Index3]
     , E Index3     $ spaced Index3 [conv (plus digit) indexV3]
     , E Sym3       $ spaced Sym3 (vals dispIso (setIso Coords3) isos)
-    , E Coords3    $ spaced Coords3 [conv coordinates (coords AAMap)]
+    , E Coords3    $ spaced Coords3 [conv coordinatesV3 coordsV3]
     , E AAMap      $ dfa [conv' (plus ' ' >> plus digit) Prop3]
     , E Prop3      $ spaced Prop3 prop3
     , E AtomEnd    $ dfa [newline (endV3 "ATOM") checkBondV3]
@@ -64,7 +64,7 @@ ctabEOI st sk =
   case st == H1 || st == CDone of
     False => case st == EndMol of
       False => arrFail CSTCK ctabErr st sk
-      True  => ignore1 end >> getList sk.stack_ >>= pure . Right
+      True  => end >> getList sk.stack_ >>= pure . Right
     True  => getList sk.stack_ >>= pure . Right
 
 ||| A parser for CTab file formats. Can read V2000 and V3000 mol
