@@ -50,6 +50,11 @@ modules = Chem
         , Text.Molfile.Types
         , Text.Molfile.Writer
 
+        , Text.Molfile.Parser.Stack
+        , Text.Molfile.Parser.Util
+        , Text.Molfile.Parser.V2000
+        , Text.Molfile.Parser.V3000
+
         , Text.Lex.Elem
         , Text.Lex.Formula
 
