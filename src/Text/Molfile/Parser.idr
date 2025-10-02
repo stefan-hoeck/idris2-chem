@@ -47,7 +47,7 @@ ctabTrans =
     , E Coords3    $ spaced Coords3 [conv coordinatesV3 coordsV3]
     , E AAMap      $ dfa [conv' (plus ' ' >> plus digit) Prop3]
     , E Prop3      $ spaced Prop3 prop3
-    , E AtomEnd    $ dfa [newline (endV3 "ATOM") checkBondV3]
+    , E AtomEnd    $ dfa [newline (endV3 "ATOM") beginBondV3]
     -- Bonds V3000
     , E BondBegin  $ dfa [newline' (beginV3 "BOND") Bnd3]
     , E Bnd3       $ dfa [conv bondExprV3 bondV3]

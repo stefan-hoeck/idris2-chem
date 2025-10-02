@@ -10,3 +10,4 @@ executable = "profile-chem"
 depends    = base         >= 0.5.1
            , chem
            , profiler
+           , ilex-debug

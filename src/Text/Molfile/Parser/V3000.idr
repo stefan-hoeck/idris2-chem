@@ -112,9 +112,7 @@ parameters {auto sk : CSTCK q}
 
   export
   beginBondV3 : F1 q CST
-  beginBondV3 = T1.do
-    S k <- read1 sk.count | 0 => pure RestV3
-    writeAs sk.count k BondBegin
+  beginBondV3 = countdown sk.count BondBegin RestV3
 
   export
   checkBondV3 : F1 q CST
@@ -122,8 +120,7 @@ parameters {auto sk : CSTCK q}
     mg     <- read1 sk.mgraph
     Just e <- read1 mg.bond | Nothing => pure BondEnd
     linsEdge mg.graph e
-    S k <- read1 sk.count | 0 => pure BondEnd
-    writeAs sk.count k Bnd3
+    countdown sk.count Bnd3 BondEnd
 
   ||| Converts a bytestring into a set of coordinates and
   ||| writes it to the current atom.

@@ -76,11 +76,6 @@ parameters {auto sk : CSTCK q}
        z := substring 20 10 bs
     in modAtom {position := [coord x,coord y,coord z]} >> pure Sym2
 
-  checkBond : F1 q CST
-  checkBond = T1.do
-    S k <- read1 sk.count | 0 => pure Prop2
-    writeAs sk.count k Bnd2
-
   ||| Finalizes a V2000 atom, increasing the current node and
   ||| moving to the bond block if all atoms have been processed.
   export
@@ -91,7 +86,7 @@ parameters {auto sk : CSTCK q}
     let x2 := finToNat $ FS x
     case tryLT x2 of
       Just0 prf => writeAs mg.atom (natToFinLT x2) Coords2
-      Nothing0  => checkBond
+      Nothing0  => countdown sk.count Bnd2 Prop2
 
   ||| Sets an atom's charge and finalizes it via `atomV2`.
   export
@@ -111,7 +106,7 @@ parameters {auto sk : CSTCK q}
     Right o <- read bondOrder  3 | Left x => failErr x
     Right s <- read bondStereo 3 | Left x => failErr x
     linsEdge mg.graph ({label := MkBond (x == e.node1) o s} e)
-    checkBond
+    countdown sk.count Bnd2 Prop2
 
 --------------------------------------------------------------------------------
 -- V2000 properties
