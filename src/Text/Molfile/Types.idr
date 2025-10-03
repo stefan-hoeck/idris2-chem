@@ -291,14 +291,13 @@ Interpolation QueryBondType where
 
 ||| Stereoinformation represented in molfiles
 public export
-data BondStereo = NoBondStereo | Up | CisOrTrans | UpOrDown | Down
+data BondStereo = NoBondStereo | Up | Either | Down
 
 export %inline
 Interpolation BondStereo where
   interpolate NoBondStereo = "0"
   interpolate Up           = "1"
-  interpolate CisOrTrans   = "3"
-  interpolate UpOrDown     = "4"
+  interpolate Either       = "4"
   interpolate Down         = "6"
 
 %runElab derive "BondStereo" [Ord,Eq,Show,Finite]

@@ -65,7 +65,7 @@ simpleAtom =
 
 export
 bondStereo : Gen BondStereo
-bondStereo = element [NoBondStereo,Up,CisOrTrans,UpOrDown,Down]
+bondStereo = element [NoBondStereo,Up,Either,Down]
 
 export
 bondTopo : Gen BondTopo
@@ -106,9 +106,8 @@ structureData : Gen StructureData
 structureData = [| SD sdHeader sdValue |]
 
 export
-molFile : Gen Molfile
-molFile = do
-  gs <- groups
+molFileGS : List AtomGroup -> Gen Molfile
+molFileGS gs = do
   [| MkMolfile
        molLine
        molLine
@@ -118,9 +117,12 @@ molFile = do
   |]
 
 export
-sdFile : Gen Molfile
-sdFile = do
-  gs <- groups
+molFile : Gen Molfile
+molFile = groups >>= molFileGS
+
+export
+sdFileGS : List AtomGroup -> Gen Molfile
+sdFileGS gs = do
   [| MkMolfile
        molLine
        molLine
@@ -128,3 +130,7 @@ sdFile = do
        (lgraph (linear 1 30) (linear 0 30) bond (atom $ group gs))
        (list (linear 0 5) structureData)
   |]
+
+export
+sdFile : Gen Molfile
+sdFile = groups >>= sdFileGS

@@ -21,29 +21,6 @@ export
 isos : List Isotope
 isos = MkI H (Just 2) :: MkI H (Just 3) :: map (`MkI` Nothing) values
 
-||| Isotope pretty printer.
-export
-dispIso : Isotope -> String
-dispIso (MkI H (Just 2)) = "D"
-dispIso (MkI H (Just 3)) = "T"
-dispIso (MkI e _)        = symbol e
-
-||| Radical pretty printer
-export
-dispRadical : Radical -> String
-dispRadical NoRadical = "0"
-dispRadical Singlet   = "1"
-dispRadical Doublet   = "2"
-dispRadical Triplet   = "3"
-
-export
-dispStereoV3 : BondStereo -> String
-dispStereoV3 NoBondStereo = "0"
-dispStereoV3 Up           = "1"
-dispStereoV3 CisOrTrans   = "2"
-dispStereoV3 UpOrDown     = "2"
-dispStereoV3 Down         = "3"
-
 ||| Converts the given byte string to a string, removing any trailing
 ||| end of line characters (`'\n'` and `'\r'`).
 export
@@ -149,8 +126,8 @@ bondStereo bs =
   case decimalSep SPACE bs of
     0 => Right NoBondStereo
     1 => Right Up
-    3 => Right CisOrTrans
-    4 => Right UpOrDown
+    3 => Right Either
+    4 => Right Either
     6 => Right Down
     n => Left (bs, MBondStereo n)
 

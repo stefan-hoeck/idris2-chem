@@ -5,6 +5,8 @@ import Data.SortedMap
 import Syntax.T1
 import Text.Molfile.Parser.Stack
 import Text.Molfile.Parser.Util
+import Text.Molfile.Writer.Util
+import Text.Molfile.Writer.V3000
 
 %default total
 
@@ -20,21 +22,18 @@ mv30 = "M  V30"
 ||| Recognizes a V3000 `BEGIN` statement
 export
 beginV3 : RExp True -> RExp True
-beginV3 x = mv30 >> "BEGIN" >> spaces >> x >> dots >> newline
+beginV3 x = mv30 >> spaces >> "BEGIN" >> spaces >> x >> dots >> newline
 
 ||| Recognizes a V3000 version line followed by
 ||| `"M  V30 BEGIN CTAB"` and
 export
 v3000 : RExp True
-v3000 =
-     star sdigit >> oneof ['V','v'] >> "3000" >> newline
-  >> beginV3 "CTAB"
-  >> mv30
+v3000 = star sdigit >> oneof ['V','v'] >> "3000" >> newline >> beginV3 "CTAB"
 
 ||| Recognizes a V3000 `END` statement
 export
 endV3 : RExp True -> RExp True
-endV3 x = mv30 >> "END" >> spaces >> x >> spaces >> newline
+endV3 x = mv30 >> spaces >> "END" >> spaces >> x >> spaces >> newline
 
 export
 countsExpr : RExp True

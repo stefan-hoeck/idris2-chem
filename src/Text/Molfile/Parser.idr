@@ -7,6 +7,7 @@ import Syntax.T1
 import Text.Molfile.Parser.Util
 import Text.Molfile.Parser.V2000
 import Text.Molfile.Parser.V3000
+import Text.Molfile.Writer.Util
 
 import public Text.Molfile.Parser.Stack
 
