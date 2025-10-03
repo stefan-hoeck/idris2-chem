@@ -36,6 +36,14 @@ dispRadical Singlet   = "1"
 dispRadical Doublet   = "2"
 dispRadical Triplet   = "3"
 
+export
+dispStereoV3 : BondStereo -> String
+dispStereoV3 NoBondStereo = "0"
+dispStereoV3 Up           = "1"
+dispStereoV3 CisOrTrans   = "2"
+dispStereoV3 UpOrDown     = "2"
+dispStereoV3 Down         = "3"
+
 ||| Converts the given byte string to a string, removing any trailing
 ||| end of line characters (`'\n'` and `'\r'`).
 export
@@ -271,6 +279,13 @@ parameters {auto sk : CSTCK q}
     mg <- read1 sk.mgraph
     x  <- read1 mg.atom
     modify mg.graph x {label $= f}
+
+  ||| Modifies the current atom in the mol graph
+  export
+  modBond : (MolBond -> MolBond) -> F1' q
+  modBond f = T1.do
+    mg <- read1 sk.mgraph
+    mod1 mg.bond (map $ map f)
 
   ||| Returns the current position in the bytestring
   ||| and increases it by the given number of bytes.

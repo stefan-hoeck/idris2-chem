@@ -143,6 +143,9 @@ parameters {auto sk : CSTCK q}
         lbl          := MkBond (x < e.node2) o NoBondStereo
     writeAs mg.bond (Just $ {label := lbl} e) BndProp3
 
+bondStereoV3 : BondStereo -> Step1 q CSz CSTCK
+bondStereoV3 s (_ # t) = let _ # t := modBond {stereo := s} t in BndProp3 # t
+
 chargeV3 : Charge -> Step1 q CSz CSTCK
 chargeV3 c (_ # t) = let _ # t := modAtom {charge := c} t in Prop3 # t
 
@@ -177,15 +180,15 @@ prop3 =
   ++ vals (("RAD="++) . dispRadical) radicalV3 values
   ++ [ conv   ("MASS=" >> plus digit) massV3
      , cexpr' ("CFG=" >> oneof ['0','1','2','3']) Prop3
-     , conv'  ("VAL=" >> opt '-' >> plus digit) Prop3
-     , conv'  ("HCOUNT=" >> opt '-' >> plus digit) Prop3
+     , conv'  ("VAL=" >> integer) Prop3
+     , conv'  ("HCOUNT=" >> integer) Prop3
      , cexpr' ("STBOX=" >> bindigit) Prop3
      , cexpr' ("INVERT=" >> oneof ['0','1','2']) Prop3
      , cexpr' ("EXACHG=" >> bindigit) Prop3
-     , conv'  ("SUBST=" >> opt '-' >> plus digit) Prop3
+     , conv'  ("SUBST=" >> integer) Prop3
      , cexpr' ("UNSAT=" >> bindigit) Prop3
-     , conv'  ("RBCNT=" >> opt '-' >> plus digit) Prop3
-     , conv'  ("ATTACHPT=" >> opt '-' >> plus digit) Prop3
+     , conv'  ("RBCNT=" >> integer) Prop3
+     , conv'  ("ATTACHPT=" >> integer) Prop3
      , mv30prefix 1 ('-' >> newline) Prop3
      , newline newline atomV3
      ]
@@ -193,9 +196,13 @@ prop3 =
 export
 bondProp3 : List (RExp True, Step q CSz CSTCK)
 bondProp3 =
-  [ mv30prefix 1 ('-' >> newline) BndProp3
-  , newline newline checkBondV3
-  ]
+     vals (("CFG="++) . dispStereoV3) bondStereoV3 values
+  ++ [ cexpr' ("TOPO=" >> oneof ['0','1','2']) BndProp3
+     , conv'  ("RXCTR=" >> integer) BndProp3
+     , cexpr' ("STBOX=" >> bindigit) BndProp3
+     , mv30prefix 1 ('-' >> newline) BndProp3
+     , newline newline checkBondV3
+     ]
 
 ||| Recognizes (and currently discards) all remaining lines starting
 ||| with `M  V30` until `M  END` is encountered.

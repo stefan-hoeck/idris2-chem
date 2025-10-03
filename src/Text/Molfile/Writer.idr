@@ -74,6 +74,13 @@ counts na nb c v =
 coords : Vect 3 Coordinate -> String
 coords [x,y,z] = fastConcat [fill 10 x, fill 10 y, fill 10 z]
 
+coordsV3 : Vect 3 Coordinate -> String
+coordsV3 [x,y,z] = "\{disp x} \{disp y} \{disp z}"
+  where
+    disp : Coordinate -> String
+    disp 0 = "0"
+    disp c = interpolate c
+
 %inline
 prependNonEmpty : String -> List String -> List String
 prependNonEmpty "" = id
@@ -116,6 +123,19 @@ export
 atom : Atom Isotope Charge Coordinates Radical h t c l -> String
 atom (MkAtom a c pos _ _ _ _ _) =
   fastConcat [ coords pos, fill @{IP_ISO} 4 a, atomRem]
+
+chrgV3 : Charge -> String
+chrgV3 0 = ""
+chrgV3 c = " CHG=\{c}"
+
+radV3 : Radical -> String
+radV3 NoRadical = ""
+radV3 r         = " RAD=\{r}"
+
+export
+atomV3 : Atom Isotope Charge Coordinates Radical h t c l -> String
+atomV3 (MkAtom a c pos r _ _ _ _) =
+  fastConcat [coordsV3 pos, " ", dispIso a, chrgV3 c, radV3 r]
 
 ||| General format:
 |||   111222tttsssxxxrrrccc
