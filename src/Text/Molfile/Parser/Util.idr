@@ -191,9 +191,12 @@ fill n s = go [<] (n `minus` length s) 0
       go (ss:< (replicate (S k) ' ' ++ s ++ replicate j ' ')) k (S j)
 
 ||| Expressions we recognize as line breaks.
+|||
+||| Note: To simplify things, we do currently not recognize a single
+|||       line feed character (`'\r'`) as a valid line break.
 export
 newline : RExp True
-newline = '\r' <|> '\n' <|> "\r\n"
+newline = '\n' <|> "\r\n"
 
 ||| A space or a decimal digit.
 export

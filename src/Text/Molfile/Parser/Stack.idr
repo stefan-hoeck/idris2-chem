@@ -28,7 +28,7 @@ import public Text.Molfile.Types
   , "CountsV3", "ACount", "BCount", "CountEnd", "EmptyV3"
   , "Atom3", "Index3", "Coords3", "Sym3", "AAMap", "Prop3", "AtomEnd"
   , "BondBegin", "BondEnd", "Bnd3", "BndProp3"
-  , "RestV3"
+  , "RestV3", "SGroup"
   ]
 
 ||| A molecular graph in the making.

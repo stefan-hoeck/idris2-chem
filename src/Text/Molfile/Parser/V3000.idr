@@ -17,18 +17,19 @@ import Text.Molfile.Writer.V3000
 ||| the "M  V30" line prefix
 public export
 mv30 : RExp True
-mv30 = "M  V30"
+mv30 = like "M  V30"
 
 ||| Recognizes a V3000 `BEGIN` statement
 export
-beginV3 : RExp True -> RExp True
-beginV3 x = mv30 >> spaces >> "BEGIN" >> spaces >> x >> dots >> newline
+beginV3 : (s : String) -> (0 p : NonEmpty (unpack s)) => RExp True
+beginV3 x =
+  mv30 >> spaces >> like "BEGIN" >> spaces >> like x >> dots >> newline
 
 ||| Recognizes a V3000 version line followed by
 ||| `"M  V30 BEGIN CTAB"` and
 export
 v3000 : RExp True
-v3000 = star sdigit >> oneof ['V','v'] >> "3000" >> newline >> beginV3 "CTAB"
+v3000 = star sdigit >> like "V3000" >> newline >> beginV3 "CTAB"
 
 ||| Recognizes a V3000 `END` statement
 export
@@ -37,7 +38,7 @@ endV3 x = mv30 >> spaces >> "END" >> spaces >> x >> spaces >> newline
 
 export
 countsExpr : RExp True
-countsExpr = mv30 >> "COUNTS" >> spaces
+countsExpr = mv30 >> like "COUNTS" >> spaces
 
 ||| Recognizes some tokens, dropping any optional white space around them.
 export
@@ -57,6 +58,13 @@ coordinatesV3 =
      coord := pre >> opt rem
   in coord >> plus ' ' >> coord >> plus ' ' >> coord
 
+supLines : RExp True
+supLines = start >> star part >> newline
+  where
+    key,start,part : RExp True
+    key   = spaces >> like "SUP" >> opt (like "eratom")
+    start = mv30 >> spaces >> decimal >> key >> dots
+    part  = '-' >> newline >> mv30 >> dots
 
 --------------------------------------------------------------------------------
 -- State Transitions
@@ -142,6 +150,9 @@ parameters {auto sk : CSTCK q}
         lbl          := MkBond (x < e.node2) o NoBondStereo
     writeAs mg.bond (Just $ {label := lbl} e) BndProp3
 
+  export
+  sup : ByteString -> F1 q CST
+
 bondStereoV3 : BondStereo -> Step1 q CSz CSTCK
 bondStereoV3 s (_ # t) = let _ # t := modBond {stereo := s} t in BndProp3 # t
 
@@ -172,22 +183,24 @@ emptyEnd =
 |||
 ||| TODO: At least handle (and possibly ignore) the following props:
 |||       `Rgroups`, `ATTCHORD`, `CLASS`, `SEQID`, `SEQNAME`
+|||
+||| TODO: CHG, RAD, and CFG (for bonds) should be case-insensitive
 export
 prop3 : List (RExp True, Step q CSz CSTCK)
 prop3 =
      vals (("CHG="++) . interpolate) chargeV3 values
   ++ vals (("RAD="++) . dispRadical) radicalV3 values
-  ++ [ conv   ("MASS=" >> plus digit) massV3
-     , cexpr' ("CFG=" >> oneof ['0','1','2','3']) Prop3
-     , conv'  ("VAL=" >> integer) Prop3
-     , conv'  ("HCOUNT=" >> integer) Prop3
-     , cexpr' ("STBOX=" >> bindigit) Prop3
-     , cexpr' ("INVERT=" >> oneof ['0','1','2']) Prop3
-     , cexpr' ("EXACHG=" >> bindigit) Prop3
-     , conv'  ("SUBST=" >> integer) Prop3
-     , cexpr' ("UNSAT=" >> bindigit) Prop3
-     , conv'  ("RBCNT=" >> integer) Prop3
-     , conv'  ("ATTACHPT=" >> integer) Prop3
+  ++ [ conv   (like "MASS=" >> plus digit) massV3
+     , cexpr' (like "CFG=" >> oneof ['0','1','2','3']) Prop3
+     , conv'  (like "VAL=" >> integer) Prop3
+     , conv'  (like "HCOUNT=" >> integer) Prop3
+     , cexpr' (like "STBOX=" >> bindigit) Prop3
+     , cexpr' (like "INVERT=" >> oneof ['0','1','2']) Prop3
+     , cexpr' (like "EXACHG=" >> bindigit) Prop3
+     , conv'  (like "SUBST=" >> integer) Prop3
+     , cexpr' (like "UNSAT=" >> bindigit) Prop3
+     , conv'  (like "RBCNT=" >> integer) Prop3
+     , conv'  (like "ATTACHPT=" >> integer) Prop3
      , mv30prefix 1 ('-' >> newline) Prop3
      , newline newline atomV3
      ]
@@ -196,9 +209,9 @@ export
 bondProp3 : List (RExp True, Step q CSz CSTCK)
 bondProp3 =
      vals (("CFG="++) . dispStereoV3) bondStereoV3 values
-  ++ [ cexpr' ("TOPO=" >> oneof ['0','1','2']) BndProp3
-     , conv'  ("RXCTR=" >> integer) BndProp3
-     , cexpr' ("STBOX=" >> bindigit) BndProp3
+  ++ [ cexpr' (like "TOPO=" >> oneof ['0','1','2']) BndProp3
+     , conv'  (like "RXCTR=" >> integer) BndProp3
+     , cexpr' (like "STBOX=" >> bindigit) BndProp3
      , mv30prefix 1 ('-' >> newline) BndProp3
      , newline newline checkBondV3
      ]
@@ -210,5 +223,14 @@ rest3 : List (RExp True, Step q CSz CSTCK)
 rest3 =
   [ conv' m_end CDone
   , newline' (m_end >> newline) EndMol
+  , newline' (beginV3 "Sgroup") SGroup
   , newline' (mv30 >> dots >> newline) RestV3
+  ]
+
+export
+sgroup : List (RExp True, Step q CSz CSTCK)
+sgroup =
+  [ newline' (endV3 "Sgroup") RestV3
+  , multiline supLines sup
+  , newline' (mv30 >> dots >> newline) SGroup
   ]
