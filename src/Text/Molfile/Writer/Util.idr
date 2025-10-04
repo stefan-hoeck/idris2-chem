@@ -33,13 +33,13 @@ writeStructureData : StructureData -> List String
 writeStructureData (SD h v) = "> <\{h}>" :: writeV v
 
 public export
-0 GroupMap : Nat -> Type
-GroupMap k = SortedMap Nat (String, SnocList $ Fin k)
+0 GroupMap : Type
+GroupMap = SortedMap Nat (String, SnocList Nat)
 
 export
-appendLbl : Maybe AtomGroup -> Fin k -> GroupMap k -> GroupMap k
-appendLbl Nothing  _       m = m
-appendLbl (Just $ G n l) x m =
+appendLbl : Fin k -> Maybe AtomGroup -> GroupMap -> GroupMap
+appendLbl _ Nothing        m = m
+appendLbl x (Just $ G n l) m =
   case lookup n m of
-    Just (l,sx) => insert n (l, sx :< x) m
-    Nothing     => insert n (l, [<x]) m
+    Just (l,sx) => insert n (l, sx :< S (cast x)) m
+    Nothing     => insert n (l, [<S (cast x)]) m

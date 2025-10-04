@@ -3,6 +3,7 @@ module Text.Molfile.Parser.V3000
 import Data.Finite
 import Data.SortedMap
 import Syntax.T1
+import Text.Molfile.Parser.KeyVal
 import Text.Molfile.Parser.Stack
 import Text.Molfile.Parser.Util
 import Text.Molfile.Writer.Util
@@ -13,11 +14,6 @@ import Text.Molfile.Writer.V3000
 --------------------------------------------------------------------------------
 -- Expressions
 --------------------------------------------------------------------------------
-
-||| the "M  V30" line prefix
-public export
-mv30 : RExp True
-mv30 = like "M  V30"
 
 ||| Recognizes a V3000 `BEGIN` statement
 export
@@ -33,17 +29,12 @@ v3000 = star sdigit >> like "V3000" >> newline >> beginV3 "CTAB"
 
 ||| Recognizes a V3000 `END` statement
 export
-endV3 : RExp True -> RExp True
-endV3 x = mv30 >> spaces >> "END" >> spaces >> x >> spaces >> newline
+endV3 : (s : String) -> (0 p : NonEmpty (unpack s)) => RExp True
+endV3 x = mv30 >> spaces >> "END" >> spaces >> like x >> spaces >> newline
 
 export
 countsExpr : RExp True
 countsExpr = mv30 >> like "COUNTS" >> spaces
-
-||| Recognizes some tokens, dropping any optional white space around them.
-export
-spaced : CST -> Steps q CSz CSTCK -> DFA q CSz CSTCK
-spaced x ss = dfa $ conv' (plus ' ') x :: ss
 
 export
 bondExprV3 : RExp True
@@ -59,12 +50,7 @@ coordinatesV3 =
   in coord >> plus ' ' >> coord >> plus ' ' >> coord
 
 supLines : RExp True
-supLines = start >> star part >> newline
-  where
-    key,start,part : RExp True
-    key   = spaces >> like "SUP" >> opt (like "eratom")
-    start = mv30 >> spaces >> decimal >> key >> dots
-    part  = '-' >> newline >> mv30 >> dots
+supLines = mv30 >> spaces >> decimal >> spaces >> like "SUP" >> keyValRest
 
 --------------------------------------------------------------------------------
 -- State Transitions
@@ -152,6 +138,24 @@ parameters {auto sk : CSTCK q}
 
   export
   sup : ByteString -> F1 q CST
+  sup bs = case keyVals bs of
+    Left x => getPosition >>= \p => failWith (fromPosition x p) CErr
+    Right (I n::S _::I _::t) => case lookupVal "LABEL" t >>= toString of
+      Just lbl => case lookupVal "ATOMS" t >>= toNats of
+        Just as => T1.do
+          mg <- read1 sk.mgraph
+          addGroup (cast n) mg lbl as
+        Nothing => failHere (Custom MAbbr) CErr
+      Nothing => failHere (Custom MAbbr) CErr
+    Right p => failHere (Custom MAbbr) CErr
+    where
+      addGroup : Nat -> MGraph q -> String -> List Nat -> F1 q CST
+      addGroup v g l []        = pure SGroup
+      addGroup v g l (x :: xs) = T1.do
+       is <- read1 g.indices
+       let Just n := lookup x is | _ => failHere {sk} (Custom $ MNode x) CErr
+       lupdNode g.graph n {label := Just $ G v l}
+       addGroup v g l xs
 
 bondStereoV3 : BondStereo -> Step1 q CSz CSTCK
 bondStereoV3 s (_ # t) = let _ # t := modBond {stereo := s} t in BndProp3 # t

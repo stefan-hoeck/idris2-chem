@@ -5,84 +5,127 @@ import Syntax.T1
 import Text.ILex
 import Text.ILex.Derive
 import Text.Molfile.Parser.Util
+import Text.Molfile.Types
 
 %default total
 %language ElabReflection
 
 public export
-data Prim : Type where
-  PS : String  -> Prim
-  PI : Integer -> Prim
+data KV : Nat -> Type where
+  S : String  -> KV n
+  I : Integer -> KV n
+  L : List (KV 0) -> KV (S n)
+  P : String -> KV 1 -> KV 2
 
-%runElab derive "Prim" [Show,Eq]
+%runElab deriveIndexed "KV" [Show]
 
-public export
-data Val : Type where
-  V : Prim -> Val
-  L : List Prim -> Val
+w1 : KV n -> KV 2
+w1 (S s)   = S s
+w1 (I i)   = I i
+w1 (L xs)  = L xs
+w1 (P s x) = P s x
 
-%runElab derive "Val" [Show,Eq]
+w0 : KV 0 -> KV 1
+w0 (S s) = S s
+w0 (I i) = I i
 
 public export
 0 KeyVal : Type
-KeyVal = Either Val (String,Val)
+KeyVal = KV 2
+
+export
+toString : KV n -> Maybe String
+toString (S s) = Just s
+toString _     = Nothing
+
+export
+toNat : KV n -> Maybe Nat
+toNat (I i) = if i >= 0 then Just (cast i) else Nothing
+toNat _     = Nothing
+
+export
+toNats : KV n -> Maybe (List Nat)
+toNats (L xs) = traverse toNat xs
+toNats _      = Nothing
+
+export
+lookupVal : String -> List KeyVal -> Maybe (KV 1)
+lookupVal s []            = Nothing
+lookupVal s (P k v :: xs) = if s == k then Just v else lookupVal s xs
+lookupVal s (_     :: xs) = lookupVal s xs
 
 --------------------------------------------------------------------------------
 --          Parser State
 --------------------------------------------------------------------------------
 
 %runElab deriveParserState "KSz" "KST"
-  ["KIni","KVal","InStr","LStart","LVal","LEnd"]
+  ["KIni","Entry","KVal","InStr","LStart","LVal","LEnd","KErr","KDone"]
 
 data Part : Type where
   VS : SnocList KeyVal -> Part
   VK : SnocList KeyVal -> String -> Part
-  VO : SnocList KeyVal -> Nat -> SnocList Prim -> Part
-  VL : SnocList KeyVal -> String -> Nat -> SnocList Prim -> Part
+  VO : SnocList KeyVal -> Nat -> SnocList (KV 0) -> Part
+  VL : SnocList KeyVal -> String -> Nat -> SnocList (KV 0) -> Part
 
 public export
 0 SK : Type -> Type
-SK = Stack Void Part KSz
+SK = Stack MolErr Part KSz
 
 --------------------------------------------------------------------------------
 -- Transformations
 --------------------------------------------------------------------------------
 
 parameters {auto sk : SK q}
-  part : Prim -> Part -> F1 q KST
-  part p (VS sx)          = putStackAs (VS $ sx:<Left (V p)) KIni
-  part p (VK sx str)      = putStackAs (VS $ sx:<Right (str,V p)) KIni
-  part p (VO sx k sp)     =
+  part : KV 0 -> Part -> F1 q KST
+  part p (VS sx)      = putStackAs (VS $ sx:<w1 p) Entry
+  part p (VK sx s)    = putStackAs (VS $ sx:<P s (w0 p)) Entry
+  part p (VO sx k sp) =
     case pred k of
-      0 => putStackAs (VS $ sx:<Left (L $ sp<>>[p])) LEnd
+      0 => putStackAs (VS $ sx:<(L $ sp<>>[p])) LEnd
       x => putStackAs (VO sx x (sp:<p)) LVal
-  part p (VL sx str k sp) =
+  part p (VL sx s k sp) =
     case pred k of
-      0 => putStackAs (VS $ sx:<Right (str,L $ sp<>>[p])) LEnd
-      x => putStackAs (VL sx str x (sp:<p)) LVal
+      0 => putStackAs (VS $ sx:<P s (L $ sp<>>[p])) LEnd
+      x => putStackAs (VL sx s x (sp:<p)) LVal
 
   key : String -> Part -> F1 q KST
   key s (VS sx) = putStackAs (VK sx s) KVal
-  key s _       = pure KIni -- impossible
+  key s _       = pure KErr -- impossible
 
   %inline
-  onPrim : Prim -> F1 q KST
+  onPrim : KV 0 -> F1 q KST
   onPrim v = getStack >>= part v
 
   %inline
   onKey : ByteString -> F1 q KST
-  onKey v = getStack >>= key (toString $ dropEnd 1 v)
+  onKey v = getStack >>= key (toUpper $ toString $ dropEnd 1 v)
 
-  startList : Integer -> F1 q KST
-  startList n =
-    getStack >>= \case
-      VS sx   => putStackAs (VO sx   (cast n) [<]) LVal
-      VK sx s => putStackAs (VL sx s (cast n) [<]) LVal
-      _       => pure KIni -- impossible
+  startList : ByteString -> F1 q KST
+  startList bs =
+   let n := cast {to = Nat} $ decimal bs
+    in getStack >>= \case
+         VS sx   => putStackAs (VO sx   n [<]) LVal
+         VK sx s => putStackAs (VL sx s n [<]) LVal
+         _       => pure KErr -- impossible
 
 --------------------------------------------------------------------------------
 -- Lexers
 --------------------------------------------------------------------------------
+
+||| the "M  V30" line prefix
+public export
+mv30 : RExp True
+mv30 = like "M  V30"
+
+||| Remainder of a (possibly mutli-line) entry of values and key-value pairs.
+export
+keyValRest : RExp True
+keyValRest = dots >> star ('-' >> newline >> mv30 >> dots) >> newline
+
+||| Recognizes some tokens, dropping any optional white space around them.
+export %inline
+spaced : HasBytes s => HasPosition s => Index r -> Steps q r s -> DFA q r s
+spaced x ss = dfa $ conv' (plus ' ') x :: ss
 
 size : RExp True
 size = posdigit >> star digit
@@ -101,24 +144,24 @@ unquoted = start >> star uqc
     uqc   = dot && not ' ' && not ')' && not '='
     start = uqc && not '"' && not '('
 
-spaced : KST -> Steps q KSz SK -> DFA q KSz SK
-spaced x ss =
-  dfa $
-    [ conv' (plus ' ') x
-    , linecol' 1 6 ('-' >> newline >> "M  V30") x
+splitted : KST -> Steps q KSz SK -> DFA q KSz SK
+splitted x ss =
+  spaced x $
+    [ linecol' 1 6 ('-' >> newline >> mv30) x
+    , newline' newline KDone
     ] ++ ss
 
 val : KST -> Steps q KSz SK -> DFA q KSz SK
 val x ss =
-  spaced x $
-    [ conv integer (onPrim . PI . decimal)
-    , read unquoted (onPrim . PS)
+  splitted x $
+    [ conv integer (onPrim . I . decimal)
+    , read unquoted (onPrim . S)
     , copen' '"' InStr
     ] ++ ss
 
 toplevel : KST -> DFA q KSz SK
 toplevel x =
-  val KIni
+  val x
     [ conv (plus alphaNum >> '=') onKey
     , copen' '(' LStart
     ]
@@ -129,9 +172,9 @@ str =
     [ read (plus $ dot && not '"' && not '-') (pushStr InStr)
     , cexpr "\"\"" (pushStr InStr "\"")
     , cexpr '-'    (pushStr InStr "-")
-    , linecol' 1 7 ('-' >> newline >> "M  V30 ") InStr
-    , linecol' 1 6 ('-' >> newline >> "M  V30")  InStr
-    , ccloseStr '"' (onPrim . PS)
+    , linecol' 1 7 ('-' >> newline >> mv30 >> ' ') InStr
+    , linecol' 1 6 ('-' >> newline >> mv30)  InStr
+    , ccloseStr '"' (onPrim . S)
     ]
 
 --------------------------------------------------------------------------------
@@ -141,15 +184,16 @@ str =
 kvTrans : Lex1 q KSz SK
 kvTrans =
   lex1
-    [ E KIni   $ toplevel KIni
+    [ E KIni   $ dfa [cexpr' mv30 Entry]
+    , E Entry     $ toplevel Entry
     , E KVal   $ toplevel KVal
     , E LVal   $ val LVal []
-    , E LStart $ spaced LStart [conv size (startList . decimal)]
-    , E LEnd   $ spaced LEnd [cclose ')' (pure KIni)]
+    , E LStart $ splitted LStart [conv size startList]
+    , E LEnd   $ splitted LEnd [cclose ')' (pure Entry)]
     , E InStr    str
     ]
 
-kvErr : Arr32 KSz (SK q -> F1 q (BoundedErr Void))
+kvErr : Arr32 KSz (SK q -> F1 q (BoundedErr MolErr))
 kvErr =
   arr32 KSz (unexpected [])
     [ E InStr  $ unclosedIfEOI "\"" []
@@ -158,30 +202,39 @@ kvErr =
     , E LEnd   $ unclosedIfEOI "(" [")"]
     ]
 
-kvEOI : KST -> SK q -> F1 q (Either (BoundedErr Void) (List KeyVal))
+kvEOI : KST -> SK q -> F1 q (Either (BoundedErr MolErr) (List KeyVal))
 kvEOI sk s t =
-  case sk == KIni of
+  case sk == KDone || sk == Entry of
     False => arrFail SK kvErr sk s t
     True  => case getStack t of
       VS vs # t => Right (vs <>> []) # t
       _     # t => Right [] # t -- impossible
 
-kv : P1 q (BoundedErr Void) KSz SK (List KeyVal)
+kv : P1 q (BoundedErr MolErr) KSz SK (List KeyVal)
 kv = P KIni (init (VS [<])) kvTrans noChunk kvErr kvEOI
 
 ||| Parses V3000 key-value pairs from a (possibly multiline) bytestring.
 export %inline
-parseKeyVals : ByteString -> Either (ParseError Void) (List KeyVal)
-parseKeyVals = parseBytes kv Virtual
+keyVals : ByteString -> Either (BoundedErr MolErr) (List KeyVal)
+keyVals = runBytes kv
 
 test : String -> IO ()
-test =
-  either (putStrLn . interpolate) (traverse_ printLn) . parseKeyVals . cast
+test s =
+  either
+    (putStrLn . interpolate)
+    (traverse_ printLn)
+    (parseString kv Virtual s)
 
 ml : String
 ml =
   """
-  FOO=12 BAR="quux" BAZ="this is a -
+  M  V30 FOO=12 BAR="quux" BAZ="this is a -
   M  V30 test" AND=(7 1 2 3 4 5   -
-  M  V30 6 7) IM="not yet done"
+  M  V30 six "se=ven") im="not yet done"
+  """
+
+sup : String
+sup =
+  """
+  M  V30 1 SUP 0 LABEL=a0 ATOMS=(1 1)\n
   """

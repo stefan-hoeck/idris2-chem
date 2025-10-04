@@ -30,7 +30,7 @@ prop_readRoundTrip = property $ do
 
 prop_readRoundTrip3000 : Property
 prop_readRoundTrip3000 = property $ do
-  m <- forAll (molFileGS [])
+  m <- forAll molFile
   let s := writeMolfile {version = V3000} m
 
   footnote "Encoded:\n\{s}"
@@ -52,7 +52,7 @@ prop_sdfRoundTrip = property $ do
 
 prop_sdfRoundTrip3000 : Property
 prop_sdfRoundTrip3000 = property $ do
-  sdfs <- forAll (list (linear 1 10) (sdFileGS []))
+  sdfs <- forAll (list (linear 1 10) sdFile)
   let s := writeSDF {version = V3000} sdfs
 
   footnote "Encoded:\n\{s}"

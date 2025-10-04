@@ -80,7 +80,10 @@ bondEdge : Gen (Edge 999 MolBond)
 bondEdge = edge bond
 
 lbl : Gen String
-lbl = string (linear 1 10) alphaNum
+lbl = [| go alpha (string (linear 1 10) alphaNum) |]
+  where
+    go : Char -> String -> String
+    go = (++) . singleton
 
 groups : Gen (List AtomGroup)
 groups = withIndex [<] 1 <$> list (linear 0 4) lbl

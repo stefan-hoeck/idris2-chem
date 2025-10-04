@@ -26,12 +26,12 @@ fill n = padLeft n ' ' . interpolate
 --          Properties
 --------------------------------------------------------------------------------
 
-record Props (k : Nat) where
+record Props where
   constructor P
   isos     : List String
   charges  : List String
   radicals : List String
-  abbr     : GroupMap k
+  abbr     : GroupMap
 
 dispGroup : String -> List String -> String
 dispGroup pre vs = fastConcat $ pre :: fill 3 (length vs) :: vs
@@ -42,10 +42,10 @@ abbreviations ls =
   map (\(x,y,_) => "M  SMT\{x} \{y}") ls ++
   (ls >>= \(x,_,vs) => map (dispGroup "M  SAL\{x}") (grouped 15 vs))
 
-dispGrp : (Nat,String,SnocList $ Fin k) -> (String,String,List String)
+dispGrp : (Nat,String,SnocList Nat) -> (String,String,List String)
 dispGrp (x,y,z) = (fill 4 x, y, map (fill 4) z <>> [])
 
-props : Props k -> List String
+props : Props -> List String
 props (P is cs rs abbr) =
   map (dispGroup "M  ISO") (grouped 8 is) ++
   map (dispGroup "M  CHG") (grouped 8 cs) ++
@@ -71,8 +71,8 @@ prependNonEmpty s  = (s::)
 adjProps :
      Fin k
   -> Adj k b (Atom Isotope Charge Coordinates Radical h t c (Maybe AtomGroup))
-  -> Props k
-  -> Props k
+  -> Props
+  -> Props
 adjProps n (A a _) p =
   let ns := fill 4 n
       i  := maybe "" (\m => ns ++ fill 4 m) a.elem.mass
@@ -82,7 +82,7 @@ adjProps n (A a _) p =
    in { isos     $= prependNonEmpty i
       , charges  $= prependNonEmpty c
       , radicals $= prependNonEmpty r
-      , abbr     $= appendLbl a.label n
+      , abbr     $= appendLbl n a.label
       } p
 
 %inline atomRem : String
@@ -108,8 +108,8 @@ bond (E x y $ MkBond True t s) =
 bond (E x y $ MkBond False t s) =
  fastConcat [ fill 3 y, fill 3 x, fill 3 t, fill 3 s, bondRem]
 
-groupMap : (0 k : Nat) -> List AtomGroup -> GroupMap k
-groupMap _ = SortedMap.fromList . map (\g => (g.nr, (g.lbl, [<])))
+groupMap : List AtomGroup -> GroupMap
+groupMap = SortedMap.fromList . map (\g => (g.nr, (g.lbl, [<])))
 
 export
 molLines2000 : (name, info, comment : MolLine) -> MolGraph' h t c -> List String

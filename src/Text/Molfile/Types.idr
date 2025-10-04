@@ -402,6 +402,7 @@ data MolErr : Type where
   MBondOrder  : Integer -> MolErr
   MBondStereo : Integer -> MolErr
   MEntries    : MolErr
+  MAbbr       : MolErr
   MNode       : Nat -> MolErr
 
 %runElab derive "MolErr" [Show,Eq]
@@ -416,3 +417,4 @@ Interpolation MolErr where
     MBondStereo x => "bond stereo: \{show x}"
     MNode       x => "node: \{show x}"
     MEntries      => ".mol file: More than one entry"
+    MAbbr         => "abbreviation"

@@ -4,6 +4,7 @@ import Data.Array.Mutable
 import Data.SortedMap as SM
 import Data.Finite
 import Syntax.T1
+import Text.Molfile.Parser.KeyVal
 import Text.Molfile.Parser.Util
 import Text.Molfile.Parser.V2000
 import Text.Molfile.Parser.V3000
@@ -54,6 +55,7 @@ ctabTrans =
     , E Bnd3       $ dfa [conv bondExprV3 bondV3]
     , E BndProp3   $ spaced BndProp3 bondProp3
     , E BondEnd    $ dfa [newline' (endV3 "BOND") RestV3]
+    , E SGroup     $ dfa sgroup
     , E RestV3     $ dfa rest3
     ]
 
@@ -108,3 +110,31 @@ parameters {auto has : Has (ParseError MolErr) es}
   export %inline
   readSDF : String -> ChemRes es (List Molfile)
   readSDF = readSDFFrom Virtual
+
+
+test : String -> IO ()
+test s =
+  case readMol {es = [ParseError MolErr]} s of
+    Left (Here x) => putStrLn (interpolate x)
+    Right (MkMolfile _ _ _  (G s _) _) => putStrLn "\{show s} atoms parsed"
+
+v3 : String
+v3 =
+  """
+
+
+
+  00000999 V3000
+  M  V30 BEGIN CTAB
+  M  V30 COUNTS 1 0 1 0 0
+  M  V30 BEGIN ATOM
+  M  V30 1 H 0 0 0 0
+  M  V30 END ATOM
+  M  V30 BEGIN BOND
+  M  V30 END BOND
+  M  V30 BEGIN SGROUP
+  M  V30 1 SUP 0 LABEL=a0 ATOMS=(1 1)
+  M  V30 END SGROUP
+  M  V30 END CTAB
+  M  END
+  """
