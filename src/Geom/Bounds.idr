@@ -71,8 +71,9 @@ Monoid Bounds where neutral = Empty
 ||| Compounds the overlapping region between two bounds in
 ||| one direction.
 export
-overlap : Bounds -> Bounds -> Bounds
-overlap (Rng mi1 ma1) (Rng mi2 ma2) = range (max mi1 mi2) (min ma1 ma2)
+overlap : {default 0.0 margin : Double} -> Bounds -> Bounds -> Bounds
+overlap (Rng mi1 ma1) (Rng mi2 ma2) =
+  range (max mi1 mi2 - margin) (min ma1 ma2 + margin)
 overlap _             _             = Empty
 
 --------------------------------------------------------------------------------
@@ -93,7 +94,7 @@ Semigroup (Bounds2D t) where
 export
 Monoid (Bounds2D t) where neutral = BS empty empty
 
-namespace Boudns2D
+namespace Bounds2D
   export
   width : Bounds2D t -> Double
   width = width . x
@@ -104,8 +105,8 @@ namespace Boudns2D
 
   ||| Computes the overlapping rectangle between 2D bounds.
   export
-  overlap : Bounds2D t -> Bounds2D t -> Bounds2D t
-  overlap (BS x1 y1) (BS x2 y2) = BS (overlap x1 x2) (overlap y1 y2)
+  overlap : {default 0.0 margin : Double} -> Bounds2D t -> Bounds2D t -> Bounds2D t
+  overlap (BS x1 y1) (BS x2 y2) = BS (overlap {margin} x1 x2) (overlap {margin} y1 y2)
 
 ||| Checks, if the point is in within some bounds in its affine space
 ||| by two points.
