@@ -1,6 +1,7 @@
 module Profile.Text.Molfile
 
 import Text.ParseError
+import Text.ILex.Debug
 import public Profile
 import public Text.Molfile
 
