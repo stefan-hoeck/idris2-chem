@@ -1,7 +1,9 @@
 module Text.Molfile.Writer
 
 import Chem
-import Data.String
+import Data.Linear.Traverse1
+import Data.String.Builder
+import Syntax.T1
 import Text.Molfile.Types
 import Text.Molfile.Writer.Util
 import Text.Molfile.Writer.V2000
@@ -15,22 +17,31 @@ import Text.Molfile.Writer.V3000
 
 parameters {default V2000 version : MolVersion}
 
-  export %inline
-  molLines : (name, info, comment : MolLine) -> MolGraph' h t c -> List String
-  molLines =
-    case version of
-      V2000 => molLines2000
-      V3000 => molLines3000
+  export
+  putMol : Builder q => (n,i,ct : MolLine) -> MolGraph' h t c -> F1' q
+  putMol n i c (G 0 _) = pure ()
+  putMol n i c g       = T1.do
+    putTextLn n.value
+    putTextLn i.value
+    putTextLn c.value
+    if version == V3000 then putMol3000 g else putMol2000 g
+    putTextLn "M  END"
+
+  export
+  putSDF : Builder q => Molfile' h t c -> F1' q
+  putSDF (MkMolfile n i c g ds) = T1.do
+    putMol n i c g
+    traverse1_ writeStructureData ds
+    sdfDelimiter
 
   export %inline
   writeMolfile : Molfile' h t c -> String
-  writeMolfile (MkMolfile n i c g _) = unlines $ molLines n i c g
+  writeMolfile (MkMolfile n i c g _) = withBuilder $ putMol n i c g
 
-  export
-  writeSDFile : Molfile' h t c -> List String
-  writeSDFile (MkMolfile n i c g ds) =
-    molLines n i c g ++ (ds >>= writeStructureData) ++ [sdfDelimiter]
+  export %inline
+  writeSDFile : Molfile' h t c -> String
+  writeSDFile m = withBuilder $ putSDF m
 
-  export
+  export %inline
   writeSDF : List (Molfile' h t c) -> String
-  writeSDF = unlines . (>>= writeSDFile)
+  writeSDF ms = withBuilder $ traverse1_ putSDF ms

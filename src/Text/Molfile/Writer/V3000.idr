@@ -1,8 +1,15 @@
 module Text.Molfile.Writer.V3000
 
-import Data.SortedMap as SM
+import Data.Linear.Traverse1
+import Data.SortedMap
+import Data.String
+import Data.String.Builder
+import Syntax.T1
 import Text.Molfile.Types
 import Text.Molfile.Writer.Util
+import Text.Molfile.Writer.V2000
+
+%hide Prelude.(>>)
 
 %default total
 
@@ -13,89 +20,85 @@ dispStereoV3 Up           = "1"
 dispStereoV3 Either       = "2"
 dispStereoV3 Down         = "3"
 
-fin : Fin k -> String
-fin x = " \{show $ S $ finToNat x}"
+parameters {auto b : Builder q}
 
-mv30line : List String -> String
-mv30line = fastConcat . ("M  V30 "::)
+  chrg : Charge -> F1' q
+  chrg 0 = pure ()
+  chrg c = putText " CHG=\{c}"
 
-counts : (na,nb,ng : Nat) -> String
-counts na nb ng = mv30line ["COUNTS ",show na," ",show nb," ",show ng," 0 0"]
+  rad : Radical -> F1' q
+  rad NoRadical = pure ()
+  rad r         = putText " RAD=\{dispRadical r}"
 
-coordsV3 : Vect 3 Coordinate -> String
-coordsV3 [x,y,z] = " \{disp x} \{disp y} \{disp z} 0" -- zero is AAMAP
-  where
-    disp : Coordinate -> String
-    disp 0 = "0"
-    disp c = interpolate c
+  mass : Isotope -> F1' q
+  mass (MkI H (Just 2)) = linebreak
+  mass (MkI H (Just 3)) = linebreak
+  mass (MkI _ Nothing)  = linebreak
+  mass (MkI _ (Just m)) = putTextLn " MASS=\{show m.value}"
 
-chrg : Charge -> String
-chrg 0 = ""
-chrg c = " CHG=\{c}"
+  mv30 : F1' q
+  mv30 = putText "M  V30 "
 
-rad : Radical -> String
-rad NoRadical = ""
-rad r         = " RAD=\{dispRadical r}"
+  begin, end : String -> F1' q
+  begin s = mv30 >> putText "BEGIN " >> putTextLn s
+  end   s = mv30 >> putText "END " >> putTextLn s
 
-mass : Isotope -> String
-mass (MkI H (Just 2)) = ""
-mass (MkI H (Just 3)) = ""
-mass (MkI _ Nothing)  = ""
-mass (MkI _ (Just m)) = " MASS=\{show m.value}"
+  fin : Fin k -> F1' q
+  fin x = putText " \{show $ S $ finToNat x}"
 
-atomsV3 :
-     SnocList String
-  -> Nat
-  -> List (MolAtom' h t c)
-  -> SnocList String
-atomsV3 ss _ [] = ss :< mv30line ["END ATOM"]
-atomsV3 ss n (MkAtom a c pos r _ _ _ l :: t) =
-  let s := mv30line [show n, " ", dispIso a, coordsV3 pos, chrg c, rad r, mass a]
-   in atomsV3 (ss:<s) (S n) t
+  coordsV3 : Vect 3 Coordinate -> F1' q
+  coordsV3 [x,y,z] = putText " \{disp x} \{disp y} \{disp z} 0"
+    where
+      disp : Coordinate -> String
+      disp 0 = "0"
+      disp c = interpolate c
 
-cfg : BondStereo -> String
-cfg NoBondStereo = ""
-cfg x            = " CFG=\{dispStereoV3 x}"
+  counts : (na,nb,ng : Nat) -> F1' q
+  counts na nb ng =
+    mv30 >> putText "COUNTS " >>
+    putShowSep na >> putShowSep nb >> putShow ng >>
+    putTextLn " 0 0"
 
-bondsV3 :
-     SnocList String
-  -> Nat
-  -> List (Edge k MolBond)
-  -> SnocList String
-bondsV3 ss n []                          = ss :< mv30line ["END BOND"]
-bondsV3 ss n (E x y (MkBond b o s) :: t) =
-  case b of
-    True  =>
-     let s := mv30line [show n, " \{o}", fin x, fin y, cfg s]
-      in bondsV3 (ss:<s) (S n) t
-    False =>
-     let s := mv30line [show n, " \{o}", fin y, fin x, cfg s]
-      in bondsV3 (ss:<s) (S n) t
+  atomV3 : Fin k -> Adj k MolBond (MolAtom' h t c) -> F1' q
+  atomV3 n (A (MkAtom a c pos r _ _ _ l) _) =
+    mv30 >> putShowSep (S $ finToNat n) >> putText (dispIso a) >>
+    coordsV3 pos >> chrg c >> rad r >> mass a
 
-nats : SnocList Nat -> List String
-nats sn =
- let ns := sn <>> []
-  in "(\{show $ length ns}" :: map ((" "++) . show) ns ++ [")"]
+  cfg : BondStereo -> F1' q
+  cfg NoBondStereo = linebreak
+  cfg x            = putTextLn " CFG=\{dispStereoV3 x}"
 
+  bondsV3 : Nat -> List (Edge k MolBond) -> F1' q
+  bondsV3 n []                          = pure ()
+  bondsV3 n (E x y (MkBond b o s) :: t) =
+   let pre  := mv30 >> putShow n >> putText " \{o}"
+    in case b of
+      True  => pre >> fin x >> fin y >> cfg s >> bondsV3 (S n) t
+      False => pre >> fin y >> fin x >> cfg s >> bondsV3 (S n) t
 
-groupsV3 :
-     SnocList String
-  -> List (Nat,String,SnocList Nat)
-  -> SnocList String
-groupsV3 ss [] = ss :< mv30line ["END SGROUP"]
-groupsV3 ss ((n,l,sn)::t) =
- let s := mv30line $ [show n," SUP 0 LABEL=\{l} ATOMS="]++ nats sn
-  in groupsV3 (ss:<s) t
+  nats : List Nat -> F1' q
+  nats ns =
+    putText "(\{show $ length ns} " >> traverse1_ putShowSep ns >> putTextLn ")"
 
-export
-molLines3000 : (name, info, comment : MolLine) -> MolGraph' h t c -> List String
-molLines3000 n i c (G 0 _) = []
-molLines3000 n i c (G o g) =
- let s1 := [<n.value,i.value,c.value,"00000999 V3000"]
-     es := edges g
-     gs := kvList $ foldrKV (\k => appendLbl k . label . label) empty g.graph
-     s2 := s1 :< mv30line ["BEGIN CTAB"] :< counts o (length es) (length gs)
-     s3 := atomsV3 (s2:<mv30line ["BEGIN ATOM"]) 1 (labels g)
-     s4 := bondsV3 (s3:<mv30line ["BEGIN BOND"]) 1 es
-     s5 := groupsV3 (s4:<mv30line ["BEGIN SGROUP"]) gs
-  in s5 <>> [mv30line ["END CTAB"], "M  END"]
+  groupV3 : (Nat,String,SnocList Nat) -> F1' q
+  groupV3 (n,l,x) =
+    mv30 >> putShow n >> putText " SUP 0 LABEL=\{l} ATOMS=" >> nats (x<>>[])
+
+  export
+  putMol3000 : MolGraph' h t c -> F1' q
+  putMol3000 (G o g) = T1.do
+    let es := edges g
+        gs := kvList $ foldrKV (\k => appendLbl k . label . label) empty g.graph
+    putTextLn "00000999 V3000"
+    begin "CTAB"
+    counts o (length es) (length gs)
+    begin "ATOM"
+    traverseKV1_ atomV3 g.graph
+    end   "ATOM"
+    begin "BOND"
+    bondsV3 1 es
+    end   "BOND"
+    begin "SGROUP"
+    traverse1_ groupV3 gs
+    end   "SGROUP"
+    end "CTAB"

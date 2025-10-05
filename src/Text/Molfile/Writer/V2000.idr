@@ -1,9 +1,14 @@
 module Text.Molfile.Writer.V2000
 
+import Data.Linear.Traverse1
 import Data.SortedMap
 import Data.String
+import Data.String.Builder
+import Syntax.T1
 import Text.Molfile.Types
 import Text.Molfile.Writer.Util
+
+%hide Prelude.(>>)
 
 %default total
 
@@ -18,9 +23,17 @@ Interpolation Radical where interpolate = dispRadical
 
 [IP_ISO] Interpolation Isotope where interpolate = dispIso
 
-export
-fill : Interpolation a => Nat -> a -> String
-fill n = padLeft n ' ' . interpolate
+fill : Interpolation a => Builder q => Nat -> a -> F1' q
+fill n = putLeftPadded n ' ' . interpolate
+
+pl : Interpolation a => Nat -> a -> String
+pl n = padLeft n ' ' . interpolate
+
+groupMap : List AtomGroup -> GroupMap
+groupMap = SortedMap.fromList . map (\g => (g.nr, (g.lbl, [<])))
+
+dispGrp : (Nat,String,SnocList Nat) -> (String,String,List String)
+dispGrp (x,y,z) = (pl 4 x, y, map (pl 4) z <>> [])
 
 --------------------------------------------------------------------------------
 --          Properties
@@ -33,51 +46,17 @@ record Props where
   radicals : List String
   abbr     : GroupMap
 
-dispGroup : String -> List String -> String
-dispGroup pre vs = fastConcat $ pre :: fill 3 (length vs) :: vs
-
-abbreviations : List (String,String,List String) -> List String
-abbreviations ls =
-  map (dispGroup "M  STY" . map (\(x,_) => x ++ " SUP")) (grouped 8 ls) ++
-  map (\(x,y,_) => "M  SMT\{x} \{y}") ls ++
-  (ls >>= \(x,_,vs) => map (dispGroup "M  SAL\{x}") (grouped 15 vs))
-
-dispGrp : (Nat,String,SnocList Nat) -> (String,String,List String)
-dispGrp (x,y,z) = (fill 4 x, y, map (fill 4) z <>> [])
-
-props : Props -> List String
-props (P is cs rs abbr) =
-  map (dispGroup "M  ISO") (grouped 8 is) ++
-  map (dispGroup "M  CHG") (grouped 8 cs) ++
-  map (dispGroup "M  RAD") (grouped 8 rs) ++
-  abbreviations (dispGrp <$> SortedMap.toList abbr)
-
---------------------------------------------------------------------------------
---          Writer
---------------------------------------------------------------------------------
-
-counts : (na,nb : Nat) -> String
-counts na nb =
-  fastConcat [fill 3 na, fill 3 nb, fill 6 NonChiral, fill 27 V2000]
-
-coords : Vect 3 Coordinate -> String
-coords [x,y,z] = fastConcat [fill 10 x, fill 10 y, fill 10 z]
-
 %inline
 prependNonEmpty : String -> List String -> List String
 prependNonEmpty "" = id
 prependNonEmpty s  = (s::)
 
-adjProps :
-     Fin k
-  -> Adj k b (Atom Isotope Charge Coordinates Radical h t c (Maybe AtomGroup))
-  -> Props
-  -> Props
+adjProps : Fin k -> Adj k b (MolAtom' h t c) -> Props -> Props
 adjProps n (A a _) p =
-  let ns := fill 4 n
-      i  := maybe "" (\m => ns ++ fill 4 m) a.elem.mass
-      c  := if a.charge == 0 then "" else ns ++ fill 4 a.charge
-      r  := if a.radical == NoRadical then "" else ns ++ fill 4 a.radical
+  let ns := pl 4 n
+      i  := maybe "" (\m => ns ++ pl 4 m) a.elem.mass
+      c  := if a.charge == 0 then "" else ns ++ pl 4 a.charge
+      r  := if a.radical == NoRadical then "" else ns ++ pl 4 a.radical
 
    in { isos     $= prependNonEmpty i
       , charges  $= prependNonEmpty c
@@ -85,37 +64,56 @@ adjProps n (A a _) p =
       , abbr     $= appendLbl n a.label
       } p
 
-%inline atomRem : String
-atomRem = " 0  0  0  0  0  0  0  0  0  0  0  0"
+parameters {auto b : Builder q}
+  dispGroup : String -> List String -> F1' q
+  dispGroup p vs = putText p >> fill 3 (length vs) >> putAll vs >> linebreak
 
-%inline bondRem : String
-bondRem = "  0  0  0"
+  abbreviations : List (String,String,List String) -> F1' q
+  abbreviations ls = T1.do
+    traverse1_ (dispGroup "M  STY" . map (\(x,_) => x ++ " SUP")) (grouped 8 ls)
+    traverse1_ (\(x,y,_) => putTextLn "M  SMT\{x} \{y}") ls
+    for1_ ls $ \(x,_,vs) => traverse1_ (dispGroup "M  SAL\{x}") (grouped 15 vs)
 
+  props : Props -> F1' q
+  props (P is cs rs abbr) =
+    traverse1_ (dispGroup "M  ISO") (grouped 8 is) >>
+    traverse1_ (dispGroup "M  CHG") (grouped 8 cs) >>
+    traverse1_ (dispGroup "M  RAD") (grouped 8 rs) >>
+    abbreviations (dispGrp <$> kvList abbr)
 
-||| General format:
-|||   xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
-export
-atom : Atom Isotope Charge Coordinates Radical h t c l -> String
-atom (MkAtom a c pos _ _ _ _ _) =
-  fastConcat [ coords pos, fill @{IP_ISO} 4 a, atomRem]
+--------------------------------------------------------------------------------
+--          Writer
+--------------------------------------------------------------------------------
 
-||| General format:
-|||   111222tttsssxxxrrrccc
-export
-bond : Edge k MolBond -> String
-bond (E x y $ MkBond True t s) =
- fastConcat [ fill 3 x, fill 3 y, fill 3 t, fill 3 s, bondRem]
-bond (E x y $ MkBond False t s) =
- fastConcat [ fill 3 y, fill 3 x, fill 3 t, fill 3 s, bondRem]
+  counts : (na,nb : Nat) -> F1' q
+  counts na nb = fill 3 na >> fill 3 nb >> fill 6 NonChiral >> fill 27 V2000
 
-groupMap : List AtomGroup -> GroupMap
-groupMap = SortedMap.fromList . map (\g => (g.nr, (g.lbl, [<])))
+  coords : Vect 3 Coordinate -> F1' q
+  coords [x,y,z] = fill 10 x >> fill 10 y >> fill 10 z
 
-export
-molLines2000 : (name, info, comment : MolLine) -> MolGraph' h t c -> List String
-molLines2000 n i c (G 0 _) = []
-molLines2000 n i c (G o g) =
-  let ps := props $ foldrKV adjProps (P [] [] [] empty) g.graph
-      es := map bond (edges g)
-      as := foldr (\a,ls => atom a.label :: ls) (es ++ ps) g.graph
-   in n.value :: i.value :: c.value :: counts o (length es) :: as ++ ["M  END"]
+  %inline atomRem : F1' q
+  atomRem = putTextLn " 0  0  0  0  0  0  0  0  0  0  0  0"
+
+  %inline bondRem : F1' q
+  bondRem = putTextLn "  0  0  0"
+
+  -- xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
+  atom : Atom Isotope Charge Coordinates Radical h t c l -> F1' q
+  atom (MkAtom a c p _ _ _ _ _) = coords p >> fill @{IP_ISO} 4 a >> atomRem
+
+  -- 111222tttsssxxxrrrccc
+  bond : Edge k MolBond -> F1' q
+  bond (E x y $ MkBond True t s) =
+   fill 3 x >> fill 3 y >> fill 3 t >> fill 3 s >> bondRem
+  bond (E x y $ MkBond False t s) =
+   fill 3 y >> fill 3 x >> fill 3 t >> fill 3 s >> bondRem
+
+  export
+  putMol2000 : MolGraph' h t c -> F1' q
+  putMol2000 (G o g) =
+   let es := edges g
+    in T1.do
+         counts o (length es) >> linebreak
+         traverse1_ (atom . label) g.graph
+         traverse1_ bond es
+         props $ foldrKV adjProps (P [] [] [] empty) g.graph

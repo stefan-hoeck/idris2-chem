@@ -1,6 +1,9 @@
 module Text.Molfile.Writer.Util
 
+import Data.Linear.Traverse1
 import Data.SortedMap
+import Syntax.T1
+import Data.String.Builder
 import Text.Molfile.Types
 
 %default total
@@ -20,17 +23,21 @@ dispRadical Singlet   = "1"
 dispRadical Doublet   = "2"
 dispRadical Triplet   = "3"
 
-export %inline
-sdfDelimiter : String
-sdfDelimiter = "$$$$"
+parameters {auto b : Builder q}
 
-writeV : SDValue -> List String
-writeV "" = [""]
-writeV v  = (map pack . grouped 200 $ unpack v.value) ++ [""]
+  writeV : SDValue -> F1' q
+  writeV "" = linebreak
+  writeV v  = T1.do
+    traverse1_ putCharsLn (grouped 200 $ unpack v.value)
+    linebreak
 
-export
-writeStructureData : StructureData -> List String
-writeStructureData (SD h v) = "> <\{h}>" :: writeV v
+  export
+  writeStructureData : StructureData -> F1' q
+  writeStructureData (SD h v) = putTextLn "> <\{h}>" >> writeV v
+
+  export %inline
+  sdfDelimiter : F1' q
+  sdfDelimiter = putTextLn "$$$$"
 
 public export
 0 GroupMap : Type
