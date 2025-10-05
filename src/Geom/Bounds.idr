@@ -10,7 +10,7 @@ export
 data Bounds : Type where
   ||| Bounds without extent. Contains no points.
   Empty    : Bounds
-  
+
   ||| Concrete bounds.
   Rng      : (min, max : Double) -> Bounds
 
@@ -39,8 +39,8 @@ expand v             Empty         = v
 
 ||| Checks if a value is within the given bounds.
 export
-inBounds1D : Double -> Bounds -> Bool
-inBounds1D x (Rng min max) = min <= x && x <= max
+inBounds1D : {default 0.0 margin : Double} -> Double -> Bounds -> Bool
+inBounds1D x (Rng min max) = (min - margin) <= x && x <= (max + margin)
 inBounds1D x Empty         = False
 
 ||| Computes the middle (center) of a range. Returns `Nothing` if the `Bounds`
@@ -67,6 +67,13 @@ Semigroup Bounds where (<+>) = expand
 
 export %inline
 Monoid Bounds where neutral = Empty
+
+||| Compounds the overlapping region between two bounds in
+||| one direction.
+export
+overlap : Bounds -> Bounds -> Bounds
+overlap (Rng mi1 ma1) (Rng mi2 ma2) = range (max mi1 mi2) (min ma1 ma2)
+overlap _             _             = Empty
 
 --------------------------------------------------------------------------------
 --          Bounds 2D
@@ -95,11 +102,16 @@ namespace Boudns2D
   height : Bounds2D t -> Double
   height = width . y
 
+  ||| Computes the overlapping rectangle between 2D bounds.
+  export
+  overlap : Bounds2D t -> Bounds2D t -> Bounds2D t
+  overlap (BS x1 y1) (BS x2 y2) = BS (overlap x1 x2) (overlap y1 y2)
+
 ||| Checks, if the point is in within some bounds in its affine space
 ||| by two points.
 export
-inBounds : (p : Point t) -> Bounds2D t -> Bool
-inBounds p (BS x y) = inBounds1D p.x x && inBounds1D p.y y
+inBounds : {default 0.0 margin : Double} -> (p : Point t) -> Bounds2D t -> Bool
+inBounds p (BS x y) = inBounds1D {margin} p.x x && inBounds1D {margin} p.y y
 
 ||| Return the corners of a bounding rectangle (if any)
 export
