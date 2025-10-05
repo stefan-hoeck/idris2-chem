@@ -85,10 +85,9 @@ parameters {auto b : Builder q}
     mv30 >> putShow n >> putText " SUP 0 LABEL=\{l} ATOMS=" >> nats (x<>>[])
 
   export
-  putMol3000 : MolGraph' h t c -> F1' q
-  putMol3000 (G o g) = T1.do
-    let es := edges g
-        gs := kvList $ foldrKV (\k => appendLbl k . label . label) empty g.graph
+  putMol3000 : List (Edge k MolBond) -> MolGraph' h t c -> F1' q
+  putMol3000 es (G o g) = T1.do
+    let gs := kvList $ foldrKV appendLbl empty g.graph
     putTextLn "00000999 V3000"
     begin "CTAB"
     counts o (length es) (length gs)

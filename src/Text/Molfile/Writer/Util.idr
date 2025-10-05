@@ -44,9 +44,10 @@ public export
 GroupMap = SortedMap Nat (String, SnocList Nat)
 
 export
-appendLbl : Fin k -> Maybe AtomGroup -> GroupMap -> GroupMap
-appendLbl _ Nothing        m = m
-appendLbl x (Just $ G n l) m =
-  case lookup n m of
-    Just (l,sx) => insert n (l, sx :< S (cast x)) m
-    Nothing     => insert n (l, [<S (cast x)]) m
+appendLbl : Fin k -> Adj k b (MolAtom' x y z) -> GroupMap -> GroupMap
+appendLbl x a m =
+  case a.label.label of
+    Nothing      => m
+    Just (G n l) => case lookup n m of
+      Just (l,sx) => insert n (l, sx :< S (cast x)) m
+      Nothing     => insert n (l, [<S (cast x)]) m

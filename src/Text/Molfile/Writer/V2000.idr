@@ -52,7 +52,7 @@ prependNonEmpty "" = id
 prependNonEmpty s  = (s::)
 
 adjProps : Fin k -> Adj k b (MolAtom' h t c) -> Props -> Props
-adjProps n (A a _) p =
+adjProps n adj@(A a _) p =
   let ns := pl 4 n
       i  := maybe "" (\m => ns ++ pl 4 m) a.elem.mass
       c  := if a.charge == 0 then "" else ns ++ pl 4 a.charge
@@ -61,7 +61,7 @@ adjProps n (A a _) p =
    in { isos     $= prependNonEmpty i
       , charges  $= prependNonEmpty c
       , radicals $= prependNonEmpty r
-      , abbr     $= appendLbl n a.label
+      , abbr     $= appendLbl n adj
       } p
 
 parameters {auto b : Builder q}
@@ -86,7 +86,8 @@ parameters {auto b : Builder q}
 --------------------------------------------------------------------------------
 
   counts : (na,nb : Nat) -> F1' q
-  counts na nb = fill 3 na >> fill 3 nb >> fill 6 NonChiral >> fill 27 V2000
+  counts na nb =
+    fill 3 na >> fill 3 nb >> fill 6 NonChiral >> fill 27 V2000 >> linebreak
 
   coords : Vect 3 Coordinate -> F1' q
   coords [x,y,z] = fill 10 x >> fill 10 y >> fill 10 z
@@ -109,11 +110,9 @@ parameters {auto b : Builder q}
    fill 3 y >> fill 3 x >> fill 3 t >> fill 3 s >> bondRem
 
   export
-  putMol2000 : MolGraph' h t c -> F1' q
-  putMol2000 (G o g) =
-   let es := edges g
-    in T1.do
-         counts o (length es) >> linebreak
-         traverse1_ (atom . label) g.graph
-         traverse1_ bond es
-         props $ foldrKV adjProps (P [] [] [] empty) g.graph
+  putMol2000 : List (Edge k MolBond) -> MolGraph' h t c -> F1' q
+  putMol2000 es (G o g) = T1.do
+    counts o (length es)
+    traverse1_ (atom . label) g.graph
+    traverse1_ bond es
+    props $ foldrKV adjProps (P [] [] [] empty) g.graph
