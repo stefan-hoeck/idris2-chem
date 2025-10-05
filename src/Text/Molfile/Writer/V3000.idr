@@ -68,13 +68,12 @@ parameters {auto b : Builder q}
   cfg NoBondStereo = linebreak
   cfg x            = putTextLn " CFG=\{dispStereoV3 x}"
 
-  bondsV3 : Nat -> List (Edge k MolBond) -> F1' q
-  bondsV3 n []                          = pure ()
-  bondsV3 n (E x y (MkBond b o s) :: t) =
-   let pre  := mv30 >> putShow n >> putText " \{o}"
+  bondsV3 : (Nat, Edge k MolBond) -> F1' q
+  bondsV3 (n, E x y (MkBond b o s)) =
+   let pre  := mv30 >> putShow (S n) >> putText " \{o}"
     in case b of
-      True  => pre >> fin x >> fin y >> cfg s >> bondsV3 (S n) t
-      False => pre >> fin y >> fin x >> cfg s >> bondsV3 (S n) t
+      True  => pre >> fin x >> fin y >> cfg s
+      False => pre >> fin y >> fin x >> cfg s
 
   nats : List Nat -> F1' q
   nats ns =
@@ -95,7 +94,7 @@ parameters {auto b : Builder q}
     traverseKV1_ atomV3 g.graph
     end   "ATOM"
     begin "BOND"
-    bondsV3 1 es
+    traverse1_ bondsV3 $ zipWithIndex es
     end   "BOND"
     begin "SGROUP"
     traverse1_ groupV3 gs
