@@ -1,5 +1,6 @@
 module Text.Inchi
 
+import Data.String.Builder
 import System.FFI
 import Text.Molfile
 import Text.Smiles
@@ -21,11 +22,8 @@ genInchi mol =
     pure res
 
 export %inline
-genInchiForMol :
-     (name, info, comment : MolLine)
-  -> Graph MolBond (Atom Isotope Charge Coordinates Radical h t c (Maybe AtomGroup))
-  -> String
-genInchiForMol n i c = genInchi . unlines . molLines n i c
+genInchiForMol : (n, i, ct : MolLine) -> MolGraph' h t c -> String
+genInchiForMol n i c g = genInchi $ withBuilder $ putMol n i c g
 
 toMolBond : SmilesBond -> MolBond
 toMolBond Sngl = MkBond False Single NoBondStereo
