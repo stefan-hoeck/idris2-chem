@@ -202,14 +202,34 @@ export %inline
 Cast Coordinate Double where
   cast x = cast x.value / cast Precision
 
+dec : Integer -> String
+dec i = padLeft 4 '0' (show (abs i `mod` Precision))
+
 disp : Integer -> String
-disp i =
-  show (i `div` Precision) ++ "." ++ padLeft 4 '0' (show (i `mod` Precision))
+disp i = show (i `div` Precision) ++ "." ++ dec i
+
+dispShort : Integer -> String
+dispShort v =
+  case v `mod` Precision of
+    0 => show (v `div` Precision)
+    n => "\{show (v `div` Precision)}.\{dot $ [<] <>< unpack (dec n)}"
+
+  where
+    dot : SnocList Char -> String
+    dot (t:<'0') = dot t
+    dot sc       = pack (sc <>> [])
 
 export
 Interpolation Coordinate where
   interpolate s = padLeft 10 ' ' $
     if s.value < 0 then "-" ++ disp (abs s.value) else disp s.value
+
+||| Space-efficient version of `interpolate` to be used in V3000
+||| mol files.
+export
+dispCoordShort : Coordinate -> String
+dispCoordShort (MkCoordinate v) =
+  if v < 0 then "-" ++ dispShort (abs v) else dispShort v
 
 namespace Coordinate
   %runElab derive "Coordinate" [Show,Eq,Ord,RefinedInteger]

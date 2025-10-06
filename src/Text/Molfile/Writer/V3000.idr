@@ -47,11 +47,8 @@ parameters {auto b : Builder q}
   fin x = putText " \{show $ S $ finToNat x}"
 
   coordsV3 : Vect 3 Coordinate -> F1' q
-  coordsV3 [x,y,z] = putText " \{disp x} \{disp y} \{disp z} 0"
-    where
-      disp : Coordinate -> String
-      disp 0 = "0"
-      disp c = interpolate c
+  coordsV3 [x,y,z] =
+    putText " \{dispCoordShort x} \{dispCoordShort y} \{dispCoordShort z} 0"
 
   counts : (na,nb,ng : Nat) -> F1' q
   counts na nb ng =
