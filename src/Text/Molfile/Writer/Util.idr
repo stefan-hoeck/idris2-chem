@@ -50,4 +50,6 @@ appendLbl x a m =
     Nothing      => m
     Just (G n l) => case lookup n m of
       Just (l,sx) => insert n (l, sx :< S (cast x)) m
-      Nothing     => insert n (l, [<S (cast x)]) m
+      Nothing     => case trim l of
+        "" => m
+        l2 => insert n (l2, [<S (cast x)]) m
