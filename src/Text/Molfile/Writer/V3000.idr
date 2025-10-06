@@ -78,7 +78,7 @@ parameters {auto b : Builder q}
 
   groupV3 : (Nat,String,SnocList Nat) -> F1' q
   groupV3 (n,l,x) =
-    mv30 >> putShow n >> putText " SUP 0 LABEL=\{l} ATOMS=" >> nats (x<>>[])
+    mv30 >> putShow n >> putText " SUP 0 LABEL=\"\{l}\" ATOMS=" >> nats (x<>>[])
 
   export
   putMol3000 : List (Edge k MolBond) -> MolGraph' h t c -> F1' q
