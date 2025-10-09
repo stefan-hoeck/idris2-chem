@@ -31,18 +31,21 @@ Cast Sensitivity Double where
 
 ||| General options for drawing and placing smiles molecules
 public export
-record SmilesDrawSettings where
-  constructor SDS
+record Gen2DSettings where
+  constructor S2D
   bondLength       : Double
   sensivity        : Sensitivity
   maxResolveCycles : Nat
 
-%runElab derive "SmilesDrawSettings" [Show,Eq]
-
+%runElab derive "Gen2DSettings" [Show,Eq]
 
 --------------------------------------------------------------------------------
 --      Overlapping score
 --------------------------------------------------------------------------------
+
+public export
+0 ScoreMap : Nat -> Type
+ScoreMap n = SortedMap (Fin n) Double
 
 ||| Record for the overlapping score
 public export
@@ -52,8 +55,7 @@ record OScore k where
   tot     : Double
 
   ||| Map of atoms with an overlapping score
-  -- TODO: Should this be an `IArray`?
-  scoreA  : SortedMap (Fin k) Double
+  scoreA  : ScoreMap k
 
   ||| List of overlapping scores between two atoms
   scoreAA : List (Fin k, Fin k, Double)
