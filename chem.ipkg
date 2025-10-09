@@ -41,6 +41,8 @@ modules = Chem
         , Geom.Scale
         , Geom.Vector
 
+        , Geom.Gen2D.Types
+
         , Text.Molfile
         , Text.Molfile.AtomType
         , Text.Molfile.Parser
