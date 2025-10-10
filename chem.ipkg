@@ -41,8 +41,9 @@ modules = Chem
         , Geom.Scale
         , Geom.Vector
 
-        , Geom.Gen2D.Types
+        , Geom.Gen2D.Debug
         , Geom.Gen2D.OverlapScore
+        , Geom.Gen2D.Types
 
         , Text.Molfile
         , Text.Molfile.AtomType
