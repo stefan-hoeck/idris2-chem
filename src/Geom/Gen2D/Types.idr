@@ -1,6 +1,9 @@
 module Geom.Gen2D.Types
 
 import Chem
+import Data.Graph.Indexed.Query.Visited
+import Data.Graph.Indexed.Subgraph
+import Data.Queue
 import Data.SortedMap
 import Derive.Prelude
 
@@ -63,66 +66,144 @@ record OScore k where
 %runElab deriveIndexed "OScore" [Show,Eq]
 
 --------------------------------------------------------------------------------
---      Tree structure
+--      Components
 --------------------------------------------------------------------------------
 
-||| This is either a node with its direct children or a list
-||| of nodes belonging to a ring system plus their children.
+public export
+data AttachPoint : (k : Nat) -> Type where
+  None   : AttachPoint k
+  Attach : (parent : Fin k) -> (node : Fin k) -> AttachPoint k
+
+%runElab deriveIndexed "AttachPoint" [Show,Eq]
+
+public export
+0 SubgraphType : Bool -> Nat -> Type -> Type -> Type
+SubgraphType True  k e n = Subgraph k e n
+SubgraphType False _ _ _ = ()
+
+||| A component is a part of a molecular graph that will be placed
+||| as a single unit.
 |||
-||| Every node in a graph appears at most once in this structure
-|||
-||| The connected components of a graph build a list of `RTree`s.
+||| Every componenent `c` except the first (the "main component")
+||| comes with an attachement point: A node in another component
+||| that will be placed before `c`.
 public export
-data RTree : Nat -> Type -> Type where
-  Node : Fin k -> a -> List (RTree k a) -> RTree k a
-  Ring : List (Fin k, a, List $ RTree k a) -> RTree k a
+record Component (k : Nat) (e,n : Type) where
+  constructor C
+  attach   : AttachPoint k
+  nodes    : List (Fin k)
+  isRing   : Bool
+  subgraph : SubgraphType isRing k e n
 
-%runElab derivePattern "RTree" [I,P] [Show,Eq]
+--------------------------------------------------------------------------------
+-- Utilities
+--------------------------------------------------------------------------------
 
-public export
-0 Trees : Nat -> Type -> Type
-Trees n a = List (RTree n a)
+-- A mapping from a node to the ring it belongs to (if any).
+0 RingMap : Nat -> Type -> Type -> Type
+RingMap k e n = IArray k (Maybe $ Component k e n)
 
-public export
-0 SnocTrees : Nat -> Type -> Type
-SnocTrees n a = SnocList (RTree n a)
+%inline
+subnodes : Subgraph k e n -> List (Fin k)
+subnodes (G _ g) = fst <$> labels g
 
-public export
-0 Rings : Nat -> Type -> Type
-Rings n a = List (Fin n, a, Trees n a)
+notVisited : Visited k -> Fin k -> Bool
+notVisited vis n = not $ n `visited` vis
 
-public export
-0 SnocRings : Nat -> Type -> Type
-SnocRings n a = SnocList (Fin n, a, Trees n a)
+children : IGraph k e n -> Visited k -> Component k e n -> List (Fin k, Fin k)
+children g vis c = do
+  a <- nodes c
+  n <- filter (notVisited vis) (neighbours g a)
+  pure (a,n)
 
-||| Calculates the size of a RTree structure, resp. sum of all nodes.
+--------------------------------------------------------------------------------
+-- Component Partition
+--------------------------------------------------------------------------------
+
+pairs : Subgraph k e n -> List (Nat, Maybe $ Component k e n)
+pairs g =
+ let ns := subnodes g
+     c  := Just (C None ns True g)
+  in map (\x => (finToNat x ,c)) ns
+
+-- Extracts the ring systems from a graph storing them in an array and
+-- returning the largest of them as the molecule's main component.
+-- Returns `Nothing` in case the molecule is acyclic.
+rings : {k : _} -> (g : IGraph k e n) -> Maybe (Component k e n, RingMap k e n)
+rings g =
+  case reverse $ sortBy (comparing order) (biconnectedComponents g) of
+    []    => Nothing
+    r::rs =>
+      Just (C None (subnodes r) True r, fromPairs k Nothing (rs >>= pairs))
+
+parameters {k : Nat}
+           (g : IGraph k e n)
+           (m : RingMap k e n)
+
+  -- `True` if the given node is not in a ring and has not yet been visited
+  nonVisitedInChain : Visited k -> Fin k -> Bool
+  nonVisitedInChain vis n =
+    case m `at` n of
+      Nothing => not (n `visited` vis)
+      Just _  => False
+
+  -- runner for `longestChainFrom`
+  lcf :
+       SnocList (Fin k)
+    -> Queue (SnocList $ Fin k, Fin k)
+    -> Visited k
+    -> SnocList (Fin k)
+  lcf sx q vis =
+    case dequeue q of
+      Nothing          => sx
+      Just ((sy,y),q2) =>
+       let ss := sy:<y
+           ns := filter (nonVisitedInChain vis) (neighbours g y)
+           v2 := assert_smaller vis (visitAll ns vis)
+        in lcf ss (enqueueAll q2 $ (ss,) <$> ns) v2
+
+  -- computes the longest chain of atoms not in a ring
+  -- from the given starting point
+  %inline
+  longestChainFrom : Visited k -> Fin k -> SnocList (Fin k)
+  longestChainFrom vis x = lcf [<] (enqueue empty ([<], x)) (visit x vis)
+
+  -- Iteratively computes the longest chains from the attachment
+  -- points of already found components
+  chains :
+       SnocList (Component k e n)
+    -> Queue (Fin k,Fin k)
+    -> Visited k
+    -> (List $ Component k e n)
+  chains sx q vis =
+    case dequeue q of
+      Nothing     => sx <>> []
+      Just ((a,n),q2) => case m `at` n of
+        Just c  =>
+         let vis2 := assert_smaller vis $ visitAll (nodes c) vis
+             q3   := enqueueAll q2 (children g vis2 c)
+          in chains (sx:<{attach := Attach a n} c) q3 vis2
+        Nothing =>
+         let c    := C (Attach a n) (longestChainFrom vis n <>> []) False ()
+             vis2 := assert_smaller vis $ visitAll (nodes c) vis
+             q3   := enqueueAll q2 (children g vis2 c)
+          in chains (sx:<c) q3 vis2
+
+||| Partitions the nodes of a graph into disjoint components,
+||| which will be placed in the given order.
 export
-size : RTree k l -> Nat
-size (Node _ _ xs) = assert_total $ S (sum $ map size xs)
-size (Ring xs)     = assert_total $ sum $ map (sum . map size . snd . snd) xs
-
-||| Extracts the depth of a RTree structure, which has the depth label.
-export
-depth : RTree k (Nat,a) -> Nat
-depth (Node _ (n,_) _)           = n
-depth (Ring [])                  = 0
-depth (Ring ((_,(n,_),_) :: xs)) = n
-
-goRT : RTree k a -> (Nat,RTree k (Nat,a))
-
-goT : SnocTrees k (Nat,a) -> Trees k a -> Nat -> (Nat,Trees k (Nat,a))
-goT sx []      n = (n,sx <>> [])
-goT sx (x::xs) n = let (m,y) := goRT x in goT (sx:<y) xs (max m n)
-
-goR : SnocRings k (Nat,a) -> (p,q,d : Nat) -> Rings k a -> (Nat,Rings k (Nat,a))
-goR sx p q d []               = (d,sx <>> [])
-goR sx p q d ((k,l,ys) :: xs) =
- let (d2,zs) := goT [<] ys 0
-  in goR (sx:<(k,(S d2,l),zs)) (S p) (pred q) (max d $ S d2 + min p q) xs
-
-goRT (Node x l xs) = let (m,ys) := goT [<] xs 0 in (S m,Node x (S m,l) ys)
-goRT (Ring xs)     = let (m,ys) := goR [<] 0 (length xs) 0 xs in (m,Ring ys)
-
-export %inline
-addDepth : RTree k a -> RTree k (Nat,a)
-addDepth = snd . goRT
+components : {k : _} -> IGraph k e n -> List (Component k e n)
+components g =
+  case tryNatToFin 0 of
+    Nothing => []
+    Just z  => case rings g of
+      Just (c,m) =>
+       let vis := visitAll (nodes c) ini
+        in chains g m [<c] (fromList $ children g vis c) vis
+      Nothing     =>
+       let m      := fill k Nothing
+           _ :< n := longestChainFrom g m ini z | [<] => []
+           ns     := reverse $ longestChainFrom g m ini n <>> []
+           c      := C None ns False ()
+           vis    := visitAll ns ini
+        in chains g m [<c] (fromList $ children g vis c) vis
