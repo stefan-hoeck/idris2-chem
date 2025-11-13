@@ -107,8 +107,6 @@ isInvalid : AtomType -> Bool
 isInvalid at =
   case at.name of
     "unknown" => True
-    "N.oxide" => True
-    "N.sp2.3" => True
     _         => False
 
 --------------------------------------------------------------------------------
