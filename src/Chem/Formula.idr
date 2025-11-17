@@ -101,7 +101,7 @@ prepEQ p eq (MR ps prf) =
 
 0 plusSucc : (m,n : Nat) -> (0 prf : IsSucc m) => IsSucc (m + n)
 plusSucc (S k) n = ItIsSucc
-plusSucc 0 n impossible
+plusSucc Z n impossible
 
 ||| Merges to molecular formulae making sure by design that the
 ||| result ist still normalized, that is, entries are ordered
