@@ -402,12 +402,6 @@ fromAtomicNr 116 = Lv
 fromAtomicNr 117 = Ts
 fromAtomicNr 118 = Og
 
--- this is just an additional measure of safety:
--- if we ever increase the valid range of atomic numbers
--- Idris will shout at us here that this case is actually
--- not impossible.
-fromAtomicNr (MkAtomicNr 119 prf) impossible
-
 -- since we are dealing with primitive `Bits8` here,
 -- Idris needs our help to figure out that we have reached the end
 -- of possible inputs.
