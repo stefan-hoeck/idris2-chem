@@ -369,8 +369,9 @@ atMap =
     , pair "V.3minus"               V  (-3) NoRadical (BS 6 0 0) Octahedral  0
     , pair "Xe.3"                   Xe 0    NoRadical (BS 4 0 0) SP3D2       0
     , pair "Zn.1"                   Zn 0    NoRadical (BS 0 1 0) None        0
+    , pair "Zn.metallic"            Zn 0    NoRadical (BS 0 0 0) None        0
     , pair "Zn"                     Zn 0    NoRadical (BS 2 0 0) None        0
-    , pair "Zn.2plus"               Zn 2    NoRadical (BS 2 0 0) S           0
+    , pair "Zn.2plus"               Zn 2    NoRadical (BS 0 0 0) S           0
     ]
 
 tryAT : Elem -> Radical -> Charge -> Bonds -> AtomType
