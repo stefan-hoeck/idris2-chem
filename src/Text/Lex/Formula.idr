@@ -1,50 +1,44 @@
 module Text.Lex.Formula
 
 import Chem
-import Data.List.Quantifiers.Extra
-import Derive.Prelude
-import Text.Bounds
-import Text.FC
-import Text.Lex.Elem
-import Text.Lex.Manual
+import Text.ILex
 
-%language ElabReflection
 %default total
 
-public export
-0 FormulaErr : Type
-FormulaErr = ParseError Void
-
-lexNat : Elem -> SafeTok Formula
-lexNat e []        = Succ (singleton e 1) []
-lexNat e (x :: xs) =
-  if isDigit x
-     then singleton e <$> dec1 (digit x) xs
-     else Succ (singleton e 1) (x::xs)
-
-lexPair : StrictTok Void Formula
-lexPair cs = case lexElement {orig} cs of
-  Succ val xs => lexNat val xs
-  Fail x y z  => Fail x y z
-
-export
-readFormula : Has FormulaErr es => String -> ChemRes es Formula
-readFormula s = go begin neutral (unpack s) suffixAcc
-  where
-    go :
-         Position
-      -> Formula
-      -> (ts : List Char)
-      -> (0 acc : SuffixAcc ts)
-      -> ChemRes es Formula
-    go p1 f [] _      = Right f
-    go p1 f cs (SA r) = case lexPair cs of
-      Succ v xs2 @{p}     =>
-        let p2 := endPos p1 p
-         in go p2 (f <+> v) xs2 r
-      Fail x e r => Left . inject $ toParseError Virtual s (boundedErr p1 x e r)
-
-export
-readFormula' : String -> Either String Formula
-readFormula' =
-  mapFst (interpolate . project1) . readFormula {es = [FormulaErr]}
+-- public export
+-- 0 FormulaErr : Type
+-- FormulaErr = ParseError Void
+--
+-- lexNat : Elem -> SafeTok Formula
+-- lexNat e []        = Succ (singleton e 1) []
+-- lexNat e (x :: xs) =
+--   if isDigit x
+--      then singleton e <$> dec1 (digit x) xs
+--      else Succ (singleton e 1) (x::xs)
+--
+-- lexPair : StrictTok Void Formula
+-- lexPair cs = case lexElement {orig} cs of
+--   Succ val xs => lexNat val xs
+--   Fail x y z  => Fail x y z
+--
+-- export
+-- readFormula : Has FormulaErr es => String -> ChemRes es Formula
+-- readFormula s = go begin neutral (unpack s) suffixAcc
+--   where
+--     go :
+--          Position
+--       -> Formula
+--       -> (ts : List Char)
+--       -> (0 acc : SuffixAcc ts)
+--       -> ChemRes es Formula
+--     go p1 f [] _      = Right f
+--     go p1 f cs (SA r) = case lexPair cs of
+--       Succ v xs2 @{p}     =>
+--         let p2 := endPos p1 p
+--          in go p2 (f <+> v) xs2 r
+--       Fail x e r => Left . inject $ toParseError Virtual s (boundedErr p1 x e r)
+--
+-- export
+-- readFormula' : String -> Either String Formula
+-- readFormula' =
+--   mapFst (interpolate . project1) . readFormula {es = [FormulaErr]}

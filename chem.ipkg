@@ -7,7 +7,6 @@ sourcedir  = "src"
 depends    = base         >= 0.5.1
            , elab-util
            , refined
-           , parser
            , ilex
            , indexed-graph
            , quantifiers-extra
@@ -60,7 +59,6 @@ modules = Chem
         , Text.Molfile.Writer.V2000
         , Text.Molfile.Writer.V3000
 
-        , Text.Lex.Elem
         , Text.Lex.Formula
 
         , Text.Smiles
