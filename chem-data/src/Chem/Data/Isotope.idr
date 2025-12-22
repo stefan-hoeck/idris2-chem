@@ -3,7 +3,6 @@ module Chem.Data.Isotope
 import Chem.Elem
 import Data.List
 import Derive.Prelude
-import Text.Lex.Elem
 
 %default total
 %language ElabReflection
