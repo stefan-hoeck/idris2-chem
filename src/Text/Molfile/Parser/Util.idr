@@ -341,5 +341,5 @@ export
 sdvalue : Steps q CSz CSTCK
 sdvalue =
   [ newline newline endSDValue
-  , convline (dots >> newline) (pushStr SDValue . stringTillEOL)
+  , convline (dots >> newline) (pushStr Stack.SDValue . stringTillEOL)
   ]
