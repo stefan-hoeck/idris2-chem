@@ -184,7 +184,7 @@ str =
 kvTrans : Lex1 q KSz SK
 kvTrans =
   lex1
-    [ E KIni   $ dfa [cexpr' mv30 Entry]
+    [ E KIni   $ dfa [cexpr' mv30 KeyVal.Entry]
     , E Entry     $ toplevel Entry
     , E KVal   $ toplevel KVal
     , E LVal   $ val LVal []
