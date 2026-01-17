@@ -1,6 +1,6 @@
 module Geom.Gen2D.Types
 
-import Chem
+import public Chem
 import Data.Graph.Indexed.Query.Visited
 import Data.Graph.Indexed.Subgraph
 import Data.Queue
