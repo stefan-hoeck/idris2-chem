@@ -12,7 +12,6 @@ import Test.Chem.QSAR.HAcceptor
 import Test.Chem.QSAR.JPlogP
 import Test.Chem.QSAR.RotatableBonds
 import Test.Chem.QSAR.TPSA
-import Test.Text.Lex.Elem
 import Test.Text.Lex.Formula
 import Test.Text.Molfile
 import Test.Text.Smiles.Parser
@@ -20,8 +19,7 @@ import Test.Text.Smiles.Parser
 main : IO ()
 main =
   test
-    [ Lex.Elem.props
-    , Chem.Elem.props
+    [ Chem.Elem.props
     , Smiles.Parser.props
     , Molfile.props
     , Formula.props
