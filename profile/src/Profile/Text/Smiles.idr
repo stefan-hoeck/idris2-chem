@@ -5,6 +5,7 @@ import Data.List.Quantifiers.Extra
 import Data.String
 import Profile
 import System.File
+import Text.ILex
 import Text.Smiles
 
 export

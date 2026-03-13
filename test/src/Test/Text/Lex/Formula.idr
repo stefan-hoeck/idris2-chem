@@ -9,7 +9,7 @@ import Text.ParseError
 prop_roundTrip : Property
 prop_roundTrip = property $ do
   f <- forAll formula
-  Right f === readFormula {es = [FormulaErr]} "\{f}"
+  Right f === parseFormula "\{f}"
 
 export
 props : Group

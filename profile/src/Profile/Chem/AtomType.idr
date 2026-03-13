@@ -5,6 +5,7 @@ import Data.String
 import Profile
 import Profile.Text.Smiles
 import System.File
+import Text.ILex
 import Text.Smiles
 
 0 Errs : List Type

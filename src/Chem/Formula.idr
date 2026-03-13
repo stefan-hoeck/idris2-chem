@@ -210,6 +210,17 @@ export %inline
 contains : Formula -> Formula -> Bool
 contains (F x) (F y) = contains_ x y
 
+||| Inserts an element plus count into a molecular formula.
+export
+insert : Elem -> Nat -> Formula -> Formula
+insert el 0 f = f
+insert el n f = singleton el n <+> f
+
+||| Inserts an element at count 1 into a molecular formula.
+export
+insertElem : Elem -> Formula -> Formula
+insertElem el f = singleton el 1 <+> f
+
 --------------------------------------------------------------------------------
 --          Tests
 --------------------------------------------------------------------------------
