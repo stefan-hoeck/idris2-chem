@@ -186,6 +186,29 @@ export %inline
 near : GetPoint a => (x,y : a) -> (delta : Double) -> Bool
 near x y = (distance x y <=)
 
+record Center2d (t : AffineTransformation) where
+  constructor C2D
+  sx    : Double
+  sy    : Double
+  count : Nat
+
+toCenter : Center2d t -> Point t
+toCenter (C2D _ _ 0)   = P 0 0
+toCenter (C2D sx sy n) =
+  let dn := cast {to = Double} n in P (sx/dn) (sy/dn)
+
+addPoint :
+     {auto g : GetPoint a}
+  -> Center2d (gtrans @{g})
+  -> a
+  -> Center2d (gtrans @{g})
+addPoint (C2D sx sy c) v = let P x y := point v in C2D (sx+x) (sy+y) (S c)
+
+||| Computes the center of mass of a set of points.
+export
+center2d : (g : GetPoint a) => Foldable t => t a -> Point (gtrans @{g})
+center2d = toCenter . foldl addPoint (C2D 0 0 0)
+
 --------------------------------------------------------------------------------
 --          Utilities
 --------------------------------------------------------------------------------
