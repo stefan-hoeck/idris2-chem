@@ -125,6 +125,14 @@ interface GetPoint (0 a : Type) where
   point  : a -> Point gtrans
 
 public export
+0 GPoint : (a : Type) -> (g : GetPoint a) => Type
+GPoint a = Point (gtrans @{g})
+
+public export
+0 GVect : (a : Type) -> (g : GetPoint a) => Type
+GVect a = Vector (transform $ gtrans @{g})
+
+public export
 {t : _} -> GetPoint (Point t) where
   gtrans = t
   point  = id
@@ -141,9 +149,17 @@ public export
   mtrans       = t
   modPoint f p = f p
 
+public export
+0 MPoint : (a : Type) -> (m : ModPoint a) => Type
+MPoint a = Point (mtrans @{m})
+
+public export
+0 MVect : (a : Type) -> (m : ModPoint a) => Type
+MVect a = Vector (transform $ mtrans @{m})
+
 ||| Places an object at a new point in space.
 export %inline
-setPoint : (m : ModPoint a) => Point (mtrans @{m}) -> a -> a
+setPoint : ModPoint a => MPoint a -> a -> a
 setPoint = modPoint . const
 
 ||| Return the coordinates of a point in the reference affine space.
@@ -153,7 +169,7 @@ pointId = convert . point
 
 ||| Translate an object in 2D space by the given vector.
 export
-translate : (m : ModPoint a) => Vector (transform $ mtrans @{m}) -> a -> a
+translate : ModPoint a => MVect a -> a -> a
 translate (V dx dy) = modPoint (\(P x y) => P (x + dx) (y + dy))
 
 ||| Scale an object in 2D space by the given factor.
@@ -163,7 +179,7 @@ scale v = modPoint (\(P x y) => P (x * v.value) (y * v.value))
 
 ||| Rotates an object by the given angle around the given poin
 export
-rotateAt : (m : ModPoint a) => Point (mtrans @{m}) -> Angle -> a -> a
+rotateAt : ModPoint a => MPoint a -> Angle -> a -> a
 rotateAt o a = modPoint $ \p => let v := p-o in translate (rotate a v - v) p
 
 ||| Rotates an object by the given angle around the origin
@@ -186,27 +202,22 @@ export %inline
 near : GetPoint a => (x,y : a) -> (delta : Double) -> Bool
 near x y = (distance x y <=)
 
-record Center2d (t : AffineTransformation) where
+record Center2d where
   constructor C2D
   sx    : Double
   sy    : Double
   count : Nat
 
-toCenter : Center2d t -> Point t
-toCenter (C2D _ _ 0)   = P 0 0
-toCenter (C2D sx sy n) =
-  let dn := cast {to = Double} n in P (sx/dn) (sy/dn)
+toCenter : Center2d -> Point t
+toCenter (C2D _ _ 0) = P 0 0
+toCenter (C2D x y n) = let dn := cast n in P (x/dn) (y/dn)
 
-addPoint :
-     {auto g : GetPoint a}
-  -> Center2d (gtrans @{g})
-  -> a
-  -> Center2d (gtrans @{g})
+addPoint : GetPoint a => Center2d -> a -> Center2d
 addPoint (C2D sx sy c) v = let P x y := point v in C2D (sx+x) (sy+y) (S c)
 
 ||| Computes the center of mass of a set of points.
 export
-center2d : (g : GetPoint a) => Foldable t => t a -> Point (gtrans @{g})
+center2d : GetPoint a => Foldable t => t a -> GPoint a
 center2d = toCenter . foldl addPoint (C2D 0 0 0)
 
 --------------------------------------------------------------------------------

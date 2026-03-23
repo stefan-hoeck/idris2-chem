@@ -1,6 +1,7 @@
 module Geom.Bounds
 
 import Geom.Point
+import Geom.Vector
 import Text.Molfile.Types
 
 %default total
@@ -165,6 +166,22 @@ center ts = case bounds ts of
 export
 inRectangle : {t : _} -> (p, edge1, edge2 : Point t) -> Bool
 inRectangle p e1 e2 = inBounds p (bounds $ the (List _) [e1,e2])
+
+||| Translates all values in a container in such a way that they have
+||| all non-negative coordinates, with the bottom left value being placed
+||| at the origin.
+export
+translatePositive :
+     {auto mp : ModPoint a}
+  -> {auto bd : Bounded a}
+  -> {auto fl : Foldable t}
+  -> {auto fn : Functor t}
+  -> t a
+  -> t a
+translatePositive vs =
+  case corners $ bounds vs of
+    Nothing         => vs
+    Just (P x y, _) => translate (V (-x) (-y)) <$> vs
 
 --------------------------------------------------------------------------------
 --          Utilities
