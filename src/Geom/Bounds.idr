@@ -167,21 +167,14 @@ export
 inRectangle : {t : _} -> (p, edge1, edge2 : Point t) -> Bool
 inRectangle p e1 e2 = inBounds p (bounds $ the (List _) [e1,e2])
 
-||| Translates all values in a container in such a way that they have
-||| all non-negative coordinates, with the bottom left value being placed
-||| at the origin.
+||| Translates a bounded value so that the lower-left corner of its
+||| bound will come to lie at the origin.
 export
-translatePositive :
-     {auto mp : ModPoint a}
-  -> {auto bd : Bounded a}
-  -> {auto fl : Foldable t}
-  -> {auto fn : Functor t}
-  -> t a
-  -> t a
-translatePositive vs =
-  case corners $ bounds vs of
-    Nothing         => vs
-    Just (P x y, _) => translate (V (-x) (-y)) <$> vs
+translatePositive : ModPoint a => Bounded a => a -> a
+translatePositive v =
+  case corners $ bounds v of
+    Nothing         => v
+    Just (P x y, _) => translate (V (-x) (-y)) v
 
 --------------------------------------------------------------------------------
 --          Utilities
