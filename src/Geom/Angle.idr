@@ -99,6 +99,14 @@ export %inline
 (*) : Double -> Angle -> Angle
 v * A x _ = angle $ v * x
 
+||| Divides an angle into `n` equal part.
+|||
+||| Returns the angle unmodified in case `n` equals zero.
+export
+divide : Nat -> Angle -> Angle
+divide 0 a       = a
+divide n (A x _) = angle (x / cast n)
+
 ||| Returns the shortest distance between two angles.
 ||| (either clockwise or counterclockwise.)
 |||
