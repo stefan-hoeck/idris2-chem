@@ -69,6 +69,11 @@ export
 zero : Angle
 zero = angle 0
 
+export
+fullSteps : Nat -> Angle
+fullSteps 0 = zero
+fullSteps n = angle (TwoPi / cast n)
+
 ||| Returns the absolute distance between two angles
 |||
 ||| Unlike `minDelta`, this just subtracts the smaller angle
