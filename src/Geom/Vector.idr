@@ -160,3 +160,8 @@ angle (V x y) =
   else
     let phi := atan (y / x)
      in Just $ if x > 0 then angle phi else angle (phi + pi)
+
+||| Like `angle` but returns `zero` in case the vector is the empty vector.
+export %inline
+angleOrZero : Vector t -> Angle
+angleOrZero = fromMaybe zero . angle
