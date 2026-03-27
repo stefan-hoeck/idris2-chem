@@ -1,5 +1,6 @@
 module Geom.Gen2D.State
 
+import Data.Array.Mutable
 import Data.Graph.Indexed
 import Data.Linear.List
 import Data.Linear.Ref1
@@ -11,6 +12,11 @@ import Syntax.T1
 %hide Prelude.(-)
 %default total
 
+||| Internal state for iteratively placing (parts of) the atoms
+||| in a molecule.
+|||
+||| It keeps track of the atoms that have been placed so far
+||| but also of the current center of the placed atoms.
 export
 record PlaceST (s : Type) (k : Nat) where
   [noHints]
@@ -28,12 +34,11 @@ placeST k = T1.do
   pure (PST m s p)
 
 export
-place : PlaceST s k => Fin k -> Point Id -> F1 s Bool
+place : PlaceST s k => Fin k -> Point Id -> F1' s
 place @{st} x p = T1.do
   set st.pos x (Just p)
   mod1 st.placed S
   mod1 st.psum $ \(P x y) => P (x + p.x) (y + p.y)
-  pure True
 
 export
 nodePosition : PlaceST s k => Fin k -> F1 s (Point Id)
@@ -41,6 +46,13 @@ nodePosition @{st} x t =
   case Core.get st.pos x t of
     Just p  # t => p # t
     Nothing # t => origin # t
+
+export
+bondVector : PlaceST s k => Fin k -> Fin k -> F1 s (Vector Id)
+bondVector x y = T1.do
+  px <- nodePosition x
+  py <- nodePosition y
+  pure $ py - px
 
 export
 isPlaced : PlaceST s k => Fin k -> F1 s Bool
@@ -62,3 +74,9 @@ center @{st} t =
 export
 centerOf : PlaceST s k => List (Fin k) -> F1 s (Point Id)
 centerOf vs = center2d <$> traverse1 nodePosition vs
+
+export
+getPoints : {k : _} -> PlaceST s k -> F1 s (IArray k $ Point Id)
+getPoints st t =
+  let m # t := mmap (fromMaybe origin) st.pos t
+   in unsafeFreeze m t

@@ -63,8 +63,8 @@ parameters {k       : Nat}
       SP => v
       _  =>
        let a  := compAngle
-           va := rotate a v
-           vb := rotate (negate a) v
+           va := rotate a (negate v)
+           vb := rotate (negate a) (negate v)
         in if distance (translate va p) c >= distance (translate vb p) c
               then va
               else vb
@@ -89,25 +89,33 @@ parameters {k       : Nat}
   placeChain p (n::ns) v t =
    let pp # t := nodePosition p t
        pn     := translate v pp
-       _  # t := place n pn t
+       b  # t := isPlaced n t
+       _  # t := when1 (not b) (place n pn) t
        c  # t := State.center {k} t
     in placeChain n ns (nextBondVector n v pn c True) t
 
   export
-  polygonCorners : PlaceST s k => List (Fin k) -> Point Id -> (cur,step : Angle) -> F1 s Bool
-  polygonCorners []        _ _   _    t = True # t
+  polygonCorners : PlaceST s k => List (Fin k) -> Point Id -> (cur,step : Angle) -> F1' s
+  polygonCorners []        _ _   _    t = () # t
   polygonCorners (x :: xs) p cur step t =
    let theta := cur + step
        _ # t := place x (translate (rotate theta vone) p) t
     in polygonCorners xs p theta step t
 
   export
-  distributeAtoms : PlaceST s k => Fin k -> (us,ps : List (Fin k)) -> F1 s Bool
-  distributeAtoms x us ps t =
+  distributeAtoms : PlaceST s k => Fin k -> (us,ps : List (Fin k)) -> F1' s
+  distributeAtoms x []        _  t = () # t
+  distributeAtoms x us@(_::r) ps t =
    let px # t       := nodePosition x t
        ps # t       := traverse1 nodePosition ps t
-       (start,step) := circularFreeSweep (length us) px ps
+       (start,step) := circularFreeSweep (S $ length r) px ps
     in polygonCorners us px start step t
+
+  export
+  placeNeighbours : PlaceST s k => Fin k -> F1' s
+  placeNeighbours x t =
+   let (us,ps) # t := partition1 isPlaced (neighbours g x) t
+    in distributeAtoms x us ps t
 
   ||| Convenience method to place a single atom. This function will first find
   ||| a placed neighbour does not need to be set) and then place this
@@ -115,9 +123,9 @@ parameters {k       : Nat}
   ||| utility is useful for sprouting a new atom to an already placed
   ||| structure.
   export
-  placeAtom : PlaceST s k => Fin k -> F1 s Bool
+  placeAtom : PlaceST s k => Fin k -> F1' s
   placeAtom x t =
-   let False # t := isPlaced x t | _ # t => False # t
+   let False # t := isPlaced x t | _ # t => () # t
     in case filter1 isPlaced (neighbours g x) t of
          []  # t => place x (P 0 0) t
          [y] # t =>

@@ -1,8 +1,8 @@
 module Geom.Gen2D.Types
 
 import public Chem
+import public Data.Graph.Indexed.Subgraph
 import Data.Graph.Indexed.Query.Visited
-import Data.Graph.Indexed.Subgraph
 import Data.Queue
 import Data.SortedMap
 import Derive.Prelude
@@ -193,17 +193,16 @@ parameters {k : Nat}
 ||| which will be placed in the given order.
 export
 components : {k : _} -> IGraph k e n -> List (Component k e n)
-components g =
-  case tryNatToFin 0 of
-    Nothing => []
-    Just z  => case rings g of
-      Just (c,m) =>
-       let vis := visitAll (nodes c) ini
-        in chains g m [<c] (fromList $ children g vis c) vis
-      Nothing     =>
-       let m      := fill k Nothing
-           _ :< n := longestChainFrom g m ini z | [<] => []
-           ns     := reverse $ longestChainFrom g m ini n <>> []
-           c      := C None ns False ()
-           vis    := visitAll ns ini
-        in chains g m [<c] (fromList $ children g vis c) vis
+components {k = Z}   g = []
+components {k = S x} g =
+  case rings g of
+    Just (c,m) =>
+     let vis := visitAll (nodes c) ini
+      in chains g m [<c] (fromList $ children g vis c) vis
+    Nothing     =>
+     let m      := fill (S x) Nothing
+         _ :< n := longestChainFrom g m ini FZ | [<] => []
+         ns     := reverse $ longestChainFrom g m ini n <>> []
+         c      := C None ns False ()
+         vis    := visitAll ns ini
+      in chains g m [<c] (fromList $ children g vis c) vis

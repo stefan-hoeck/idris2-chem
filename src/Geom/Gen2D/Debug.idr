@@ -2,7 +2,9 @@ module Geom.Gen2D.Debug
 
 import Chem
 import Data.String
+import Geom
 import Geom.Gen2D.Types
+import Geom.Gen2D.Generate
 import Text.Smiles
 
 %default total
@@ -27,3 +29,14 @@ test s =
   case readSmiles' s of
     Left x  => putStrLn "\{x}"
     Right x => printComponents x
+
+export
+coords : String -> IO ()
+coords s =
+  case perceiveSmilesAtomTypes <$> readSmiles' s of
+    Left x  => putStrLn "\{x}"
+    Right (G _ g) => putStrLn (pretty interpolate disp $ coordinates g)
+
+  where
+    disp : (Point Id, SmilesAtomAT) -> String
+    disp (p,a) = "\{a.elem.elem} : \{show p}"
