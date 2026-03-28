@@ -1,13 +1,13 @@
 module Geom.Gen2D.State
 
 import Data.Array.Mutable
-import Data.Graph.Indexed
-import Data.Linear.List
-import Data.Linear.Ref1
-import Data.Linear.Traverse1
-import Data.Refined
-import Geom
-import Syntax.T1
+import public Data.Graph.Indexed
+import public Data.Linear.List
+import public Data.Linear.Ref1
+import public Data.Linear.Traverse1
+import public Data.Refined
+import public Geom
+import public Syntax.T1
 
 %hide Prelude.(-)
 %default total

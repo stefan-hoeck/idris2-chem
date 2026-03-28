@@ -1,15 +1,7 @@
 module Geom.Gen2D.Place
 
 import Chem
-import Data.Linear.List
-import Data.Linear.Ref1
-import Data.Linear.Traverse1
-import Data.Graph.Indexed
-import Data.Refined
-import Data.List
 import Geom.Gen2D.State
-import Geom
-import Syntax.T1
 
 %default total
 
