@@ -267,3 +267,24 @@ distanceToLine : {t : _} -> (p, pl1, pl2 : Point t) -> Maybe Double
 distanceToLine p pl1 pl2 =
   let pp := perpendicularPoint p (translate (pl1 - pl2) p) 1 True
    in distance p <$> intersect pl1 pl2 p pp
+
+||| Given two reference points `pr1` and `pr2`, as well as
+||| two points `p1` and `p2`, returns a linear transformation
+||| which will superimpose `p1` with `pr1` and `p2` with `pr2`.
+|||
+||| The linear transformation consists of the following steps:
+|||  1. translate `p1` to the origin
+|||  2. scale by the factor `|pr2-pr1|/|p2-p1|`.
+|||  3. rotate by `(angle (pr2-pr1) - angle(p2-p1))`
+|||  4. translate to `pr1`.
+export
+alignBond : {t : _} -> (pr1, pr2, p1, p2 : Point t) -> Point t -> Point t
+alignBond pr1 pr2 p1 p2 =
+ let Just ar := angle (pr2 - pr1) | Nothing => id
+     Just a  := angle (p2 - p1)   | Nothing => id
+     dr      := distance pr2 pr1
+     d       := distance p2 p1
+     True    := d > 0.0 | False => id
+     sc      := Scale.scale (dr/d)
+     da      := ar - a
+  in \p => translate (origin - p1) p |> scale sc |> rotate da |> translate (pr1-origin)
