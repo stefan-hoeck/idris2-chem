@@ -10,4 +10,4 @@ executable = "chem-app"
 depends    = base         >= 0.5.1
            , chem
            , chem-inchi
-           , uv
+           , async-epoll
