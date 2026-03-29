@@ -5,6 +5,7 @@ import Geom.Gen2D.Place
 import Geom.Gen2D.State
 import Geom.Gen2D.Types
 import Data.Graph.Indexed.Ring.Relevant
+import Data.SortedSet
 
 %default total
 
@@ -18,6 +19,15 @@ parameters {k : _}
   layoutSystem : List (Cycle k) -> F1' s
 
   placeInitialRing : Subgraph k e n -> F1' s
+  placeInitialRing sg t = T1.do
+   let cs := componentCycles sg
+   ?foooo
+  -- compute minimum cycle base
+  -- find "most complex" ring and place it
+  -- iteratively
+  --   * layout neighbouring fused rings
+  --   * layout neighbouring briged rings
+  --   * layout neighbouring spiro rings
 
   export
   placeRing : AttachPoint k -> List (Fin k) -> Subgraph k e n -> F1' s
