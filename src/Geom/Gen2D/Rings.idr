@@ -1,5 +1,7 @@
 module Geom.Gen2D.Rings
 
+import Chem
+import Geom.Gen2D.Place
 import Geom.Gen2D.State
 import Geom.Gen2D.Types
 import Data.Graph.Indexed.Ring.Relevant
@@ -8,6 +10,8 @@ import Data.Graph.Indexed.Ring.Relevant
 
 parameters {k : _}
            {0 e, n  : Type}
+           {auto ce : Cast n Elem}
+           {auto ch : Cast n Hybridization}
            (g : IGraph k e n)
            {auto st : PlaceST s k}
 
@@ -18,47 +22,15 @@ parameters {k : _}
   export
   placeRing : AttachPoint k -> List (Fin k) -> Subgraph k e n -> F1' s
   placeRing None         ns sg = placeInitialRing sg
-  placeRing (Attach p x) ns sg = ?fooobar
-    -- strategy: place ring atoms in their own coordinate system
-    -- align attachement bond and atom
-    -- make sure, molecule center is correctly adjusted
+  placeRing (Attach p x) ns sg = T1.do
+    pp <- nodePosition p
+    xp <- nodePosition x
+    placeInitialRing sg
+    us <- traverse1 (placeNeighbours g) ns
+    xq <- nodePosition x
+    let f := alignBond pp xp pp xq
+    for1_ (ns ++ join us) $ adjPoint f
 
-  {-
-  -}
-
---     private void layoutCyclicParts() throws CDKException {
---         if (nextRingAttachmentBond != null) {
---             Point2d oldRingAttachmentAtomPoint  = ringAttachmentAtom.getPoint2d();
---             Point2d oldChainAttachmentAtomPoint = chainAttachmentAtom.getPoint2d();
---             layoutRingSet(firstBondVector, nextRingSystem);
---
---             Point2d oldPoint2 = oldRingAttachmentAtomPoint;
---             Point2d oldPoint1 = oldChainAttachmentAtomPoint;
---
---             Point2d newPoint2 = ringAttachmentAtom.getPoint2d();
---             Point2d newPoint1 = chainAttachmentAtom.getPoint2d();
---
---             double oldAngle = GeometryUtil.getAngle(oldPoint2.x - oldPoint1.x, oldPoint2.y - oldPoint1.y);
---             double newAngle = GeometryUtil.getAngle(newPoint2.x - newPoint1.x, newPoint2.y - newPoint1.y);
---             double angleDiff = oldAngle - newAngle;
---
---             logger.debug("oldAngle: " + oldAngle + ", newAngle: " + newAngle + "; diff = " + angleDiff);
---
---             Vector2d translationVector = new Vector2d(oldPoint1);
---             translationVector.sub(new Vector2d(newPoint1));
---
---             /*
---              * Move to fit old attachment bond orientation
---              */
---             GeometryUtil.translate2D(ringSystem, translationVector);
---
---             /*
---              * Rotate to fit old attachment bond orientation
---              */
---             GeometryUtil.rotate(ringSystem, oldPoint1, angleDiff);
---     }
-
---
 --     /**
 --      * Layout a set of connected rings (ring set/ring system). <br/>
 --      *

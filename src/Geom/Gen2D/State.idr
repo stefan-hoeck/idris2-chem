@@ -9,7 +9,6 @@ import public Data.Refined
 import public Geom
 import public Syntax.T1
 
-%hide Prelude.(-)
 %default total
 
 ||| Internal state for iteratively placing (parts of) the atoms
@@ -35,10 +34,15 @@ placeST k = T1.do
 
 export
 place : PlaceST s k => Fin k -> Point Id -> F1' s
-place @{st} x p = T1.do
-  set st.pos x (Just p)
-  mod1 st.placed S
-  mod1 st.psum $ \(P x y) => P (x + p.x) (y + p.y)
+place @{st} x p =
+  Core.get st.pos x >>= \case
+    Just q  => T1.do
+      set st.pos x (Just p)
+      mod1 st.psum $ \(P x y) => P (x + p.x - q.x) (y + p.y - q.y)
+    Nothing => T1.do
+      set st.pos x (Just p)
+      mod1 st.placed S
+      mod1 st.psum $ \(P x y) => P (x + p.x) (y + p.y)
 
 export
 nodePosition : PlaceST s k => Fin k -> F1 s (Point Id)
@@ -80,3 +84,7 @@ getPoints : {k : _} -> PlaceST s k -> F1 s (IArray k $ Point Id)
 getPoints st t =
   let m # t := mmap (fromMaybe origin) st.pos t
    in unsafeFreeze m t
+
+export
+adjPoint : PlaceST s k => (Point Id -> Point Id) -> Fin k -> F1' s
+adjPoint @{st} f i = nodePosition i >>= place i . f

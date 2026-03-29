@@ -1,5 +1,6 @@
 module Geom.Gen2D.Generate
 
+import Geom.Gen2D.Rings
 import Geom.Gen2D.State
 import Geom.Gen2D.Place
 import Geom.Gen2D.Types
@@ -20,11 +21,9 @@ parameters {k : _}
   pchain None         (x::xs) = place x origin >> placeChain g x xs VECT_INI
   pchain (Attach p _) (x::xs) = bondVector p x >>= placeChain g p (x::xs)
 
-  pring : PlaceST s k => AttachPoint k -> Subgraph k e n -> F1' s
-
   placeComp : PlaceST s k => Component k e n -> F1' s
-  placeComp (C a ns False _)  = pchain a ns >> for1_ ns (placeNeighbours g)
-  placeComp (C a ns True  sg) = pring a sg
+  placeComp (C a ns False _)  = pchain a ns >> for1_ ns (ignore1 . placeNeighbours g)
+  placeComp (C a ns True  sg) = placeRing g a ns sg
 
   export
   coordinates : IGraph k e (Point Id, n)

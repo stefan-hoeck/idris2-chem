@@ -104,10 +104,11 @@ parameters {k       : Nat}
     in polygonCorners us px start step t
 
   export
-  placeNeighbours : PlaceST s k => Fin k -> F1' s
+  placeNeighbours : PlaceST s k => Fin k -> F1 s (List $ Fin k)
   placeNeighbours x t =
    let (us,ps) # t := partition1 isPlaced (neighbours g x) t
-    in distributeAtoms x us ps t
+       _       # t := distributeAtoms x us ps t
+    in us # t
 
   ||| Convenience method to place a single atom. This function will first find
   ||| a placed neighbour does not need to be set) and then place this
