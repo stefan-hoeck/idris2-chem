@@ -165,3 +165,15 @@ angle (V x y) =
 export %inline
 angleOrZero : Vector t -> Angle
 angleOrZero = fromMaybe zero . angle
+
+||| From a given vector `v` computes a vector perpendicular
+||| to `v` so that `dot v (perpendicular v) === 0.0` (up to rounding
+||| errors).
+export
+perpendicular : Vector t -> Vector t
+perpendicular (V x y) = V (-y) x
+
+||| Computes the dot product of two vectors.
+export
+dot : Vector t -> Vector t -> Double
+dot (V x1 y1) (V x2 y2) = x1*x2 + y1*y2
