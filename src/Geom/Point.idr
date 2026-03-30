@@ -288,3 +288,28 @@ alignBond pr1 pr2 p1 p2 =
      sc      := Scale.scale (dr/d)
      da      := ar - a
   in \p => translate (origin - p1) p |> scale sc |> rotate da |> translate (pr1-origin)
+
+||| For a given point `p` and a list of points surrounding
+||| `p`, computes the start and step angle to distribute
+||| `n` additional points in the largest free section around
+||| `p`.
+|||
+||| This utility can be used to find the ideal placement of
+||| a new bond to an atom with other surrounding atoms already
+||| placed.
+export
+circularFreeSweep :
+     {t : _}
+  -> (n : Nat)
+  -> {auto prf : IsSucc n}
+  -> Point t
+  -> List (Point t)
+  -> (Angle,Angle)
+circularFreeSweep n p []        = (zero, fullSteps n)
+circularFreeSweep n p [x]       = (angleOrZero $ x - p, fullSteps $ S n)
+circularFreeSweep n p ps@(x::_) =
+ let ang  := angleOrZero $ p - center2d ps
+     angs := map (\y => angleOrZero $ y - p) ps
+  in case enclosingAngles ang angs of
+       Nothing      => (angleOrZero $ x - p, fullSteps $ S n)
+       Just (a1,a2) => (a1, divide (1+n) (a2-a1))
