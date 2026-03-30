@@ -12,6 +12,8 @@ import Test.Chem.QSAR.HAcceptor
 import Test.Chem.QSAR.JPlogP
 import Test.Chem.QSAR.RotatableBonds
 import Test.Chem.QSAR.TPSA
+import Test.Geom.Angle
+import Test.Geom.Point
 import Test.Text.Lex.Formula
 import Test.Text.Molfile
 import Test.Text.Smiles.Parser
@@ -32,4 +34,6 @@ main =
     , TPSA.props
     , JPlogP.props
     , Atom.props
+    , Angle.props
+    , Point.props
     ]

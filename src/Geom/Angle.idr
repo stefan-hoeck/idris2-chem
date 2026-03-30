@@ -142,6 +142,26 @@ export %inline
 closestAngle : Angle -> List Angle -> Maybe Angle
 closestAngle = minBy . delta
 
+shiftZip : List a -> List (a,a)
+shiftZip []        = []
+shiftZip (x :: xs) = zip (x::xs) (xs++[x])
+
+||| Given an angle `phi` plus a list of angles, returns from the
+||| list two angles `a` and `b`, so that `phi` lies between `a` and `b`
+||| with no other angle closer to `phi`.
+|||
+||| Note: In case of this being successful, `phi` will always lie counter
+|||       clockwise of the first returned angle and the second returned
+|||       angle will lie counter-clockwise of `phi`.
+export
+enclosingAngles : Angle -> List Angle -> Maybe (Angle,Angle)
+enclosingAngles x xs =
+  case sort xs of
+    []    => Nothing
+    a::as => case find (\(y,z) => y <= x && x <= z) (zip (a::as) as) of
+      Nothing => Just (last $ a::as,a)
+      Just p  => Just p
+
 export
 largestBisector : List Angle -> Angle
 largestBisector xs =
