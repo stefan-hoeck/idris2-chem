@@ -179,6 +179,29 @@ largestBisector xs =
     maxBy f (h::t) = Just $ foldl (\x,y => if f x >= f y then x else y) h t
 
 --------------------------------------------------------------------------------
+--          Regular n-gons
+--------------------------------------------------------------------------------
+
+||| Angle at the corner of a regular n-gon
+export %inline
+ngonAngle : (n : Nat) -> (0 prf : LTE 3 n) => Angle
+ngonAngle n = pi - fullSteps n
+
+||| Radius of a regular n-gon with side length `side`.
+|||
+||| This is the distance from the center of the n-gon to one of its
+||| corners.
+export %inline
+ngonRadius : (side : Double) -> (n : Nat) -> (0 prf : LTE 3 n) => Double
+ngonRadius side n = 0.5 * side / cos ((ngonAngle n).value / 2)
+
+||| Distance from the center of a regular n-gon with side length `side`
+||| to the middle of one of its sides.
+export %inline
+ngonDistance : (side : Double) -> (n : Nat) -> (0 prf : LTE 3 n) => Double
+ngonDistance side n = sqrt (pow (ngonRadius side n) 2 - pow (side / 2) 2)
+
+--------------------------------------------------------------------------------
 --          Tests and proofs
 --------------------------------------------------------------------------------
 
