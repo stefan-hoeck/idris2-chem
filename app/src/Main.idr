@@ -2,6 +2,7 @@ module Main
 
 import Prog.Cycles
 import Prog.Pretty
+import Prog.Trees
 import Prog.Util
 import IO.Async.Posix
 
@@ -15,6 +16,7 @@ act ["quit"]      = quit
 act ["done"]      = quit
 act ("pretty"::s) = prettySmiles s $> False
 act ("cycles"::s) = cycles s $> False
+act ("trees"::s)  = trees s $> False
 act _             = invalid $> False
 
 covering
