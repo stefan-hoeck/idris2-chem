@@ -87,12 +87,18 @@ parameters {k       : Nat}
     in placeChain n ns (nextBondVector n v pn c True) t
 
   export
-  polygonCorners : PlaceST s k => List (Fin k) -> Point Id -> (cur,step : Angle) -> F1' s
-  polygonCorners []        _ _   _    t = () # t
-  polygonCorners (x :: xs) p cur step t =
+  polygonCorners :
+       {auto st : PlaceST s k}
+    -> List (Fin k)
+    -> Point Id
+    -> (cur,step : Angle)
+    -> (dir : Vector Id)
+    -> F1' s
+  polygonCorners []        _ _   _    _   t = () # t
+  polygonCorners (x :: xs) p cur step dir t =
    let theta := cur + step
-       _ # t := place x (translate (rotate theta vone) p) t
-    in polygonCorners xs p theta step t
+       _ # t := place x (translate (rotate theta dir) p) t
+    in polygonCorners xs p theta step dir t
 
   export
   distributeAtoms : PlaceST s k => Fin k -> (us,ps : List (Fin k)) -> F1' s
@@ -101,7 +107,7 @@ parameters {k       : Nat}
    let px # t       := nodePosition x t
        ps # t       := traverse1 nodePosition ps t
        (start,step) := circularFreeSweep (S $ length r) px ps
-    in polygonCorners us px start step t
+    in polygonCorners us px start step vone t
 
   export
   placeNeighbours : PlaceST s k => Fin k -> F1 s (List $ Fin k)
