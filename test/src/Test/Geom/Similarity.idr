@@ -81,4 +81,4 @@ export %inline
 
 export %hint
 epsilon : Epsilon
-epsilon = E 0.0000000001
+epsilon = E 1.0e-6
