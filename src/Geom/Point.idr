@@ -313,3 +313,22 @@ circularFreeSweep n p ps@(x::_) =
   in case enclosingAngles ang angs of
        Nothing      => (angleOrZero $ x - p, fullSteps $ S n)
        Just (a1,a2) => (a1, divide (1+n) (a2-a1))
+
+||| For two given points, generates a vector perpendicular to the
+||| line connecting `x` and `y` and pointing towards a third given
+||| point `c`.
+|||
+||| This can be used to, for instance, place a double bond in the inner
+||| side of a ring, or construct the center of a ring fused to another.
+export
+perpendicularTo : {t : _} -> (x,y,c : Point t) -> Vector (transform t)
+perpendicularTo x y c =
+ let cl := center2d (the (List _) [x,y])
+     vc := c - cl
+     v  := perpendicular (y-x)
+  in if dot v vc >= 0 then v else negate v
+
+||| Like `perpendicularTo` but points away from the given center.
+export %inline
+perpendicularFrom : {t : _} -> (x,y,c : Point t) -> Vector (transform t)
+perpendicularFrom x y = negate . perpendicularTo x y
