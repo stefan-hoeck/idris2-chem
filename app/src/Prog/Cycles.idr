@@ -8,7 +8,7 @@ import Data.Graph.Indexed.Ring.Relevant.Types
 %default total
 
 printCycle : Cycle k -> Prog ()
-printCycle (C n _ _) = prntLn n
+printCycle (C n _ _ _) = prntLn n
 
 act : SmilesGraph -> Prog ()
 act (G _ g) = traverse_ printCycle $ mcb (computeCrAndMCB g)
