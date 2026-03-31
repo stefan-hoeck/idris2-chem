@@ -14,6 +14,7 @@ import Test.Chem.QSAR.RotatableBonds
 import Test.Chem.QSAR.TPSA
 import Test.Geom.Angle
 import Test.Geom.Point
+import Test.Geom.Vector
 import Test.Text.Lex.Formula
 import Test.Text.Molfile
 import Test.Text.Smiles.Parser
@@ -36,4 +37,5 @@ main =
     , Atom.props
     , Angle.props
     , Point.props
+    , Vector.props
     ]
