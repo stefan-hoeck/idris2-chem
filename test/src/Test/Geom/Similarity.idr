@@ -70,7 +70,7 @@ Similar (Vector t) where
 ||| For instances, `angle (TwoPi - 0.0000000001)` is similar to `zero`.
 export
 Similar Angle where
-  isSimilar x y = isSimilar 0.0 (value $ x - y)
+  isSimilar x y = isSimilar 0.0 (value $ minDelta x y)
 
 export infix 6 =~=
 
