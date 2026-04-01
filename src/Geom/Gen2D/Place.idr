@@ -1,5 +1,6 @@
 module Geom.Gen2D.Place
 
+import Debug.Trace
 import Chem
 import Geom.Gen2D.State
 
@@ -49,7 +50,7 @@ parameters {k       : Nat}
    let ns := neighbours g x
     in length ns == 4 && count ((> 1) . deg g) ns <= 1
 
-  nextBondVector : Fin k -> Vector Id -> (p,c : Point Id) -> Bool -> Vector Id
+  nextBondVector : Fin k -> MolVector -> (p,c : MolPoint) -> Bool -> MolVector
   nextBondVector x v p c trans =
     case cast @{ch} (lab g x) of
       SP => v
@@ -76,7 +77,7 @@ parameters {k       : Nat}
   ||| angles in the chain are set to 120 Deg.)
   ||| TODO: Double bond configuration
   export
-  placeChain : PlaceST s k => Fin k -> List (Fin k) -> Vector Id -> F1' s
+  placeChain : PlaceST s k => Fin k -> List (Fin k) -> MolVector -> F1' s
   placeChain _ []      _ t = () # t
   placeChain p (n::ns) v t =
    let pp # t := nodePosition p t
@@ -90,14 +91,15 @@ parameters {k       : Nat}
   polygonCorners :
        {auto st : PlaceST s k}
     -> List (Fin k)
-    -> Point Id
+    -> MolPoint
     -> (cur,step : Angle)
-    -> (dir : Vector Id)
+    -> (dir : MolVector)
     -> F1' s
   polygonCorners []        _ _   _    _   t = () # t
   polygonCorners (x :: xs) p cur step dir t =
    let theta := cur + step
-       _ # t := place x (translate (rotate theta dir) p) t
+       p2    := translate (rotate theta dir) p
+       _ # t := place x (trace "placing \{show x} at \{show p2}" p2) t
     in polygonCorners xs p theta step dir t
 
   export
@@ -107,13 +109,13 @@ parameters {k       : Nat}
    let px # t       := nodePosition x t
        ps # t       := traverse1 nodePosition ps t
        (start,step) := circularFreeSweep (S $ length r) px ps
-    in polygonCorners us px start step vone t
+    in polygonCorners us px start step (V BOND_LEN 0) t
 
   export
   placeNeighbours : PlaceST s k => Fin k -> F1 s (List $ Fin k)
   placeNeighbours x t =
    let (us,ps) # t := partition1 isPlaced (neighbours g x) t
-       _       # t := distributeAtoms x us ps t
+       _       # t := distributeAtoms (trace "placing neighbours for \{show x}" x) us ps t
     in us # t
 
   ||| Convenience method to place a single atom. This function will first find

@@ -7,8 +7,8 @@ import Geom.Gen2D.Types
 
 %default total
 
-VECT_INI : Vector Id
-VECT_INI = rotate (fromDegree 30) (V 1 0)
+VECT_INI : MolVector
+VECT_INI = rotate (fromDegree 30) (V BOND_LEN 0)
 
 parameters {k : _}
            {0 e, n  : Type}
@@ -26,7 +26,7 @@ parameters {k : _}
   placeComp (C a ns True  sg) = placeRing g a ns sg
 
   export
-  coordinates : IGraph k e (Point Id, n)
+  coordinates : IGraph k e (MolPoint, n)
   coordinates =
     run1 $ T1.do
       st <- placeST k

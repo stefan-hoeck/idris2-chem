@@ -11,6 +11,10 @@ import public Syntax.T1
 
 %default total
 
+export
+BOND_LEN : Double
+BOND_LEN = 1.25
+
 ||| Internal state for iteratively placing (parts of) the atoms
 ||| in a molecule.
 |||
@@ -20,8 +24,8 @@ export
 record PlaceST (s : Type) (k : Nat) where
   [noHints]
   constructor PST
-  pos    : MArray s k (Maybe $ Point Id)
-  psum   : Ref s (Point Id)
+  pos    : MArray s k (Maybe $ Point Mol)
+  psum   : Ref s MolPoint
   placed : Ref s Nat
 
 export
@@ -33,7 +37,7 @@ placeST k = T1.do
   pure (PST m s p)
 
 export
-place : PlaceST s k => Fin k -> Point Id -> F1' s
+place : PlaceST s k => Fin k -> Point Mol -> F1' s
 place @{st} x p =
   Core.get st.pos x >>= \case
     Just q  => T1.do
@@ -45,14 +49,14 @@ place @{st} x p =
       mod1 st.psum $ \(P x y) => P (x + p.x) (y + p.y)
 
 export
-nodePosition : PlaceST s k => Fin k -> F1 s (Point Id)
+nodePosition : PlaceST s k => Fin k -> F1 s MolPoint
 nodePosition @{st} x t =
   case Core.get st.pos x t of
     Just p  # t => p # t
     Nothing # t => origin # t
 
 export
-bondVector : PlaceST s k => Fin k -> Fin k -> F1 s (Vector Id)
+bondVector : PlaceST s k => Fin k -> Fin k -> F1 s MolVector
 bondVector x y = T1.do
   px <- nodePosition x
   py <- nodePosition y
@@ -66,7 +70,7 @@ isPlaced @{st} x t =
     Nothing # t => False # t
 
 export
-center : PlaceST s k => F1 s (Point Id)
+center : PlaceST s k => F1 s MolPoint
 center @{st} t =
   case read1 st.placed t of
     0 # t => P 0 0 # t
@@ -76,15 +80,15 @@ center @{st} t =
       in P (x/d) (y/d) # t
 
 export
-centerOf : PlaceST s k => List (Fin k) -> F1 s (Point Id)
+centerOf : PlaceST s k => List (Fin k) -> F1 s MolPoint
 centerOf vs = center2d <$> traverse1 nodePosition vs
 
 export
-getPoints : {k : _} -> PlaceST s k -> F1 s (IArray k $ Point Id)
+getPoints : {k : _} -> PlaceST s k -> F1 s (IArray k $ Point Mol)
 getPoints st t =
   let m # t := mmap (fromMaybe origin) st.pos t
    in unsafeFreeze m t
 
 export
-adjPoint : PlaceST s k => (Point Id -> Point Id) -> Fin k -> F1' s
+adjPoint : PlaceST s k => (Point Mol -> Point Mol) -> Fin k -> F1' s
 adjPoint @{st} f i = nodePosition i >>= place i . f
