@@ -55,12 +55,6 @@ renderTree : Tree (Node k) -> String
 renderTree (T c@(MkNode v _ rings) cs) =
   let rNr := renderRingNr rings
    in "\{v}\{rNr}\{children cs}"
-  where
-    children : Forest (Node k) -> String
-    children []               = ""
-    children [h@(T c _)]      = renderBond c ++ renderTree h
-    children (h@(T c _) :: t) =
-      "(\{renderBond c}\{renderTree h})\{children t}"
 
 public export
 renderForest : Forest (Node k) -> String
