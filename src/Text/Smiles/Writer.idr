@@ -3,6 +3,8 @@ module Text.Smiles.Writer
 import Text.Smiles.Types
 import Text.Molfile.Types
 import Data.Tree
+import Text.Smiles.Parser
+import Data.Graph.Indexed.Query.DFS
 
 %default total
 -- String Tree ----------------------------------------------------------------
@@ -48,5 +50,24 @@ testTree3 =
     [ T (FS FZ)      []
     , T (FS (FS FZ)) []
     ]
+
+-- Smiles String to Tree with index and label ---------------------------------
+printSmilesIdxTree : String -> Either String SmilesGraph
+printSmilesIdxTree = readSmiles'
+
+printTree' : Interpolation n => IGraph k e n -> Tree (Fin k) -> IO ()
+printTree' g = putStrLn . prettyTree False . map pretty
+  where
+    pretty : Fin k -> String
+    pretty x = "\{show x}: \{lab g x}"
+
+helper1 : String -> IO ()
+helper1 s =
+  case readSmiles' s of
+       Left e   => putStrLn "An error occured"
+       Right (G _ g) => traverse_ (printTree' g) $ dff' g
+
+
+
 
 
