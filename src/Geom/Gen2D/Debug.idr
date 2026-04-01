@@ -61,12 +61,15 @@ coords s =
     disp (p,a) = "\{a.elem.elem} : \{show p}"
 
 export
-mol : String -> IO ()
-mol s =
+smilesToMol : String -> Either String MolfileAT
+smilesToMol s =
   case perceiveSmilesAtomTypes <$> readSmiles' s of
-    Left x  => putStrLn "\{x}"
+    Left x  => Left x
     Right (G k g) =>
      let cg := coordinates g
          mg := bimap toMolbond toMolatomAT cg
-         mf := MkMolfile "" "" "" (G k mg) []
-      in putStrLn $ writeMolfile mf
+      in Right $ MkMolfile "" "" "" (G k mg) []
+
+export
+mol : String -> IO ()
+mol = putStrLn . either interpolate writeMolfile . smilesToMol
