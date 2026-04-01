@@ -7,7 +7,9 @@ import Text.Smiles.Parser
 import Data.Graph.Indexed.Query.DFS
 
 %default total
--- String Tree ----------------------------------------------------------------
+
+-- Printing Trees -------------------------------------------------------------
+-- String Tree
 firstTree : Forest String -> Maybe (Tree String)
 firstTree []      = Nothing
 firstTree (h ::t) = Just h
@@ -20,7 +22,7 @@ printTree f = case firstTree f of
 testTree1 : Forest String
 testTree1 = [T "C" [T "C" [], T "O" []]]
 
--- Label Tree ------------------------------------------------------------
+-- Label Tree
 testTree2 : Tree SmilesAtom
 testTree2 =
   T (SubsetAtom C False)
@@ -37,36 +39,49 @@ labelTree t = prettyTree False (map saToString t)
 printSmilesAtom : Tree SmilesAtom -> IO ()
 printSmilesAtom = putStrLn . labelTree
 
--- Index Tree ----------------------------------------------------------------
+-- Index Tree
 indexTree : Tree (Fin n) -> String
 indexTree = prettyTree False . map show
 
 printIndexTree : Tree (Fin n) -> IO ()
 printIndexTree = putStrLn . indexTree
 
-testTree3: Tree (Fin 3)
+testTree3: Tree (Fin 4)
 testTree3 =
   T (FZ)
-    [ T (FS FZ)      []
-    , T (FS (FS FZ)) []
-    ]
+    [ T (FS FZ)
+      [ T (FS (FS FZ)) [], T (FS(FS(FS FZ))) []
+    ]]
 
--- Smiles String to Tree with index and label ---------------------------------
-printSmilesIdxTree : String -> Either String SmilesGraph
-printSmilesIdxTree = readSmiles'
-
-printTree' : Interpolation n => IGraph k e n -> Tree (Fin k) -> IO ()
-printTree' g = putStrLn . prettyTree False . map pretty
+-- Smiles String to Tree with index and label
+idxLabelTree : Interpolation n => IGraph k e n -> Tree (Fin k) -> IO ()
+idxLabelTree g = putStrLn . prettyTree False . map pretty
   where
     pretty : Fin k -> String
     pretty x = "\{show x}: \{lab g x}"
 
-helper1 : String -> IO ()
-helper1 s =
+smilesIdxLabelTree : String -> IO ()
+smilesIdxLabelTree s =
   case readSmiles' s of
        Left e   => putStrLn "An error occured"
-       Right (G _ g) => traverse_ (printTree' g) $ dff' g
+       Right (G _ g) => traverse_ (idxLabelTree g) $ dff' g
 
+
+-- Tree to Smiles String ------------------------------------------------------
+-- Index Tree
+treeString : Tree (Fin n) -> String
+treeString (T v cs) = show v ++ children cs
+  where
+    children : List (Tree (Fin n)) -> String
+    children []     = ""
+    children [h]    = treeString h
+    children (h::t) = "(\{treeString h})\{children t}"
+
+treeSmiles1 : Tree (Fin n) -> IO ()
+treeSmiles1 = putStrLn . treeString
+
+-- Index and Label Tree
+treeSmiles2 : Tree (Fin n) -> IO ()
 
 
 
