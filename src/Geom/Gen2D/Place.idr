@@ -105,8 +105,13 @@ parameters {k       : Nat}
 
   export
   distributeAtoms : PlaceST s k => Fin k -> (us,ps : List (Fin k)) -> F1' s
-  distributeAtoms x []        _  t = () # t
-  distributeAtoms x us@(_::r) ps t =
+  distributeAtoms x []        _   t = () # t
+  distributeAtoms x [u]       [p] t =
+   let px # t := nodePosition x t
+       pp # t := nodePosition p t
+       c  # t := State.center {k} t
+    in placeChain p [u] (nextBondVector p (pp - px) pp c True) t
+  distributeAtoms x us@(_::r) ps  t =
    let px # t       := nodePosition x t
        ps # t       := traverse1 nodePosition ps t
        (start,step) := circularFreeSweep (S $ length r) px ps
