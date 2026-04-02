@@ -25,8 +25,8 @@ toMolbond Arom = MkBond False Single NoBondStereo
 toMolbond Dbl  = MkBond False Dbl    NoBondStereo
 toMolbond Trpl = MkBond False Triple NoBondStereo
 toMolbond Quad = MkBond False Single NoBondStereo
-toMolbond FW   = MkBond False Dbl    NoBondStereo
-toMolbond BW   = MkBond False Dbl    NoBondStereo
+toMolbond FW   = MkBond False Single NoBondStereo
+toMolbond BW   = MkBond False Single NoBondStereo
 
 attachPoint : AttachPoint n -> String
 attachPoint None         = ""
