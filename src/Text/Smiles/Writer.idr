@@ -69,10 +69,10 @@ smilesIdxLabelTree s =
 
 -- Tree to Smiles String ------------------------------------------------------
 -- Index Tree
-treeString : Tree (Fin n) -> String
+treeString : Tree (Fin k) -> String
 treeString (T v cs) = show v ++ children cs
   where
-    children : List (Tree (Fin n)) -> String
+    children : List (Tree (Fin k)) -> String
     children []     = ""
     children [h]    = treeString h
     children (h::t) = "(\{treeString h})\{children t}"
@@ -80,9 +80,27 @@ treeString (T v cs) = show v ++ children cs
 treeSmiles1 : Tree (Fin n) -> IO ()
 treeSmiles1 = putStrLn . treeString
 
--- Index and Label Tree
-treeSmiles2 : Tree (Fin n) -> IO ()
+-- Smiles to label without bonds
 
+treeString2 : Interpolation n => IGraph k e n -> Tree (Fin k) -> String
+treeString2 g (T v cs) =
+  "\{lab g v}\{children g cs}"
+  where
+    children : IGraph k e n -> List (Tree (Fin k)) -> String
+    children g []        = ""
+    children g [h]       = treeString2 g h
+    children g (h :: ts) = "(\{treeString2 g h})\{children g ts}"
 
+forestString : Interpolation n => IGraph k e n -> List (Tree (Fin k)) -> String
+forestString g []        = ""
+forestString g (t :: ts) = "\{treeString2 g t}\{forestString g ts}"
+
+smilesIdxLabelTree2 : String -> IO ()
+smilesIdxLabelTree2 s =
+  case readSmiles' s of
+       Left e   => putStrLn "An error occured"
+       Right (G _ g) => putStrLn $ forestString g $ dff' g
+
+-- Smiles to label with bonds
 
 
