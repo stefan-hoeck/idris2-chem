@@ -54,7 +54,7 @@ coords : String -> IO ()
 coords s =
   case perceiveSmilesAtomTypes <$> readSmiles' s of
     Left x  => putStrLn "\{x}"
-    Right (G _ g) => putStrLn (pretty interpolate disp $ coordinates g)
+    Right (G _ g) => putStrLn (pretty interpolate disp $ coordinates {dg = Debugging} g)
 
   where
     disp : (MolPoint, SmilesAtomAT) -> String
@@ -66,7 +66,7 @@ smilesToMol s =
   case perceiveSmilesAtomTypes <$> readSmiles' s of
     Left x  => Left x
     Right (G k g) =>
-     let cg := coordinates g
+     let cg := coordinates {dg = NoDebugging} g
          mg := bimap toMolbond toMolatomAT cg
       in Right $ MkMolfile "" "" "" (G k mg) []
 

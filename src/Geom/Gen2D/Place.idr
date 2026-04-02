@@ -1,6 +1,5 @@
 module Geom.Gen2D.Place
 
-import Debug.Trace
 import Chem
 import Geom.Gen2D.State
 
@@ -40,6 +39,7 @@ prioritize g = go (fill k 1) k
 
 
 parameters {k       : Nat}
+           {auto dg : DebugFlag}
            {0 e, n  : Type}
            {auto ce : Cast n Elem}
            {auto ch : Cast n Hybridization}
@@ -99,7 +99,8 @@ parameters {k       : Nat}
   polygonCorners (x :: xs) p cur step dir t =
    let theta := cur + step
        p2    := translate (rotate theta dir) p
-       _ # t := place x (trace "placing \{show x} at \{show p2}" p2) t
+       _ # t := debugIf1 "placing \{show x} at \{show p2}" t
+       _ # t := place x p2 t
     in polygonCorners xs p theta step dir t
 
   export
@@ -115,7 +116,8 @@ parameters {k       : Nat}
   placeNeighbours : PlaceST s k => Fin k -> F1 s (List $ Fin k)
   placeNeighbours x t =
    let (us,ps) # t := partition1 isPlaced (neighbours g x) t
-       _       # t := distributeAtoms (trace "placing neighbours for \{show x}" x) us ps t
+       _       # t := debugIf1 "placing neighbours for \{show x}" t
+       _       # t := distributeAtoms x us ps t
     in us # t
 
   ||| Convenience method to place a single atom. This function will first find

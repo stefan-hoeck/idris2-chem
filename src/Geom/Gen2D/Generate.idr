@@ -12,6 +12,7 @@ VECT_INI = rotate (fromDegree 30) (V BOND_LEN 0)
 
 parameters {k : _}
            {0 e, n  : Type}
+           {auto dg : DebugFlag}
            {auto ce : Cast n Elem}
            {auto ch : Cast n Hybridization}
            (g : IGraph k e n)

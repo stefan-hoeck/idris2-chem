@@ -1,6 +1,5 @@
 module Geom.Gen2D.Rings
 
-import Debug.Trace
 import Data.Queue
 import Chem
 import Geom.Gen2D.Place
@@ -41,7 +40,7 @@ CPair k = (CQueue k, Cycles k)
 
 fusedToBePlaced : Cycle k -> List (Fin k) -> Maybe (List (Fin k), Fin k, Fin k)
 fusedToBePlaced c xs =
- let (ys,z::zs) := break isPlaced (zip (drop 1 xs) (trace "fusing to \{show c}: \{show xs}" xs)) | _ => Nothing
+ let (ys,z::zs) := break isPlaced (zip (drop 1 xs) xs) | _ => Nothing
   in Just (map snd . drop 1 $ zs ++ ys, z)
   where
     isPlaced : (Fin k, Fin k) -> Bool
@@ -49,6 +48,7 @@ fusedToBePlaced c xs =
 
 parameters {k : _}
            {0 e, n  : Type}
+           {auto dg : DebugFlag}
            {auto ce : Cast n Elem}
            {auto ch : Cast n Hybridization}
            (g : IGraph k e n)
