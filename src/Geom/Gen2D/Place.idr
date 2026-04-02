@@ -110,7 +110,7 @@ parameters {k       : Nat}
    let px # t := nodePosition x t
        pp # t := nodePosition p t
        c  # t := State.center {k} t
-    in placeChain p [u] (nextBondVector p (pp - px) pp c True) t
+    in placeChain p [u] (nextBondVector p (px - pp) pp c True) t
   distributeAtoms x us@(_::r) ps  t =
    let px # t       := nodePosition x t
        ps # t       := traverse1 nodePosition ps t
