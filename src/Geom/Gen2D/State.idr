@@ -49,6 +49,16 @@ place @{st} x p =
       mod1 st.psum $ \(P x y) => P (x + p.x) (y + p.y)
 
 export
+unplace : PlaceST s k => Fin k -> F1' s
+unplace @{st} x =
+  Core.get st.pos x >>= \case
+    Nothing => pure ()
+    Just p  => T1.do
+      set st.pos x Nothing
+      mod1 st.placed pred
+      mod1 st.psum $ \(P x y) => P (x - p.x) (y - p.y)
+
+export
 nodePosition : PlaceST s k => Fin k -> F1 s MolPoint
 nodePosition @{st} x t =
   case Core.get st.pos x t of

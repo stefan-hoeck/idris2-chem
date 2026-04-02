@@ -112,8 +112,10 @@ parameters {k : _}
   placeRing (Attach p x) ns sg = T1.do
     pp <- nodePosition p
     xp <- nodePosition x
+    unplace p
     placeInitialRing sg
     us <- traverse1 (placeNeighbours g) ns
+    pq <- nodePosition p
     xq <- nodePosition x
-    let f := alignBond pp xp pp xq
+    let f := alignBond pp xp pq xq
     for1_ (ns ++ join us) $ adjPoint f
