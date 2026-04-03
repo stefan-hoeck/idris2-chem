@@ -5,6 +5,7 @@ import Text.Molfile.Types
 import Data.Tree
 import Text.Smiles.Parser
 import Data.Graph.Indexed.Query.DFS
+import Data.Array.Core
 
 %default total
 
@@ -81,7 +82,6 @@ treeSmiles1 : Tree (Fin n) -> IO ()
 treeSmiles1 = putStrLn . treeString
 
 -- Smiles to label, with brackets, without bonds
--- [TODO] Include bonds
 treeString2 : Interpolation n => IGraph k e n -> Tree (Fin k) -> String
 treeString2 g (T v cs) =
   "\{lab g v}\{children g cs}"
@@ -102,5 +102,43 @@ smilesIdxLabelTree2 s =
        Left e   => putStrLn "An error occured"
        Right (G _ g) => putStrLn $ forestString g $ dff' g
 
+-- Smiles to label, with brackets and bonds
+-- [TODO] Include bonds
+--        a) find adj list
+--        b) find bond order and connection node
+--        c) place bond accordingly in string
+--           -If (double/triple) bond from current node to parent node exists,
+--            we can add this bond e.g. "=" before the current node label.
+--            I think this should work regardless of branch or no branch.
+-- [TODO] Square brackets
+-- [TODO] Rings
+-- [TODO] Refactor
 
+isConnected : IGraph k e n -> Fin k -> Fin k -> Either ?error ?bo
+
+insertBond : IGraph k e n -> Fin k -> Tree (Fin k) -> String
+insertBond g parent (T current _) = case isConnected g parent current of
+                                       Left _   => ""
+                                       Right bo => "placeholder: bond symbol"
+
+treeString3 : Interpolation n => IGraph k e n -> Tree (Fin k) -> String
+treeString3 g (T v cs) =
+  "\{lab g v}\{children g v cs}"
+  where
+    children : IGraph k e n -> Fin k -> List (Tree (Fin k)) -> String
+    children g _ []       = ""
+    children g v [h]      = insertBond g v ?current ++ treeString3 g h
+    children g v (h :: t) =
+      "(\{insertBond g v ?current'}\{treeString3 g h})\{children g v t}"
+
+forestString2 : Interpolation n => IGraph k e n -> List (Tree (Fin k)) -> String
+forestString2 g []       = ""
+forestString2 g [h]      = treeString3 g h
+forestString2 g (h :: t) = "\{treeString3 g h}.\{forestString2 g t}"
+
+smilesIdxLabelTree3 : String -> IO ()
+smilesIdxLabelTree3 s =
+  case readSmiles' s of
+       Left e   => putStrLn "An error occured"
+       Right (G _ g) => putStrLn $ forestString2 g $ dff' g
 
