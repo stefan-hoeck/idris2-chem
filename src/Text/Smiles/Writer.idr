@@ -114,24 +114,24 @@ smilesIdxLabelTree2 s =
 -- [TODO] Rings
 -- [TODO] Refactor
 
-isConnected : IGraph k e n -> Fin k -> Fin k -> Either ?error ?bo
+insertBond : IGraph k SmilesBond n -> Fin k -> Fin k -> String
+insertBond g p c = case elab g p c of
+                         Nothing   => ""
+                         Just Sngl => ""
+                         Just bo   => interpolate bo
 
-insertBond : IGraph k e n -> Fin k -> Tree (Fin k) -> String
-insertBond g parent (T current _) = case isConnected g parent current of
-                                       Left _   => ""
-                                       Right bo => "placeholder: bond symbol"
 
-treeString3 : Interpolation n => IGraph k e n -> Tree (Fin k) -> String
-treeString3 g (T v cs) =
-  "\{lab g v}\{children g v cs}"
+treeString3 : Interpolation n => IGraph k SmilesBond n -> Tree (Fin k) -> String
+treeString3 g (T c cs) =
+  "\{lab g c}\{children g c cs}"
   where
-    children : IGraph k e n -> Fin k -> List (Tree (Fin k)) -> String
-    children g _ []       = ""
-    children g v [h]      = insertBond g v ?current ++ treeString3 g h
-    children g v (h :: t) =
-      "(\{insertBond g v ?current'}\{treeString3 g h})\{children g v t}"
+    children : IGraph k SmilesBond n -> Fin k -> List (Tree (Fin k)) -> String
+    children g _ []               = ""
+    children g p [h@(T c _)]      = insertBond g p c ++ treeString3 g h
+    children g p (h@(T c _) :: t) =
+      "(\{insertBond g p c}\{treeString3 g h})\{children g p t}"
 
-forestString2 : Interpolation n => IGraph k e n -> List (Tree (Fin k)) -> String
+forestString2 : Interpolation n => IGraph k SmilesBond n -> List (Tree (Fin k)) -> String
 forestString2 g []       = ""
 forestString2 g [h]      = treeString3 g h
 forestString2 g (h :: t) = "\{treeString3 g h}.\{forestString2 g t}"
