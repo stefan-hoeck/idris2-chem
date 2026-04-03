@@ -80,20 +80,21 @@ treeString (T v cs) = show v ++ children cs
 treeSmiles1 : Tree (Fin n) -> IO ()
 treeSmiles1 = putStrLn . treeString
 
--- Smiles to label without bonds
-
+-- Smiles to label, with brackets, without bonds
+-- [TODO] Include bonds
 treeString2 : Interpolation n => IGraph k e n -> Tree (Fin k) -> String
 treeString2 g (T v cs) =
   "\{lab g v}\{children g cs}"
   where
     children : IGraph k e n -> List (Tree (Fin k)) -> String
-    children g []        = ""
-    children g [h]       = treeString2 g h
-    children g (h :: ts) = "(\{treeString2 g h})\{children g ts}"
+    children g []       = ""
+    children g [h]      = treeString2 g h
+    children g (h :: t) = "(\{treeString2 g h})\{children g t}"
 
 forestString : Interpolation n => IGraph k e n -> List (Tree (Fin k)) -> String
-forestString g []        = ""
-forestString g (t :: ts) = "\{treeString2 g t}\{forestString g ts}"
+forestString g []       = ""
+forestString g [h]      = treeString2 g h
+forestString g (h :: t) = "\{treeString2 g h}.\{forestString g t}"
 
 smilesIdxLabelTree2 : String -> IO ()
 smilesIdxLabelTree2 s =
@@ -101,6 +102,5 @@ smilesIdxLabelTree2 s =
        Left e   => putStrLn "An error occured"
        Right (G _ g) => putStrLn $ forestString g $ dff' g
 
--- Smiles to label with bonds
 
 
