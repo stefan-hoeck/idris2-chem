@@ -1,6 +1,7 @@
 module Geom.Gen2D.Debug
 
 import Chem
+import Chem.Aromaticity
 import Data.String
 import Geom
 import Geom.Gen2D.Types
@@ -63,7 +64,7 @@ coords s =
 export
 smilesToMol : String -> Either String MolfileAT
 smilesToMol s =
-  case perceiveSmilesAtomTypes <$> readSmiles' s of
+  case (kekulize (const Dbl) . perceiveSmilesAtomTypes) <$> readSmiles' s of
     Left x  => Left x
     Right (G k g) =>
      let cg := coordinates {dg = NoDebugging} g
