@@ -23,19 +23,6 @@ smilesIdxLabelTree s =
        Left e   => putStrLn "An error occured"
        Right (G _ g) => traverse_ (idxLabelTree g) $ dff' g
 
--- Tree to Smiles String ------------------------------------------------------
--- Index Tree
-treeString : Tree (Fin k) -> String
-treeString (T v cs) = show v ++ children cs
-  where
-    children : List (Tree (Fin k)) -> String
-    children []     = ""
-    children [h]    = treeString h
-    children (h::t) = "(\{treeString h})\{children t}"
-
-treeSmiles1 : Tree (Fin n) -> IO ()
-treeSmiles1 = putStrLn . treeString
-
 -- Smiles to label, with brackets and bonds
 insertBond : IGraph k SmilesBond n -> Fin k -> Fin k -> String
 insertBond g p c = case elab g p c of
