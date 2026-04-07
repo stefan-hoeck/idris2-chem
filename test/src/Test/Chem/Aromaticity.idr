@@ -15,15 +15,26 @@ import Hedgehog
 toSB : AromBond SmilesBond -> SmilesBond
 toSB ab = if ab.arom then Arom else if ab.type == Arom then Sngl else ab.type
 
+to1 : SmilesBond -> SmilesBond
+to1 Arom = Sngl
+to1 b    = b
+
 readArom : String -> Either String (Graph SmilesBond SmilesAtomAT)
 readArom =
   map (mapFst toSB . aromatize atomType . perceiveSmilesAtomTypes) . readSmiles'
 
+readKekulee : String -> Either String (Graph SmilesBond SmilesAtomAT)
+readKekulee =
+  map (mapFst to1 . kekulize (const Dbl) . perceiveSmilesAtomTypes) . readSmiles'
+
 triples : Graph e n -> List (Nat,Nat,e)
-triples (G o g) = (\(E x y l) => (finToNat x, finToNat y, l)) <$> edges g 
+triples (G o g) = (\(E x y l) => (finToNat x, finToNat y, l)) <$> edges g
 
 testArom : String -> List (Nat,Nat,SmilesBond) -> Property
 testArom s ts = property1 $ map triples (readArom s) === Right ts
+
+testKekulize : String -> List (Nat,Nat,SmilesBond) -> Property
+testKekulize s ts = property1 $ map triples (readKekulee s) === Right ts
 
 --------------------------------------------------------------------------------
 -- One-cycle aromatic systems
@@ -152,6 +163,22 @@ prop_piperidine =
     [(0,1,Sngl),(0,5,Sngl),(1,2,Sngl),(2,3,Sngl),(3,4,Sngl),(4,5,Sngl)]
 
 --------------------------------------------------------------------------------
+-- Kekulization
+--------------------------------------------------------------------------------
+
+prop_kekulize_benzene : Property
+prop_kekulize_benzene =
+  testKekulize "c1ccccc1"
+    [(0,1,Dbl),(0,5,Sngl),(1,2,Sngl),(2,3,Dbl),(3,4,Sngl),(4,5,Dbl)]
+
+prop_kekulize_indole : Property
+prop_kekulize_indole =
+  testKekulize "c12ccccc1[nH]cc2"
+    [ (0,1,Dbl),(0,5,Sngl),(0,8,Sngl),(1,2,Sngl),(2,3,Dbl),(3,4,Sngl)
+    , (4,5,Dbl),(5,6,Sngl),(6,7,Sngl),(7,8,Dbl)
+    ]
+
+--------------------------------------------------------------------------------
 -- props
 --------------------------------------------------------------------------------
 
@@ -181,4 +208,7 @@ props =
 
     , ("prop_cyclohexane", prop_cyclohexane)
     , ("prop_piperidine", prop_piperidine)
+
+    , ("prop_kekulize_benzene", prop_kekulize_benzene)
+    , ("prop_kekulize_indole", prop_kekulize_indole)
     ]
