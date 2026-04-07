@@ -157,3 +157,15 @@ smilesRoundtripIO : String -> IO ()
 smilesRoundtripIO = putStrLn . smilesRoundtrip
 
 
+-- [TODO] Rewrite smilesIdxLabelTree3 with something like:
+-- String -> IGraph k e n -> Forest (Fin k) -> Tree ("Data I need") -> String
+-- record Node k
+-- label : SmilesAtom, rings : List RingInfo, parent : Maybe SmilesBond,
+-- (node : Fin k), (parentNode : Maybe (Fin k))
+-- [TODO] Square brackets
+-- [TODO] Rings: easy but not the best approach:
+--               [];[1];[1,2];[1,2,3];[1,3];[3];[]
+-- [TODO] Aromaticity ("c1ccccc1" should give "c1cccccc1, not in c:c:c:c:c:c")
+-- ([TODO] Bonustask: Refactor using State Monad)
+-- ([TODO] Bonustask: Refactor using linear types)
+
