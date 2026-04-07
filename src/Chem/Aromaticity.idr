@@ -3,9 +3,11 @@ module Chem.Aromaticity
 import Chem.Atom
 import Chem.AtomType
 import Chem.Elem
+import Chem.Isotope
 import Chem.Rings.Relevant
 import Chem.Types
 import Data.Graph.Indexed
+import Data.Graph.Indexed.Util.Bipartite
 import Data.SortedMap
 import Data.SortedSet
 import Derive.Prelude
@@ -148,3 +150,26 @@ atMap =
 export
 atomType : Cast e Elem => Atom e Charge p r h AtomType c l -> Maybe Nat
 atomType a = lookup (cast a.elem, a.charge, a.type.hybridization) atMap
+
+--------------------------------------------------------------------------------
+-- Kekulization
+--------------------------------------------------------------------------------
+
+public export
+0 KAtom : (e,c,p,r,h,ch,l : Type) -> Type
+KAtom e c p r h ch l = Atom e c p r h AtomType ch l
+
+parameters {0 b,e,c,p,r,h,ch,l : Type}
+           {auto cb : Cast b BondOrder}
+           (setdbl  : b -> b)
+
+  available : IGraph k b (KAtom e c p r h ch l) -> Fin k -> Bool
+  available g x =
+   let A l es := adj g x
+    in S (count ((Dbl ==) . cast) es) == l.type.double
+
+  export
+  kekulize : Graph b (KAtom e c p r h ch l) -> Graph b (KAtom e c p r h ch l)
+  kekulize (G k g) =
+   let es := map setdbl <$> matchEdgesWhere g (available g)
+    in G k $ insEdges es g

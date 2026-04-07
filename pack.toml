@@ -34,20 +34,8 @@ type   = "local"
 path   = "profile"
 ipkg   = "profile.ipkg"
 
-[custom.all.ref1]
+[custom.all.indexed-graph]
 type   = "git"
-url    = "https://github.com/stefan-hoeck/idris2-ref1"
+url    = "https://github.com/stefan-hoeck/idris2-indexed-graph"
 commit = "latest:main"
-ipkg   = "ref1.ipkg"
-
-[custom.all.ilex]
-type   = "git"
-url    = "https://github.com/stefan-hoeck/idris2-ilex"
-commit = "latest:main"
-ipkg   = "ilex.ipkg"
-
-[custom.all.ilex-core]
-type   = "git"
-url    = "https://github.com/stefan-hoeck/idris2-ilex"
-commit = "latest:main"
-ipkg   = "core/ilex-core.ipkg"
+ipkg   = "indexed-graph.ipkg"
