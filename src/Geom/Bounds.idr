@@ -1,6 +1,8 @@
 module Geom.Bounds
 
+import Geom.Angle
 import Geom.Point
+import Geom.Scale
 import Geom.Vector
 import Text.Molfile.Types
 
@@ -190,3 +192,106 @@ distanceToLineSegment p pl1 pl2 =
    in case intersect pl1 pl2 p pp of
         Just i  => if inRectangle i pl1 pl2 then distance p i else dflt
         Nothing => dflt
+
+--------------------------------------------------------------------------------
+--          Packing
+--------------------------------------------------------------------------------
+
+record BVal a where
+  constructor BV
+  val    : a
+  width  : Double
+  height : Double
+
+area : BVal a -> Double
+area bv = bv.height * bv.width
+
+record Rect where
+  constructor R
+  x          : Double
+  y          : Double
+  width      : Double
+  height     : Double
+
+Bounded Rect where
+  btrans = Id
+  bounds (R x y w h) = BS (range x (x+w)) (range y (y+h))
+
+rect : (x,y,w,h : Double) -> List Rect
+rect x y w h = if w >= 0.000001 && h >= 0.000001 then [R x y w h] else []
+
+cmp : Rect -> Double
+cmp r = r.width * r.height
+
+fits : BVal a -> Rect -> Bool
+fits bv r = bv.width <= r.width && bv.height <= r.height
+
+public export
+record PlaceParams where
+  [noHints]
+  constructor PP
+  gapX        : Double
+  gapY        : Double
+  startWidth  : Double
+  startHeight : Double
+  iterations  : Nat
+
+ppdef : PlaceParams
+ppdef = PP 5 2.5 300 200 32
+
+ini : PlaceParams => List Rect
+ini @{pp} = [R 0.0 0.0 pp.startWidth pp.startHeight]
+
+ocorners : PlaceParams => Rect -> Rect -> Maybe (Point Id, Point Id)
+ocorners @{PP gx gy _ _ _} r1 r2 =
+  map
+    (\(P x1 y1, P x2 y2) => (P (x1-gx) (y1-gy),P (x2+gx) (y2+gy)))
+    (corners (overlap (bounds r1) (bounds r2)))
+
+cut : PlaceParams => Rect -> Rect -> List Rect
+cut r1 r2 =
+  case ocorners r1 r2 of
+    Nothing => [r2]
+    Just (P x1 y1, P x2 y2) =>
+      rect r2.x r2.y (x1-r2.x)          r2.height ++
+      rect r2.x r2.y r2.width           (y1-r2.y) ++
+      rect x2   r2.y (r2.x+r2.width-x2) r2.height ++
+      rect r2.x y2   r2.width           (r2.y+r2.height-y2)
+
+place : PlaceParams => BVal a -> List Rect -> Maybe (Rect,List Rect)
+place @{pp} bv rs =
+  case break (fits bv) rs of
+    (rs1,r::rs2) =>
+     let rn := {width := bv.width, height := bv.height} r
+      in Just (rn, sortBy (comparing cmp) (rs >>= cut rn))
+    _ => Nothing
+
+parameters {auto bnd : Bounded a}
+           {auto mp  : ModPoint a}
+
+  bval : a -> BVal a
+  bval v = let bs := bounds v in BV v (width bs) (height bs)
+
+  position : a -> Rect -> a
+  position v r = Point.translate (V r.x r.y) (translatePositive v)
+
+  tryAlign : PlaceParams -> List a -> Maybe (List a)
+  tryAlign pp = go [<] ini . reverse . sortBy (comparing area) . map bval
+    where
+      go : SnocList a -> List Rect -> List (BVal a) -> Maybe (List a)
+      go sa rs []      = Just $ sa <>> []
+      go sa rs (x::xs) =
+        case place x rs of
+          Just (r,rs2) => go (sa :< position x.val r) rs2 xs
+          Nothing      => Nothing
+
+  export
+  align : {default ppdef pp: PlaceParams} -> List a -> List a
+  align = go pp pp.iterations
+    where
+      go : PlaceParams -> Nat -> List a -> List a
+      go x 0     xs = xs
+      go x (S k) xs =
+        case tryAlign x xs of
+          Nothing => go ({startWidth $= (*2), startHeight $= (*2)} x) k xs
+          Just ys => ys
