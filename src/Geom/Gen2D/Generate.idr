@@ -41,8 +41,6 @@ parameters {k : _}
 0 CGraph : Nat -> Type -> Type -> Type
 CGraph k e n = Graph e (MolPoint,Fin k, n)
 
-align : List (CGraph k e n) -> List (CGraph k e n)
-
 coordArray : {k : _} -> List (CGraph k e n) -> IArray k MolPoint
 coordArray gs =
   alloc k origin $ \m => T1.do
@@ -55,6 +53,14 @@ adjust g gs =
   in mapWithCtxt (\x => (at cs x,) . label) g
 
 Cast n e => Cast (a,n) e where cast = cast . snd
+
+ModPoint (MolPoint,a) where
+  mtrans = Mol
+  modPoint f (p,v) = (modPoint f p, v)
+
+GetPoint (MolPoint,a) where
+  gtrans = Mol
+  point = fst
 
 export
 coordinates :
