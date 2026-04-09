@@ -1,6 +1,5 @@
 module Geom.Gen2D.Rings
 
-import Data.Queue
 import Chem
 import Geom.Gen2D.Place
 import Geom.Gen2D.State
@@ -9,6 +8,29 @@ import Data.Graph.Indexed.Ring.Relevant
 import Data.SortedSet
 
 %default total
+
+--------------------------------------------------------------------------------
+-- Types and Ring Analysis
+--------------------------------------------------------------------------------
+
+0 Cycles : Nat -> Type
+Cycles = List . Cycle
+
+record Bridge (k : Nat) where
+  constructor B
+  start  : Fin k
+  bridge : List (Fin k)
+  end    : Fin k
+
+data RingType : Nat -> Type where
+  Spiro   : (parent, me : Cycle k) -> List (Fin k) -> Fin k -> RingType k
+  Fused   : (parent, me : Cycle k) -> Bridge k -> RingType k
+  Bridged : (parent, me : Cycle k) -> Bridge k -> RingType k
+
+parent : RingType k -> Cycle k
+parent (Spiro p _ _ _) = p
+parent (Fused p _ _)   = p
+parent (Bridged p _ _) = p
 
 natoms : Cycle k -> List (Cycle k) -> Nat
 natoms c = sum . map (numSharedNodes c)
@@ -29,14 +51,7 @@ mostComplex sx (x::xs) atms len r =
          True  => mostComplex (sx:<x) xs atms len r
          False => mostComplex (sx:<r) xs n    x.ncycle.size x
 
-0 Cycles : Nat -> Type
-Cycles = List . Cycle
-
-0 CQueue : Nat -> Type
-CQueue = Queue . Cycle
-
-0 CPair : Nat -> Type
-CPair k = (CQueue k, Cycles k)
+next : Cycles k -> Cycle k -> Cycles k -> (RingType k, Cycles k)
 
 fusedToBePlaced : Cycle k -> List (Fin k) -> Maybe (List (Fin k), Fin k, Fin k)
 fusedToBePlaced c xs =
@@ -84,24 +99,29 @@ parameters {k : _}
   spiroTo : Cycle k -> Cycle k -> F1' s
   spiroTo _ _ = pure ()
 
-  layoutSystem : CQueue k -> Cycles k -> F1' s
-  layoutSystem q xs t =
-    case dequeue q of
-      Nothing     => () # t
-      Just (c,q2) =>
-       let (fs,nfs) := partition (isFusedTo c) xs
-           (ss,nss) := partition (isSpiro c) nfs
-           _ # t    := traverse1_ (fuseTo c) fs t
-           _ # t    := traverse1_ (spiroTo c) ss t
-           q3       := enqueueAll q2 (fs++ss)
-        in layoutSystem (assert_smaller q q3) nss t
+  placeRingType : RingType k -> F1' s
+
+  layoutSystem : (placed, unplaced : Cycles k) -> F1' s
+  layoutSystem ps []      t = () # t
+  layoutSystem ps (u::us) t =
+   let (r,rs) := next ps u us
+       _ # t  := placeRingType r t
+    in layoutSystem (parent r::ps) (assert_smaller us rs) t
+  --   case dequeue q of
+  --     Nothing     => () # t
+  --     Just (c,q2) =>
+  --      let (fs,nfs) := partition (isFusedTo c) xs
+  --          (ss,nss) := partition (isSpiro c) nfs
+  --          _ # t    := traverse1_ (fuseTo c) fs t
+  --          _ # t    := traverse1_ (spiroTo c) ss t
+  --          q3       := enqueueAll q2 (fs++ss)
+  --       in layoutSystem (assert_smaller q q3) nss t
 
   placeInitialRing : Subgraph k e n -> F1' s
-  placeInitialRing sg = T1.do
+  placeInitialRing sg =
    let c::cs  := mcb $ componentCycles sg | [] => pure ()
        (r,rs) := mostComplex [<] cs (natoms c cs) (c.ncycle.size) c
-   ngon r
-   layoutSystem (Queue.fromList [r]) rs
+    in ngon r >> layoutSystem [r] rs
 
   export
   placeRing : AttachPoint k -> List (Fin k) -> Subgraph k e n -> F1' s
