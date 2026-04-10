@@ -16,16 +16,16 @@ import Data.SortedSet
 0 Cycles : Nat -> Type
 Cycles = List . Cycle
 
-record Bridge (k : Nat) where
-  constructor B
+record Arc (k : Nat) where
+  constructor A
   start  : Fin k
   bridge : List (Fin k)
   end    : Fin k
 
 data RingType : Nat -> Type where
   Spiro   : (parent, me : Cycle k) -> List (Fin k) -> Fin k -> RingType k
-  Fused   : (parent, me : Cycle k) -> Bridge k -> RingType k
-  Bridged : (parent, me : Cycle k) -> Bridge k -> RingType k
+  Fused   : (parent, me : Cycle k) -> Arc k -> RingType k
+  Bridged : (parent, me : Cycle k) -> Arc k -> RingType k
 
 parent : RingType k -> Cycle k
 parent (Spiro p _ _ _) = p
@@ -61,6 +61,10 @@ fusedToBePlaced c xs =
     isPlaced : (Fin k, Fin k) -> Bool
     isPlaced (x,y) = contains x c.nodeset && contains y c.nodeset
 
+--------------------------------------------------------------------------------
+-- Placing Rings
+--------------------------------------------------------------------------------
+
 parameters {k : _}
            {0 e, n  : Type}
            {auto dg : DebugFlag}
@@ -74,6 +78,8 @@ parameters {k : _}
     let phi := fullSteps c.ncycle.size
         r   := ngonRadius BOND_LEN c.ncycle.size @{c.ncycle.prf}
      in polygonCorners g c.nodes origin zero phi (scaleTo r vone)
+
+  arc : Cycles k -> Arc k -> F1' s
 
   fuseTo : Cycle k -> Cycle k -> F1' s
   fuseTo placed new = T1.do
