@@ -36,12 +36,6 @@ testArom s ts = property1 $ map triples (readArom s) === Right ts
 testKekulize : String -> List (Nat,Nat,SmilesBond) -> Property
 testKekulize s ts = property1 $ map triples (readKekulee s) === Right ts
 
-aromIO : String -> IO ()
-aromIO s =
-  case readArom s of
-    Left x => putStrLn x
-    Right (G _ g) => putStrLn $ pretty show show g
-
 --------------------------------------------------------------------------------
 -- One-cycle aromatic systems
 --------------------------------------------------------------------------------
