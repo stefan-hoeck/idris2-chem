@@ -4,10 +4,10 @@ import Chem.Atom
 import Chem.AtomType
 import Chem.Elem
 import Chem.Isotope
-import Chem.Rings.Relevant
 import Chem.Types
 import Data.Graph.Indexed
 import Data.Graph.Indexed.Util.Bipartite
+import Data.Graph.Indexed.Ring.Relevant
 import Data.SortedMap
 import Data.SortedSet
 import Derive.Prelude
@@ -81,8 +81,10 @@ toPair x y = if x > y then (y,x) else (x,y)
 %inline hasEdge : Fin k -> Fin k -> Edges k -> Bool
 hasEdge x y = contains (toPair x y)
 
+-- we use `n & 7 == 4` here, because the contribution of
+-- every node is counted twice
 hueckel : Nat -> Bool
-hueckel n = (cast {to = Integer} n `mod` 4) == 2
+hueckel n = prim__and_Integer (cast n) 7 == 4
 
 --------------------------------------------------------------------------------
 -- Aromaticity Perception
@@ -96,20 +98,19 @@ parameters {0 e,n   : Type}
   export
   aromatizeI : {k : _} -> IGraph k e n -> IGraph k (AromBond e) n
   aromatizeI {k} g =
-    let bs := foldl (pairs [] 0) empty (computeCI' g)
+    let bs := foldl (pairs [] 0) empty (map ecycle . cr $ computeCrAndMCB g)
      in IG $ mapWithIndex (toArom bs) g.graph
 
     where
       toArom : Edges k -> Fin k -> Adj k e n -> Adj k (AromBond e) n
       toArom ps m = {neighbours $= mapKV (\n,v => AB v $ hasEdge m n ps)}
 
-      pairs : List (Fin k, Fin k) -> Nat -> Edges k -> Cycle k -> Edges k
-      pairs xs k es (x::t@(y::_)) =
-        case contrib (lab g x) of
+      pairs : List (Fin k, Fin k) -> Nat -> Edges k -> ECycle k -> Edges k
+      pairs xs k es all@(E x y _ :: ys) =
+        case [| contrib (lab g x) + contrib (lab g y) |] of
           Nothing => es
-          Just v  => pairs (toPair x y :: xs) (k+v) es t
-      pairs xs k es _ =
-        if hueckel k then foldl (flip insert) es xs else es
+          Just v  => pairs (toPair x y :: xs) (k+v) es ys
+      pairs xs k es [] = if hueckel k then foldl (flip insert) es xs else es
 
   ||| Perceives aromaticity for a mol graph using the given contribution
   ||| function.

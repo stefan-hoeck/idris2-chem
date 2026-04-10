@@ -21,8 +21,6 @@ modules = Chem
         , Chem.Formula
         , Chem.Isotope
         , Chem.Query
-        , Chem.Rings
-        , Chem.Rings.Relevant
         , Chem.Types
         , Chem.Util
 
