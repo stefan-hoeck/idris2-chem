@@ -6,6 +6,10 @@ import Derive.Prelude
 %language ElabReflection
 %default total
 
+public export
+Epsilon : Double
+Epsilon = 1.0e-12
+
 --------------------------------------------------------------------------------
 --          Angle
 --------------------------------------------------------------------------------
@@ -179,8 +183,29 @@ largestBisector xs =
     maxBy f (h::t) = Just $ foldl (\x,y => if f x >= f y then x else y) h t
 
 --------------------------------------------------------------------------------
---          Regular n-gons
+--          Regular n-gons and regular arcs
 --------------------------------------------------------------------------------
+
+||| An arc of `segs` segments connecting two existing nodes.
+|||
+||| Used for creating rings and bridges when placing molecules.
+public export
+record Arc where
+  constructor MkArc
+  ||| Total angle of the arc
+  angle    : Angle
+
+  ||| Angle of a single segment of the arc
+  step     : Angle
+
+  ||| Radius of the arc
+  radius   : Double
+
+  ||| Distance between the center of the arc and the middle
+  ||| of a segment.
+  distance : Double
+
+%runElab derive "Arc" [Show,Eq]
 
 ||| Angle at the corner of a regular n-gon
 export %inline
@@ -195,11 +220,76 @@ export %inline
 ngonRadius : (side : Double) -> (n : Nat) -> (0 prf : LTE 3 n) => Double
 ngonRadius side n = 0.5 * side / cos ((ngonAngle n).value / 2)
 
+segDist : Double -> Double -> Double
+segDist side rad = sqrt (pow rad 2 - pow (side / 2) 2)
+
 ||| Distance from the center of a regular n-gon with side length `side`
 ||| to the middle of one of its sides.
 export %inline
 ngonDistance : (side : Double) -> (n : Nat) -> (0 prf : LTE 3 n) => Double
-ngonDistance side n = sqrt (pow (ngonRadius side n) 2 - pow (side / 2) 2)
+ngonDistance side n = segDist side (ngonRadius side n)
+
+-- radius of an arc of angle `phi` connecting two points
+-- with a distance of `d`
+arcRadius : (d,phi : Double) -> Double
+arcRadius d phi = d / (2 * sin (phi / 2))
+
+-- length of a single line segment, out of `n`
+-- segments approximating an arc of angle `phi` and connecting two
+-- points `x` and `y`, with a distance of `d` between `x` and `y`.
+segmentLength : Nat -> (d,phi : Double) -> Double
+segmentLength n d phi = 2 * (arcRadius d phi) * sin (phi / (2 * cast (S n)))
+
+mkArc : Nat -> (d,phi : Double) -> Arc
+mkArc n d phi =
+ let r := arcRadius d phi
+     a := angle phi
+  in MkArc a (divide (S n) a) r (segDist d r)
+
+export
+ngon : (side : Double) -> (n : Nat) -> (0 prf : LTE 3 n) => Arc
+ngon side n =
+ let a := fullSteps n
+  in MkArc (negate a) a (ngonRadius side n) (ngonDistance side n)
+
+||| Computes the dimensions of an arc that connects two
+||| existing nodes (with a distance of `d` between the nodes)
+||| by inserting `n` additional nodes between them.
+|||
+||| The arc is optimized in such a way that the distance between two
+||| adjacent nodes is as close to `len` as possible.
+|||
+||| Note: If `len` is too short, that is `(n+1) * len < d`, this returns
+|||       close to - but not exactly - a straight line. Client code is
+|||       responsible to choose `len` in such a manner, that an arc
+|||       with a reasonable minimal curvature is constructed,
+|||       for instance by setting the minimal `len`
+|||       at `(1+delta)*d / (n+1)` with `delta > 0`.
+export
+arc : (n : Nat) -> (0 prf : IsSucc n) => (len,d : Double) -> Arc
+arc n@(S k) len d =
+  case abs (len-d) < Epsilon of
+    -- this is just (or close to) a regular n-gon
+    True  => ngon len (S $ S $ S k)
+    -- run a binary search to find the ideal arc
+    False => find 64 Epsilon (2*pi - Epsilon)
+  where
+    best : (l,u : Double) -> Arc
+    best l u =
+     let ll := segmentLength n d l
+         lu := segmentLength n d u
+      in if abs (lu-len) <= abs (ll-len) then mkArc n d u else mkArc n d l
+
+    -- a binary search of at most `iter` iterations to find the
+    -- ideal arc angle `phi` (with current lower and upper bounds `l` and `u`)
+    find : (iter : Nat) -> (l,u : Double) -> Arc
+    find 0     l u = best l u
+    find (S k) l u =
+      case abs (u-l) <= Epsilon of
+        True  => best l u
+        False => case segmentLength n d ((l+u)/2.0) >= len of
+          True  => find k l ((l+u)/2.0)
+          False => find k ((l+u)/2.0) u
 
 --------------------------------------------------------------------------------
 --          Tests and proofs
