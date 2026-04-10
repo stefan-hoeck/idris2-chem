@@ -43,7 +43,6 @@ modules = Chem
 
         , Geom.Gen2D.Debug
         , Geom.Gen2D.Generate
-        , Geom.Gen2D.OverlapScore
         , Geom.Gen2D.Place
         , Geom.Gen2D.Rings
         , Geom.Gen2D.State
