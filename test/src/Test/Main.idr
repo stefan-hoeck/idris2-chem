@@ -13,6 +13,7 @@ import Test.Chem.QSAR.JPlogP
 import Test.Chem.QSAR.RotatableBonds
 import Test.Chem.QSAR.TPSA
 import Test.Geom.Angle
+import Test.Geom.Bounds
 import Test.Geom.Point
 import Test.Geom.Vector
 import Test.Text.Lex.Formula
@@ -36,6 +37,7 @@ main =
     , JPlogP.props
     , Atom.props
     , Angle.props
+    , Bounds.props
     , Point.props
     , Vector.props
     ]
