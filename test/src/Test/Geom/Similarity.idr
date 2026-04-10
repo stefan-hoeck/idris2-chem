@@ -72,6 +72,14 @@ export
 Similar Angle where
   isSimilar x y = isSimilar 0.0 (value $ minDelta x y)
 
+export
+Similar Arc where
+  isSimilar (MkArc t1 a1 r1 d1) (MkArc t2 a2 r2 d2) =
+    isSimilar t1 t2 &&
+    isSimilar a1 a2 &&
+    isSimilar r1 r2 &&
+    isSimilar d1 d2
+
 export infix 6 =~=
 
 ||| Fails the test if the two arguments provided are not similar.
