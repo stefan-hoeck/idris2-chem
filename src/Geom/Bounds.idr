@@ -203,95 +203,139 @@ record BVal a where
   width  : Double
   height : Double
 
+record Pos a where
+  constructor P
+  val : a
+  x   : Double
+  y   : Double
+
 area : BVal a -> Double
-area bv = bv.height * bv.width
+area b = b.width * b.height
 
 record Rect where
   constructor R
-  x          : Double
-  y          : Double
-  width      : Double
-  height     : Double
+  x      : Double
+  y      : Double
+  width  : Double
+  height : Double
+
+zrect : Rect
+zrect = R 0 0 0 0
+
+mid : Rect -> Rect -> Rect
+mid s l = R 0 0 ((s.width + l.width)/2) ((s.height + l.height)/2)
+
+close : Rect -> Rect -> Bool
+close s l = abs (s.width-l.width) <= 0.001 || abs (s.height-l.height) <= 0.001
 
 Bounded Rect where
   btrans = Id
   bounds (R x y w h) = BS (range x (x+w)) (range y (y+h))
 
 rect : (x,y,w,h : Double) -> List Rect
-rect x y w h = if w >= 0.000001 && h >= 0.000001 then [R x y w h] else []
+rect x y w h = if w > 0 && h > 0 then [R x y w h] else []
 
-cmp : Rect -> Double
-cmp r = r.width * r.height
+public export
+record PackParams where
+  [noHints]
+  constructor PP
+  ||| Horizontal gap between adjacent rectangles
+  gapX  : Double
+
+  ||| Vertical gap between adjacent rectangles
+  gapY  : Double
+
+  ||| Maximum number of iterations used in the binary search
+  ||| to find the ideal packaging size
+  iter  : Nat
+
+  ||| Width-to-height ratio used when aligning the containers
+  ratio : Double
+
+dflt : PackParams
+dflt = PP 5 2.5 64 1.61803
+
+ini : PackParams -> List (BVal a) -> Rect
+ini p vs =
+ let l := cast {to = Double} $ length vs
+     w := sum (map width vs)  + l * p.gapX
+     h := sum (map height vs) + l * p.gapY
+     d := max w h
+  in if p.ratio >= 1 then R 0 0 (d * p.ratio) d else R 0 0 d (d / p.ratio)
+
+0 Rects : Type
+Rects = List Rect
 
 fits : BVal a -> Rect -> Bool
 fits bv r = bv.width <= r.width && bv.height <= r.height
 
-public export
-record PlaceParams where
-  [noHints]
-  constructor PP
-  gapX        : Double
-  gapY        : Double
-  startWidth  : Double
-  startHeight : Double
-  iterations  : Nat
+score : BVal a -> Rect -> Double
+score bv r = (r.width - bv.width) * (r.height - bv.height)
 
-ppdef : PlaceParams
-ppdef = PP 5 2.5 300 200 32
+split : BVal a -> Rect -> List Rect
+split (BV v w h) (R x y rw rh) =
+  case rw - w >= rh - h of
+    True  => rect (x+w) y (rw-w) rh ++ rect x (y+h) w  (rh-h)
+    False => rect (x+w) y (rw-w) h  ++ rect x (y+h) rw (rh-h)
 
-ini : PlaceParams => List Rect
-ini @{pp} = [R 0.0 0.0 pp.startWidth pp.startHeight]
+best1 : BVal a -> SnocList Rect -> Rect -> Double -> Rects -> (Pos a, Rects)
+best1 x sr b sc []        = (P x.val b.x b.y, sr <>> split x b)
+best1 x sr b sc (r :: rs) =
+  case fits x r of
+    False => best1 x (sr:<r) b sc rs
+    True  =>
+     let s := score x r
+      in if s < sc then best1 x (sr:<b) r s rs else best1 x (sr:<r) b sc rs
 
-ocorners : PlaceParams => Rect -> Rect -> Maybe (Point Id, Point Id)
-ocorners @{PP gx gy _ _ _} r1 r2 =
-  map
-    (\(P x1 y1, P x2 y2) => (P (x1-gx) (y1-gy),P (x2+gx) (y2+gy)))
-    (corners (overlap (bounds r1) (bounds r2)))
+best : BVal a -> SnocList Rect -> Rects -> Maybe (Pos a, Rects)
+best x sr []        = Nothing
+best x sr (r :: rs) =
+  if fits x r then Just $ best1 x sr r (score x r) rs else best x (sr:<r) rs
 
-cut : PlaceParams => Rect -> Rect -> List Rect
-cut r1 r2 =
-  case ocorners r1 r2 of
-    Nothing => [r2]
-    Just (P x1 y1, P x2 y2) =>
-      rect r2.x r2.y (x1-r2.x)          r2.height ++
-      rect r2.x r2.y r2.width           (y1-r2.y) ++
-      rect x2   r2.y (r2.x+r2.width-x2) r2.height ++
-      rect r2.x y2   r2.width           (r2.y+r2.height-y2)
+guillotine : SnocList (Pos a) -> List (BVal a) -> Rects -> Maybe (List $ Pos a)
+guillotine sp []        rs = Just (sp <>> [])
+guillotine sp (v :: vs) rs =
+  case best v [<] rs of
+    Just (p,rs2) => guillotine (sp:<p) vs rs2
+    Nothing      => Nothing
 
-place : PlaceParams => BVal a -> List Rect -> Maybe (Rect,List Rect)
-place @{pp} bv rs =
-  case break (fits bv) rs of
-    (rs1,r::rs2) =>
-     let rn := {width := bv.width, height := bv.height} r
-      in Just (rn, sortBy (comparing cmp) (rs >>= cut rn))
-    _ => Nothing
+pack : PackParams -> List (BVal a) -> Maybe (List $ Pos a)
+pack p vs = go p.iter zrect (ini p vs) . reverse $ sortBy (comparing area) vs
+  where
+    go : Nat -> (s,l : Rect) -> List (BVal a) -> Maybe (List $ Pos a)
+    go 0     s r vs = guillotine [<] vs [r]
+    go (S k) s r vs =
+      case close s r of
+        True  => guillotine [<] vs [r]
+        False =>
+         let m := mid s r
+          in case guillotine [<] vs [m] of
+               Just rs => go k s m vs
+               Nothing => go k m r vs
 
-parameters {auto bnd : Bounded a}
+parameters {default dflt p : PackParams}
+           {auto bnd : Bounded a}
            {auto mp  : ModPoint a}
 
   bval : a -> BVal a
-  bval v = let bs := bounds v in BV v (width bs) (height bs)
+  bval v =
+   let bs := bounds v
+    in BV v (width bs + p.gapX) (height bs + p.gapY)
 
-  position : a -> Rect -> a
-  position v r = Point.translate (V r.x r.y) (translatePositive v)
+  position : Pos a -> a
+  position (P v x y) = Point.translate (V x y) (translatePositive v)
 
-  tryAlign : PlaceParams -> List a -> Maybe (List a)
-  tryAlign pp = go [<] ini . reverse . sortBy (comparing area) . map bval
-    where
-      go : SnocList a -> List Rect -> List (BVal a) -> Maybe (List a)
-      go sa rs []      = Just $ sa <>> []
-      go sa rs (x::xs) =
-        case place x rs of
-          Just (r,rs2) => go (sa :< position x.val r) rs2 xs
-          Nothing      => Nothing
-
+  ||| Packs rectangular objects in a grid using a guillotine cutting
+  ||| algorithm.
+  |||
+  ||| The minimal size of the rectangle required to pack the items is
+  ||| computed via a binary search (maximum number of iterations is
+  ||| given via the `PackParams` argument).
+  |||
+  ||| Gap sizes in both directions can be specified by the provided
+  ||| `PackParams` argument.
   export
-  align : {default ppdef pp: PlaceParams} -> List a -> List a
-  align = go pp pp.iterations
-    where
-      go : PlaceParams -> Nat -> List a -> List a
-      go x 0     xs = xs
-      go x (S k) xs =
-        case tryAlign x xs of
-          Nothing => go ({startWidth $= (*2), startHeight $= (*2)} x) k xs
-          Just ys => ys
+  align : List a -> List a
+  align []  = []
+  align [v] = [v]
+  align vs  = maybe vs (map position) $ pack p (map bval vs)
