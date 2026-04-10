@@ -226,7 +226,7 @@ mid : Rect -> Rect -> Rect
 mid s l = R 0 0 ((s.width + l.width)/2) ((s.height + l.height)/2)
 
 close : Rect -> Rect -> Bool
-close s l = abs (s.width-l.width) <= 0.001 || abs (s.height-l.height) <= 0.001
+close s l = abs (s.width-l.width) <= 0.00001 || abs (s.height-l.height) <= 0.00001
 
 Bounded Rect where
   btrans = Id
