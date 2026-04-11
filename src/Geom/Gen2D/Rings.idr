@@ -11,6 +11,9 @@ import Derive.Prelude
 %default total
 %language ElabReflection
 
+Interpolation Angle where
+  interpolate a = "\{show $ toDegree a}°"
+
 --------------------------------------------------------------------------------
 -- Types and Ring Analysis
 --------------------------------------------------------------------------------
@@ -26,7 +29,7 @@ SnocNodes = SnocList . Fin
 
 data BridgeType = Fused | Spiro | Brdg | Fresh | Partitioned
 
-%runElab derive "BridgeType" [Eq,Ord]
+%runElab derive "BridgeType" [Show,Eq,Ord]
 
 record Bridge (k : Nat) where
   constructor B
@@ -118,10 +121,8 @@ parameters {k : _}
     px   <- nodePosition x
     py   <- nodePosition y
     let cs  := center2d (the (List _) [px,py])
-        -- bond length used for ring
         rd  := distance px py
-        len := max BOND_LEN $ rd * 1.1 / cast (length rem + 2)
-        -- distance from new ring center to center of ring bonds
+        len := max BOND_LEN $ rd * 1.2 / cast (length rem + 2)
         MkArc tot phi r d := arc (S $ length rem) len rd
         v   := scaleTo d $ perpendicularFrom px py cref
         v2  := if tot > pi then v else negate v
@@ -129,6 +130,8 @@ parameters {k : _}
         ax  := angleOrZero (c - px)
         ay  := angleOrZero (c - py)
         ns  := f::rem
+    debug1 "Placing ring: \{show tpe}, len: \{show len}, nodes: \{show $ f::rem}"
+    debug1 "Arc: total: \{tot}, segment: \{phi}, radius: \{show r}, dist: \{show d}"
     case ax - ay < Angle.pi of
       True  => polygonCorners g ns c zero phi (px - c)
       False => polygonCorners g (reverse ns) c zero phi (py - c)
