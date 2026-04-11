@@ -120,8 +120,9 @@ parameters {k : _}
     let cs  := center2d (the (List _) [px,py])
         -- bond length used for ring
         rd  := distance px py
+        len := max BOND_LEN $ rd * 1.5 / cast (S $ length rem)
         -- distance from new ring center to center of ring bonds
-        MkArc tot phi r d := arc (S $ length rem) BOND_LEN rd
+        MkArc tot phi r d := arc (S $ length rem) len rd
         v   := scaleTo d $ perpendicularFrom px py cref
         v2  := if tot > pi then v else negate v
         c   := translate v2 cs
