@@ -166,5 +166,8 @@ props =
     , ("prop_arcLen", prop_arcLen)
     , ("prop_arcLen2", prop_arcLen2)
     , ("prop_arcWalk", prop_arcWalk)
+<<<<<<< HEAD
     , ("prop_arcSweep", prop_arcSweep)
+=======
+>>>>>>> 2fbc4b8 ([ test ] circularFreeSweep)
     ]
