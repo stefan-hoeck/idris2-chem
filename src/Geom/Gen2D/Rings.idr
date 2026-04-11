@@ -64,29 +64,32 @@ toBridge : PlaceST s k => Cycle k -> F1 s (Maybe $ Bridge k)
 toBridge c t =
   case break1 isPlaced c.nodes t of
     (u::us,[])  # t => Just (B c u u us u Fresh) # t -- all unplaced
-    (us,p::rem) # t => case go [<] p (rem ++ us) t of
-      [b]    # t => Just b # t
-      (b::_) # t => Just ({type := Partitioned} b) # t
-      []     # t => Nothing # t
-    _           # t => Nothing # t -- all placed
+    (us,[]    ) # t => Nothing # t                   -- all placed
+    (us,p::rem) # t =>
+     let Just (b,p2,ns2) # t := nxt p  (rem++us++[p]) t | _ # t => Nothing # t
+         Just _          # t := nxt p2 ns2            t | _ # t => Just b # t
+      in Just ({type := Partitioned} b) # t
   where
-    go : SnocList (Bridge k) -> Fin k -> Nodes k -> F1 s (List $ Bridge k)
+    tpe : Fin k -> Fin k -> BridgeType
+    tpe x y =
+     case mkEdge x y () of
+       Just e  => if contains e c.edgeset then Fused else Brdg
+       Nothing => Spiro
+
+    nxt : Fin k -> Nodes k -> F1 s (Maybe (Bridge k, Fin k, Nodes k))
+    nxt p ns = T1.do
+      -- first, take placed prefix, then take until placed again
+      (ps,u::x)    <- span1  isPlaced ns | (_,[]) => pure Nothing
+      (us,p2::rem) <- break1 isPlaced x  | (_,[]) => pure Nothing
+      let p1 := List.last (p::ps)
+      pure $ Just (B c p1 u us p2 $ tpe p1 p2, p2, rem)
 
 bridge : PlaceST s k => Cycles k -> F1 s (Maybe (Bridge k, Cycles k))
-bridge []      t = Nothing # t
-bridge (c::cs) t =
- let Just b # t := toBridge c t | Nothing # t => bridge cs t
-     p      # t := go [<] b cs t
-  in Just p # t
-
- where
-   go : SnocList (Cycle k) -> Bridge k -> Cycles k -> F1 s (Bridge k, Cycles k)
-   go sc b []      t = (b,sc<>>[]) # t
-   go sc b (c::cs) t =
-    let Just b2 # t := toBridge c t | Nothing # t => go sc b cs t
-     in case b.type >= b2.type of
-          True  => go (sc:<b.cycle) b2 cs t
-          False => go (sc:<c) b cs t
+bridge cs = T1.do
+  bs <- mapMaybe1 toBridge cs
+  case sortBy (comparing type) bs of
+    []    => pure Nothing
+    b::bs => pure $ Just (b,map cycle bs)
 
 --------------------------------------------------------------------------------
 -- Placing Rings
@@ -118,8 +121,10 @@ parameters {k : _}
         -- bond length used for ring
         rd  := distance px py
         -- distance from new ring center to center of ring bonds
-        MkArc _ phi r d := arc (S $ length rem) rd BOND_LEN
-        c   := translate (scaleTo d $ perpendicularFrom px py cref) cs
+        MkArc tot phi r d := arc (S $ length rem) rd BOND_LEN
+        v   := scaleTo d $ perpendicularFrom px py cref
+        v2  := if tot > pi then v else negate v
+        c   := translate v2 cs
         ax  := angleOrZero (c - px)
         ay  := angleOrZero (c - py)
         ns  := f::rem
