@@ -121,7 +121,7 @@ parameters {k : _}
         -- bond length used for ring
         rd  := distance px py
         -- distance from new ring center to center of ring bonds
-        MkArc tot phi r d := arc (S $ length rem) rd BOND_LEN
+        MkArc tot phi r d := arc (S $ length rem) BOND_LEN rd
         v   := scaleTo d $ perpendicularFrom px py cref
         v2  := if tot > pi then v else negate v
         c   := translate v2 cs
