@@ -1,6 +1,5 @@
 module Test.Geom.Angle
 
-import Debug.Trace
 import Data.List.Quantifiers
 import Data.Refined
 import Geom
