@@ -6,11 +6,12 @@ version    = 0.1.0
 sourcedir  = "src"
 depends    = base         >= 0.5.1
            , elab-util
-           , refined
+           , finite
            , ilex
            , indexed-graph
+           , pretty-show
            , quantifiers-extra
-           , finite
+           , refined
 
 modules = Chem
         , Chem.Aromaticity

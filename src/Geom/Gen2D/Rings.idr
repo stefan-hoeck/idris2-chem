@@ -11,8 +11,28 @@ import Derive.Prelude
 %default total
 %language ElabReflection
 
+round : Nat -> Double -> Double
+round n d =
+ let f := pow 10 (cast n)
+     dd := f*d
+     df := floor dd
+     dc := ceiling dd
+  in if dd - df < dc - dd then df/f else dc/f
+
 Interpolation Angle where
-  interpolate a = "\{show $ toDegree a}°"
+  interpolate a = "\{show $ round 1 $ toDegree a}°"
+
+Interpolation Double where
+  interpolate = show . round 3
+
+Interpolation (Point t) where
+  interpolate (P x y) = "x: \{x}, y: \{y}"
+
+Interpolation (Vector t) where
+  interpolate (V x y) = "vx: \{x}, vy: \{y}"
+
+Interpolation (List $ Fin k) where
+  interpolate = show
 
 --------------------------------------------------------------------------------
 -- Types and Ring Analysis
@@ -60,7 +80,7 @@ mostComplex sx (x::xs) atms len r =
          False => mostComplex (sx:<r) xs n    x.ncycle.size x
 
 partOf : Bridge k -> Cycle k -> Bool
-partOf b c = contains b.start c.nodeset && contains b.end c.nodeset
+partOf b c = numSharedNodes b.cycle c > 0
 
 -- splits a cycle into non-empty segments of placed and unplaced nodes.
 toBridge : PlaceST s k => Cycle k -> F1 s (Maybe $ Bridge k)
@@ -120,6 +140,8 @@ parameters {k : _}
     -- positions of the attachment nodes
     px   <- nodePosition x
     py   <- nodePosition y
+    debug1 "Placing ring: \{show tpe}, nodes: \{c.nodes}, unplaced: \{f::rem}"
+    debug1 "Placed center: \{cref}; px: \{px}; py: \{py}"
     let cs  := center2d (the (List _) [px,py])
         rd  := distance px py
         len := max BOND_LEN $ rd * 1.2 / cast (length rem + 2)
@@ -130,8 +152,10 @@ parameters {k : _}
         ax  := angleOrZero (c - px)
         ay  := angleOrZero (c - py)
         ns  := f::rem
-    debug1 "Placing ring: \{show tpe}, len: \{show len}, nodes: \{show $ f::rem}"
-    debug1 "Arc: total: \{tot}, segment: \{phi}, radius: \{show r}, dist: \{show d}"
+    debug1 "xy-center: \{cs}; xy-distance: \{rd}; len: \{len}"
+    debug1 "vectors: v: \{v}; v2: \{v2}, arc center: \{c}"
+    debug1 "angles: ax: \{ax}, ay: \{ay}, arc: \{tot}, step: \{phi}"
+    debug1 "Arc: radius: \{r}, dist: \{d}"
     case ax - ay < Angle.pi of
       True  => polygonCorners g ns c zero phi (px - c)
       False => polygonCorners g (reverse ns) c zero phi (py - c)
