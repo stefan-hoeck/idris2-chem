@@ -4,35 +4,13 @@ import Chem
 import Geom.Gen2D.Place
 import Geom.Gen2D.State
 import Geom.Gen2D.Types
+import Geom.Interpolate
 import Data.Graph.Indexed.Ring.Relevant
 import Data.SortedSet
 import Derive.Prelude
 
 %default total
 %language ElabReflection
-
-round : Nat -> Double -> Double
-round n d =
- let f := pow 10 (cast n)
-     dd := f*d
-     df := floor dd
-     dc := ceiling dd
-  in if dd - df < dc - dd then df/f else dc/f
-
-Interpolation Angle where
-  interpolate a = "\{show $ round 1 $ toDegree a}°"
-
-Interpolation Double where
-  interpolate = show . round 3
-
-Interpolation (Point t) where
-  interpolate (P x y) = "x: \{x}, y: \{y}"
-
-Interpolation (Vector t) where
-  interpolate (V x y) = "vx: \{x}, vy: \{y}"
-
-Interpolation (List $ Fin k) where
-  interpolate = show
 
 --------------------------------------------------------------------------------
 -- Types and Ring Analysis
@@ -134,17 +112,26 @@ parameters {k : _}
 
   placeBridge : Cycles k -> Bridge k -> F1' s
   placeBridge placed (B c _ _ _   _ Fresh) = ngon c
-  placeBridge placed (B c x f rem y tpe)   = T1.do -- TODO: Spiro
+  placeBridge placed (B c x f rem y Spiro) = T1.do
+    -- center of placed cycle(s)
+    cref <- centerOf (placed >>= \x => x.nodes)
+    -- positions of the attachment nodes
+    px   <- nodePosition x
+    let MkArc tot phi r d := ngon BOND_LEN c.ncycle.size @{c.ncycle.prf}
+        c                 := translate (scaleTo r $ px - cref) px
+    polygonCorners g (f::rem) c zero phi (px - c)
+
+  placeBridge placed (B c x f rem y tpe)   = T1.do
     -- center of placed cycle(s)
     cref <- centerOf (placed >>= \x => x.nodes)
     -- positions of the attachment nodes
     px   <- nodePosition x
     py   <- nodePosition y
-    debug1 "Placing ring: \{show tpe}, nodes: \{c.nodes}, unplaced: \{f::rem}"
-    debug1 "Placed center: \{cref}; px: \{px}; py: \{py}"
+    -- debug1 "Placing ring: \{show tpe}, nodes: \{c.nodes}, unplaced: \{f::rem}"
+    -- debug1 "Placed center: \{cref}; px: \{px}; py: \{py}"
     let cs  := center2d (the (List _) [px,py])
         rd  := distance px py
-        len := max BOND_LEN $ rd * 1.2 / cast (length rem + 2)
+        len := max BOND_LEN $ rd * 1.1 / cast (length rem + 2)
         MkArc tot phi r d := arc (S $ length rem) len rd
         v   := scaleTo d $ perpendicularFrom px py cref
         v2  := if tot > pi then v else negate v
@@ -152,11 +139,14 @@ parameters {k : _}
         ax  := angleOrZero (c - px)
         ay  := angleOrZero (c - py)
         ns  := f::rem
-    debug1 "xy-center: \{cs}; xy-distance: \{rd}; len: \{len}"
-    debug1 "vectors: v: \{v}; v2: \{v2}, arc center: \{c}"
-    debug1 "angles: ax: \{ax}, ay: \{ay}, arc: \{tot}, step: \{phi}"
-    debug1 "Arc: radius: \{r}, dist: \{d}"
-    case ax - ay < Angle.pi of
+        px' := translate (rotate tot $ px - c) c
+        py' := translate (rotate tot $ py - c) c
+    -- debug1 "xy-center: \{cs}; xy-distance: \{rd}; len: \{len}"
+    -- debug1 "vectors: v: \{v}; v2: \{v2}, arc center: \{c}"
+    -- debug1 "angles: ax: \{ax}, ay: \{ay}, arc: \{tot}, step: \{phi}"
+    -- debug1 "Arc: radius: \{r}, dist: \{d}"
+    -- debug1 "Images: px': \{px'}, py': \{py'}"
+    case (ax - ay < Angle.pi) == (tot > Angle.pi) of
       True  => polygonCorners g ns c zero phi (px - c)
       False => polygonCorners g (reverse ns) c zero phi (py - c)
 
