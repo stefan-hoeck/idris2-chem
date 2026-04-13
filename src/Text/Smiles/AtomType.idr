@@ -11,6 +11,14 @@ public export
 0 SmilesAtomAT : Type
 SmilesAtomAT = Atom AromIsotope Charge () () HCount AtomType Chirality ()
 
+export %inline
+Cast SmilesAtomAT Elem where
+  cast a = cast a.elem
+
+export %inline
+Cast SmilesAtomAT Hybridization where
+  cast a = cast a.type.hybridization
+
 ||| SMILES molecule with perceived atom type and computed
 ||| implicit hydrogen count
 public export

@@ -34,6 +34,12 @@ type   = "local"
 path   = "profile"
 ipkg   = "profile.ipkg"
 
+[custom.all.ref1]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-ref1"
+commit = "latest:main"
+ipkg   = "ref1.ipkg"
+
 [custom.all.indexed-graph]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-indexed-graph"

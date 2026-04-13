@@ -44,6 +44,14 @@ export
 Mol : AffineTransformation
 Mol = AT (scaling $ inverse ScalingFactor) vzero
 
+public export
+0 MolPoint : Type
+MolPoint = Point Mol
+
+public export
+0 MolVector : Type
+MolVector = Vector (transform Mol)
+
 --------------------------------------------------------------------------------
 --          Atom Position
 --------------------------------------------------------------------------------

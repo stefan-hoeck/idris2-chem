@@ -6,11 +6,12 @@ version    = 0.1.0
 sourcedir  = "src"
 depends    = base         >= 0.5.1
            , elab-util
-           , refined
+           , finite
            , ilex
            , indexed-graph
+           , pretty-show
            , quantifiers-extra
-           , finite
+           , refined
 
 modules = Chem
         , Chem.Aromaticity
@@ -40,6 +41,13 @@ modules = Chem
         , Geom.Point
         , Geom.Scale
         , Geom.Vector
+
+        , Geom.Gen2D.Debug
+        , Geom.Gen2D.Generate
+        , Geom.Gen2D.Place
+        , Geom.Gen2D.Rings
+        , Geom.Gen2D.State
+        , Geom.Gen2D.Types
 
         , Text.Molfile
         , Text.Molfile.AtomType
