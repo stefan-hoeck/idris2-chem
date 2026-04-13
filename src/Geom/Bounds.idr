@@ -17,6 +17,14 @@ data Bounds : Type where
   ||| Concrete bounds.
   Rng      : (min, max : Double) -> Bounds
 
+||| Extract the inner structure of a `Bounds` values.
+|||
+||| Mostly useful for debugging.
+export
+getBounds : Bounds -> Maybe (Double,Double)
+getBounds Empty     = Nothing
+getBounds (Rng x y) = Just (x,y)
+
 ||| The empty bounds.
 export %inline
 empty : Bounds
