@@ -59,11 +59,66 @@ smilesIdxLabelTree3 s =
        Left e   => putStrLn "An error occured"
        Right (G _ g) => putStrLn $ forestString2 g $ dff' g
 
+------------------------------------------------------------------------------
 -- [TODO] Rewrite smilesIdxLabelTree3 with something like:
+record RingInfo k where
+  constructor RI
+  neighbour : Fin k
+  edge : SmilesBond
+  ringId : Nat
+
+record Node k where
+  constructor MkNode
+  node : Fin k -- could be removed later
+  --label : SmilesAtom
+  --parentNode : Maybe (Fin k) -- could be removed later
+  --parentEdge : Maybe SmilesBond
+  -- rings : List (RingInfo k)
+
+insertBond2 : IGraph k SmilesBond n -> Node k -> Node k -> String
+insertBond2 g p@(MkNode pm) c@(MkNode m) = case elab g pm m of
+                         Nothing   => ""
+                         Just Sngl => ""
+                         Just bo   => interpolate bo
+
+treeString4 :
+     Interpolation n
+  => IGraph k SmilesBond n
+  -> Tree (Node k)
+  -> String
+treeString4 g (T c@(MkNode m) cs) =
+  "\{lab g m}\{children g c cs}"
+  where
+    children : IGraph k SmilesBond n -> Node k -> Forest (Node k) -> String
+    children g _ []               = ""
+    children g p [h@(T c _)] = insertBond2 g p c ++ treeString4 g h
+    children g p@(MkNode pm) (h@(T c@(MkNode m) _) :: t) =
+      "(\{insertBond2 g p c}\{treeString4 g h})\{children g p t}"
+
+
+forestString3 :
+  Interpolation n
+  => IGraph k SmilesBond n
+  -> Forest (Node k)
+  -> String
+forestString3 g []       = ""
+forestString3 g [h]      = treeString4 g h
+forestString3 g (h :: t) = "\{treeString4 g h}.\{forestString3 g t}"
+
+smilesIdxLabelTree4 : String -> IO ()
+smilesIdxLabelTree4 s =
+  case readSmiles' s of
+       Left e   => putStrLn "An error occured"
+       Right (G _ g) =>
+        putStrLn $ forestString3 g $ dffWith' g MkNode
+
 -- String -> IGraph k e n -> Forest (Fin k) -> Tree ("Data I need") -> String
 -- record Node k
 -- label : SmilesAtom, rings : List RingInfo, parent : Maybe SmilesBond,
 -- (node : Fin k), (parentNode : Maybe (Fin k))
+
+
+
 -- [TODO] Square brackets
 -- [TODO] Rings: easy but not the best approach:
 --               [];[1];[1,2];[1,2,3];[1,3];[3];[]
