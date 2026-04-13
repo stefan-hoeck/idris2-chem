@@ -127,8 +127,8 @@ parameters {k : _}
     -- positions of the attachment nodes
     px   <- nodePosition x
     py   <- nodePosition y
-    -- debug1 "Placing ring: \{show tpe}, nodes: \{c.nodes}, unplaced: \{f::rem}"
-    -- debug1 "Placed center: \{cref}; px: \{px}; py: \{py}"
+    debugIf1 "Placing ring: \{show tpe}, nodes: \{c.nodes}, unplaced: \{f::rem}"
+    debugIf1 "Placed center: \{cref}; px: \{px}; py: \{py}"
     let cs  := center2d (the (List _) [px,py])
         rd  := distance px py
         len := max BOND_LEN $ rd * 1.1 / cast (length rem + 2)
@@ -141,11 +141,11 @@ parameters {k : _}
         ns  := f::rem
         px' := translate (rotate tot $ px - c) c
         py' := translate (rotate tot $ py - c) c
-    -- debug1 "xy-center: \{cs}; xy-distance: \{rd}; len: \{len}"
-    -- debug1 "vectors: v: \{v}; v2: \{v2}, arc center: \{c}"
-    -- debug1 "angles: ax: \{ax}, ay: \{ay}, arc: \{tot}, step: \{phi}"
-    -- debug1 "Arc: radius: \{r}, dist: \{d}"
-    -- debug1 "Images: px': \{px'}, py': \{py'}"
+    debugIf1 "xy-center: \{cs}; xy-distance: \{rd}; len: \{len}"
+    debugIf1 "vectors: v: \{v}; v2: \{v2}, arc center: \{c}"
+    debugIf1 "angles: ax: \{ax}, ay: \{ay}, arc: \{tot}, step: \{phi}"
+    debugIf1 "Arc: radius: \{r}, dist: \{d}"
+    debugIf1 "Images: px': \{px'}, py': \{py'}"
     case (ax - ay < Angle.pi) == (tot > Angle.pi) of
       True  => polygonCorners g ns c zero phi (px - c)
       False => polygonCorners g (reverse ns) c zero phi (py - c)
