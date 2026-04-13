@@ -70,35 +70,36 @@ record RingInfo k where
 record Node k where
   constructor MkNode
   node : Fin k -- could be removed later
-  --label : SmilesAtom
-  --parentNode : Maybe (Fin k) -- could be removed later
-  --parentEdge : Maybe SmilesBond
+  label : SmilesAtom
+  -- parentNode : Maybe (Fin k) -- could be removed later
+  -- parentEdge : Maybe SmilesBond
   -- rings : List (RingInfo k)
 
 insertBond2 : IGraph k SmilesBond n -> Node k -> Node k -> String
-insertBond2 g p@(MkNode pm) c@(MkNode m) = case elab g pm m of
+insertBond2 g p@(MkNode pm _) c@(MkNode m _) = case elab g pm m of
                          Nothing   => ""
                          Just Sngl => ""
                          Just bo   => interpolate bo
 
 treeString4 :
-     Interpolation n
-  => IGraph k SmilesBond n
+     IGraph k SmilesBond SmilesAtom
   -> Tree (Node k)
   -> String
-treeString4 g (T c@(MkNode m) cs) =
-  "\{lab g m}\{children g c cs}"
+treeString4 g (T c@(MkNode m v) cs) =
+  "\{v}\{children g c cs}"
   where
-    children : IGraph k SmilesBond n -> Node k -> Forest (Node k) -> String
+    children :
+         IGraph k SmilesBond SmilesAtom
+      -> Node k
+      -> Forest (Node k)
+      -> String
     children g _ []               = ""
     children g p [h@(T c _)] = insertBond2 g p c ++ treeString4 g h
-    children g p@(MkNode pm) (h@(T c@(MkNode m) _) :: t) =
+    children g p@(MkNode pm _ ) (h@(T c@(MkNode m _) _) :: t) =
       "(\{insertBond2 g p c}\{treeString4 g h})\{children g p t}"
 
-
 forestString3 :
-  Interpolation n
-  => IGraph k SmilesBond n
+     IGraph k SmilesBond SmilesAtom
   -> Forest (Node k)
   -> String
 forestString3 g []       = ""
@@ -110,13 +111,7 @@ smilesIdxLabelTree4 s =
   case readSmiles' s of
        Left e   => putStrLn "An error occured"
        Right (G _ g) =>
-        putStrLn $ forestString3 g $ dffWith' g MkNode
-
--- String -> IGraph k e n -> Forest (Fin k) -> Tree ("Data I need") -> String
--- record Node k
--- label : SmilesAtom, rings : List RingInfo, parent : Maybe SmilesBond,
--- (node : Fin k), (parentNode : Maybe (Fin k))
-
+        putStrLn $ forestString3 g $ dffWith' g (\v => MkNode v (lab g v))
 
 
 -- [TODO] Square brackets
