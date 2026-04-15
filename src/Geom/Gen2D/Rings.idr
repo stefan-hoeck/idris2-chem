@@ -19,12 +19,6 @@ import Derive.Prelude
 0 Cycles : Nat -> Type
 Cycles = List . Cycle
 
-0 Nodes : Nat -> Type
-Nodes = List . Fin
-
-0 SnocNodes : Nat -> Type
-SnocNodes = SnocList . Fin
-
 data BridgeType = Fused | Spiro | Brdg | Fresh | Partitioned
 
 %runElab derive "BridgeType" [Show,Eq,Ord]
