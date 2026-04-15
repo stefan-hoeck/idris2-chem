@@ -15,6 +15,14 @@ import Derive.Prelude
 --------------------------------------------------------------------------------
 
 public export
+0 Nodes : Nat -> Type
+Nodes = List . Fin
+
+public export
+0 SnocNodes : Nat -> Type
+SnocNodes = SnocList . Fin
+
+public export
 data AttachPoint : (k : Nat) -> Type where
   None   : AttachPoint k
   Attach : (parent : Fin k) -> (node : Fin k) -> AttachPoint k
@@ -40,6 +48,17 @@ record Component (k : Nat) (e,n : Type) where
   isRing   : Bool
   subgraph : SubgraphType isRing k e n
 
+public export
+0 SnocComps : Nat -> Type -> Type -> Type
+SnocComps k e = SnocList . Component k e
+
+public export
+0 Comps : Nat -> Type -> Type -> Type
+Comps k e = List . Component k e
+
+setAttach : (a,x : Fin k) -> Component k e n -> Component k e n
+setAttach a x = {attach := Attach a x}
+
 --------------------------------------------------------------------------------
 -- Utilities
 --------------------------------------------------------------------------------
@@ -52,14 +71,9 @@ RingMap k e n = IArray k (Maybe $ Component k e n)
 subnodes : Subgraph k e n -> List (Fin k)
 subnodes (G _ g) = fst <$> labels g
 
-notVisited : Visited k -> Fin k -> Bool
-notVisited vis n = not $ n `visited` vis
-
 children : IGraph k e n -> Visited k -> Component k e n -> List (Fin k, Fin k)
-children g vis c = do
-  a <- nodes c
-  n <- filter (notVisited vis) (neighbours g a)
-  pure (a,n)
+children g v c =
+  nodes c >>= \a => (a,) <$> filter (flip unvisited v) (neighbours g a)
 
 --------------------------------------------------------------------------------
 -- Component Partition
@@ -78,8 +92,7 @@ rings : {k : _} -> (g : IGraph k e n) -> Maybe (Component k e n, RingMap k e n)
 rings g =
   case reverse $ sortBy (comparing order) (biconnectedComponents g) of
     []    => Nothing
-    r::rs =>
-      Just (C None (subnodes r) True r, fromPairs k Nothing (rs >>= pairs))
+    r::rs => Just (C None (subnodes r) True r, fromPairs k Nothing (rs >>= pairs))
 
 parameters {k : Nat}
            (g : IGraph k e n)
@@ -87,17 +100,10 @@ parameters {k : Nat}
 
   -- `True` if the given node is not in a ring and has not yet been visited
   nonVisitedInChain : Visited k -> Fin k -> Bool
-  nonVisitedInChain vis n =
-    case m `at` n of
-      Nothing => not (n `visited` vis)
-      Just _  => False
+  nonVisitedInChain v n = isNothing (m `at` n) && unvisited n v
 
-  -- runner for `longestChainFrom`
-  lcf :
-       SnocList (Fin k)
-    -> Queue (SnocList $ Fin k, Fin k)
-    -> Visited k
-    -> SnocList (Fin k)
+  -- runner for `chain`
+  lcf : SnocNodes k -> Queue (SnocNodes k, Fin k) -> Visited k -> SnocNodes k
   lcf sx q vis =
     case dequeue q of
       Nothing          => sx
@@ -109,33 +115,32 @@ parameters {k : Nat}
 
   -- computes the longest chain of atoms not in a ring
   -- from the given starting point
-  %inline
-  longestChainFrom : Visited k -> Fin k -> SnocList (Fin k)
-  longestChainFrom vis x = lcf [<] (enqueue empty ([<], x)) (visit x vis)
+  chain : Visited k -> Fin k -> SnocList (Fin k)
+  chain vis x = lcf [<] (enqueue empty ([<], x)) (visit x vis)
+
+  nextComp : Visited k -> (a,x : Fin k) -> Component k e n
+  nextComp v a x =
+    maybe (C (Attach a x) (chain v x <>> []) False ()) (setAttach a x) (at m x)
 
   -- Iteratively computes the longest chains from the attachment
   -- points of already found components
-  chains :
-       SnocList (Component k e n)
-    -> Queue (Fin k,Fin k)
-    -> Visited k
-    -> (List $ Component k e n)
+  chains : SnocComps k e n -> Queue (Fin k,Fin k) -> Visited k -> (Comps k e n)
   chains sx q vis =
     case dequeue q of
-      Nothing     => sx <>> []
-      Just ((a,n),q2) => case m `at` n of
-        Just c  =>
-         let vis2 := assert_smaller vis $ visitAll (nodes c) vis
-             q3   := enqueueAll q2 (children g vis2 c)
-          in chains (sx:<{attach := Attach a n} c) q3 vis2
-        Nothing =>
-         let c    := C (Attach a n) (longestChainFrom vis n <>> []) False ()
-             vis2 := assert_smaller vis $ visitAll (nodes c) vis
-             q3   := enqueueAll q2 (children g vis2 c)
-          in chains (sx:<c) q3 vis2
+      Nothing         => sx <>> []
+      Just ((a,n),q2) =>
+       let c    := nextComp vis a n
+           vis2 := assert_smaller vis $ visitAll (nodes c) vis
+           q3   := enqueueAll q2 (children g vis2 c)
+        in chains (sx:<c) q3 vis2
 
 ||| Partitions the nodes of a graph into disjoint components,
-||| which will be placed in the given order.
+||| which will be placed individually in the given order.
+|||
+||| The first component to be placed will be the most complex
+||| cyclic system (if any) or the longest chain. All other
+||| components in the list are linked via an `AttachPoint` to
+||| a parent component, which will be placed first.
 export
 components : {k : _} -> IGraph k e n -> List (Component k e n)
 components {k = Z}   g = []
@@ -146,8 +151,8 @@ components {k = S x} g =
       in chains g m [<c] (fromList $ children g vis c) vis
     Nothing     =>
      let m      := fill (S x) Nothing
-         _ :< n := longestChainFrom g m ini FZ | [<] => []
-         ns     := reverse $ longestChainFrom g m ini n <>> []
+         _ :< n := chain g m ini FZ | [<] => []
+         ns     := reverse $ chain g m ini n <>> []
          c      := C None ns False ()
          vis    := visitAll ns ini
       in chains g m [<c] (fromList $ children g vis c) vis
