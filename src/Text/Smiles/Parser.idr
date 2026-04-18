@@ -335,7 +335,7 @@ smilesEOI st sk =
       Just x  => pure (Left x)
       Nothing => getList sk.stack_ >>= pure . Right
 
-export
+public export
 smiles : P1 q (BoundedErr SmilesErr) (List SmilesGraph)
 smiles = P Chain init smilesTrans snocChunk smilesErr smilesEOI
 
