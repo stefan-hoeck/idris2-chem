@@ -336,7 +336,7 @@ smilesEOI st sk =
       Nothing => getList sk.stack_ >>= pure . Right
 
 export
-smiles : P1 q (BoundedErr SmilesErr) SSz SSTCK (List SmilesGraph)
+smiles : P1 q (BoundedErr SmilesErr) (List SmilesGraph)
 smiles = P Chain init smilesTrans snocChunk smilesErr smilesEOI
 
 ||| Parses a list of smiles codes separated by whitespace

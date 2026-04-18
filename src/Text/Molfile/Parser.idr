@@ -72,8 +72,8 @@ ctabEOI st sk =
 
 ||| A parser for CTab file formats. Can read V2000 and V3000 mol
 ||| and SD files. Suitable for streaming large amounts of data.
-export
-ctab : P1 q (BoundedErr MolErr) CSz CSTCK (List Molfile)
+public export
+ctab : P1 q (BoundedErr MolErr) (List Molfile)
 ctab = P H1 init ctabTrans snocChunk ctabErr ctabEOI
 
 parameters {auto has : Has (ParseError MolErr) es}
