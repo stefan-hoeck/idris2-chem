@@ -49,11 +49,11 @@ ipkg   = "indexed-graph.ipkg"
 [custom.all.ilex]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-ilex.git"
-commit = "latest:simplify_parser"
+commit = "latest:main"
 ipkg   = "ilex.ipkg"
 
 [custom.all.ilex-debug]
 type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-ilex.git"
-commit = "latest:simplify_parser"
+commit = "latest:main"
 ipkg   = "debug/ilex-debug.ipkg"
