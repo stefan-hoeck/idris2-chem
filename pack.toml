@@ -45,3 +45,15 @@ type   = "git"
 url    = "https://github.com/stefan-hoeck/idris2-indexed-graph"
 commit = "latest:main"
 ipkg   = "indexed-graph.ipkg"
+
+[custom.all.ilex]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-ilex.git"
+commit = "latest:main"
+ipkg   = "ilex.ipkg"
+
+[custom.all.ilex-debug]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-ilex.git"
+commit = "latest:main"
+ipkg   = "debug/ilex-debug.ipkg"

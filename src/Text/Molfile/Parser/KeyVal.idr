@@ -210,7 +210,7 @@ kvEOI sk s t =
       VS vs # t => Right (vs <>> []) # t
       _     # t => Right [] # t -- impossible
 
-kv : P1 q (BoundedErr MolErr) KSz SK (List KeyVal)
+kv : P1 q (BoundedErr MolErr) (List KeyVal)
 kv = P KIni (init (VS [<])) kvTrans noChunk kvErr kvEOI
 
 ||| Parses V3000 key-value pairs from a (possibly multiline) bytestring.

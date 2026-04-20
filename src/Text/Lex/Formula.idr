@@ -9,7 +9,6 @@ import Text.ILex.DStack
 %default total
 %language ElabReflection
 
-public export
 data FState : List Type -> Type where
   FIni : FState [Formula]
   FEl  : FState [Elem,Formula]
@@ -25,7 +24,6 @@ export %inline
 Cast (FState ts) (Index FSz) where
   cast v = I (cast $ conIndexFState v) @{mkLT $ inBoundsFState v}
 
-public export
 0 SK : Type -> Type
 SK = DStack FState Void
 
@@ -59,8 +57,8 @@ formulaEOI v sk t =
     (FIni:>(f::_))   # t => Right f # t
     (FEl:>(e::f::_)) # t => Right (insertElem e f) # t
 
-export
-formula : P1 q (BoundedErr Void) FSz SK Formula
+public export
+formula : P1 q (BoundedErr Void) Formula
 formula =
   P (cast FIni) (init $ FIni:>[neutral]) formulaTrans
     (\_ => (Nothing #)) formulaErr formulaEOI
