@@ -118,6 +118,7 @@ smilesIdxLabelTree4 s =
 -- [TODO] Rings: easy but not the best approach:
 --               [];[1];[1,2];[1,2,3];[1,3];[3];[]
 -- [TODO] Aromaticity ("c1ccccc1" should give "c1cccccc1, not in c:c:c:c:c:c")
+-- -> Just Arom => ""?
 -- ([TODO] Bonustask: Refactor using State Monad)
 -- ([TODO] Bonustask: Refactor using linear types)
 
