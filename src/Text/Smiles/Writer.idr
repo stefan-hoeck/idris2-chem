@@ -113,6 +113,87 @@ smilesIdxLabelTree4 s =
        Right (G _ g) =>
         putStrLn $ forestString3 g $ dffWith' g (\v => MkNode v (lab g v))
 
+--------------------------------------------------------------------------------
+---- State Monad Version
+--------------------------------------------------------------------------------
+--record State s a where
+--  constructor S
+--  run : s -> (s,a)
+--
+--Functor (State s) where
+--  map f (S run) = S $ \st => let (st2,v) := run st in (st2,f v)
+--
+--Applicative (State s) where
+--  pure v = S $ \st => (st,v)
+--  S run1 <*> S run2 =
+--    S $ \st =>
+--      let (st2, fun) := run1 st
+--          (st3, val) := run2 st2
+--       in (st3, fun val)
+--
+--Monad (State s) where
+--  S run1 >>= f =
+--    S $ \st =>
+--      let (st2,val) := run1 st
+--       in run (f val) st2
+--
+----------------------------------------------------------------------------------
+---- Utilities
+----------------------------------------------------------------------------------
+--
+--eval : s -> State s a -> a
+--eval ini (S run) = snd $ run ini
+--
+--get : State s s
+--get = S $ \st => (st,st)
+--
+--put : s -> State s ()
+--put st = S $ \_ => (st,())
+--
+--mod : (s -> s) -> State s ()
+--mod f = get >>= put . f
+
+------------------------------------------------------------------------------
+--covering
+--zipWithParent2 : Tree a -> State (Maybe a) (Tree (Maybe a, a))
+--zipWithParent2 (T v ts) = do
+--  p <- get -- read parent
+--  put (Just v) -- set current as new parent
+--  ts2 <- traverse zipWithParent2 ts
+--  put p -- restore old parent
+--  pure (T (p,v) ts2)
+--
+--covering
+--buildNodeTree :
+--     IGraph k SmilesBond SmilesAtom
+--  -> Tree (Fin k)
+--  -> State (Maybe (Fin k)) (Tree (Node k))
+--buildNodeTree g (T v ts) = do
+--  p <- get
+--  put (Just v)
+--  ts2 <- traverse (buildNodeTree g) ts
+--  put p
+--  pure (T (MkNode v (lab g v)) ts2)
+--
+----  pure (T (MkNode v (lab g v) (parentEdge g p v)) ts2)
+--covering
+--buildNodeForest :
+--     IGraph k SmilesBond SmilesAtom
+--  -> Forest (Fin k)
+--  -> Forest (Node k)
+--buildNodeForest g forest = eval Nothing (traverse (buildNodeTree g) forest)
+--
+--covering
+--smilesIdxLabelTree5 : String -> IO ()
+--smilesIdxLabelTree5 s =
+--  case readSmiles' s of
+--       Left e   => putStrLn "An error occured"
+--       Right (G _ g) =>
+--        let forest = dff' g
+--            nodes = buildNodeForest g forest
+--        in putStrLn $ forestString3 g nodes
+
+
 
 -- [TODO] Square brackets
 -- [TODO] Rings: easy but not the best approach:
