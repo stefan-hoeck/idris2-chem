@@ -60,7 +60,6 @@ smilesIdxLabelTree3 s =
        Right (G _ g) => putStrLn $ forestString2 g $ dff' g
 
 ------------------------------------------------------------------------------
--- [TODO] Rewrite smilesIdxLabelTree3 with something like:
 record RingInfo k where
   constructor RI
   neighbour : Fin k
@@ -71,135 +70,113 @@ record Node k where
   constructor MkNode
   node : Fin k -- could be removed later
   label : SmilesAtom
-  -- parentNode : Maybe (Fin k) -- could be removed later
-  -- parentEdge : Maybe SmilesBond
+  parentNode : Maybe (Fin k) -- could be removed later
+  parentEdge : Maybe SmilesBond
   -- rings : List (RingInfo k)
 
-insertBond2 : IGraph k SmilesBond n -> Node k -> Node k -> String
-insertBond2 g p@(MkNode pm _) c@(MkNode m _) = case elab g pm m of
+insertBond2 : Node k -> String
+insertBond2 c@(MkNode _ _ _ pE) = case pE of
                          Nothing   => ""
                          Just Sngl => ""
+                         Just Arom => "" -- skipping arom for now
                          Just bo   => interpolate bo
 
-treeString4 :
-     IGraph k SmilesBond SmilesAtom
-  -> Tree (Node k)
-  -> String
-treeString4 g (T c@(MkNode m v) cs) =
-  "\{v}\{children g c cs}"
+treeString4 : Tree (Node k) -> String
+treeString4 (T c@(MkNode _ v _ _) cs) =
+  "\{v}\{children cs}"
   where
-    children :
-         IGraph k SmilesBond SmilesAtom
-      -> Node k
-      -> Forest (Node k)
-      -> String
-    children g _ []               = ""
-    children g p [h@(T c _)] = insertBond2 g p c ++ treeString4 g h
-    children g p@(MkNode pm _ ) (h@(T c@(MkNode m _) _) :: t) =
-      "(\{insertBond2 g p c}\{treeString4 g h})\{children g p t}"
+    children : Forest (Node k) -> String
+    children []               = ""
+    children [h@(T c _)] = insertBond2 c ++ treeString4 h
+    children (h@(T c _) :: t) =
+      "(\{insertBond2 c}\{treeString4 h})\{children t}"
 
-forestString3 :
+forestString3 : Forest (Node k) -> String
+forestString3 []       = ""
+forestString3 [h]      = treeString4 h
+forestString3 (h :: t) = "\{treeString4 h}.\{forestString3 t}"
+
+------------------------------------------------------------------------------
+-- State Monad Version
+------------------------------------------------------------------------------
+record State s a where
+  constructor S
+  run : s -> (s,a)
+
+Functor (State s) where
+  map f (S run) = S $ \st => let (st2,v) := run st in (st2,f v)
+
+Applicative (State s) where
+  pure v = S $ \st => (st,v)
+  S run1 <*> S run2 =
+    S $ \st =>
+      let (st2, fun) := run1 st
+          (st3, val) := run2 st2
+       in (st3, fun val)
+
+Monad (State s) where
+  S run1 >>= f =
+    S $ \st =>
+      let (st2,val) := run1 st
+       in run (f val) st2
+
+--------------------------------------------------------------------------------
+-- Utilities
+--------------------------------------------------------------------------------
+
+eval : s -> State s a -> a
+eval ini (S run) = snd $ run ini
+
+get : State s s
+get = S $ \st => (st,st)
+
+put : s -> State s ()
+put st = S $ \_ => (st,())
+
+mod : (s -> s) -> State s ()
+mod f = get >>= put . f
+
+----------------------------------------------------------------------------
+parentEdge :
      IGraph k SmilesBond SmilesAtom
-  -> Forest (Node k)
-  -> String
-forestString3 g []       = ""
-forestString3 g [h]      = treeString4 g h
-forestString3 g (h :: t) = "\{treeString4 g h}.\{forestString3 g t}"
+  -> Maybe (Fin k)
+  -> Fin k
+  -> Maybe SmilesBond
+parentEdge _ Nothing  _ = Nothing
+parentEdge g (Just p) v = elab g p v
 
-smilesIdxLabelTree4 : String -> IO ()
-smilesIdxLabelTree4 s =
+covering
+buildNodeTree :
+     IGraph k SmilesBond SmilesAtom
+  -> Tree (Fin k)
+  -> State (Maybe (Fin k)) (Tree (Node k))
+buildNodeTree g (T v ts) = do
+  p <- get
+  put (Just v)
+  ts2 <- traverse (buildNodeTree g) ts
+  put p
+  pure (T (MkNode v (lab g v) p (parentEdge g p v)) ts2)
+
+covering
+buildNodeForest :
+     IGraph k SmilesBond SmilesAtom
+  -> Forest (Fin k)
+  -> Forest (Node k)
+buildNodeForest g ts = eval Nothing (traverse (buildNodeTree g) ts)
+
+covering
+smilesIdxLabelTree5 : String -> IO ()
+smilesIdxLabelTree5 s =
   case readSmiles' s of
        Left e   => putStrLn "An error occured"
        Right (G _ g) =>
-        putStrLn $ forestString3 g $ dffWith' g (\v => MkNode v (lab g v))
+        putStrLn $ forestString3 $ buildNodeForest g $ dff' g
 
---------------------------------------------------------------------------------
----- State Monad Version
---------------------------------------------------------------------------------
---record State s a where
---  constructor S
---  run : s -> (s,a)
---
---Functor (State s) where
---  map f (S run) = S $ \st => let (st2,v) := run st in (st2,f v)
---
---Applicative (State s) where
---  pure v = S $ \st => (st,v)
---  S run1 <*> S run2 =
---    S $ \st =>
---      let (st2, fun) := run1 st
---          (st3, val) := run2 st2
---       in (st3, fun val)
---
---Monad (State s) where
---  S run1 >>= f =
---    S $ \st =>
---      let (st2,val) := run1 st
---       in run (f val) st2
---
-----------------------------------------------------------------------------------
----- Utilities
-----------------------------------------------------------------------------------
---
---eval : s -> State s a -> a
---eval ini (S run) = snd $ run ini
---
---get : State s s
---get = S $ \st => (st,st)
---
---put : s -> State s ()
---put st = S $ \_ => (st,())
---
---mod : (s -> s) -> State s ()
---mod f = get >>= put . f
-
-------------------------------------------------------------------------------
---covering
---zipWithParent2 : Tree a -> State (Maybe a) (Tree (Maybe a, a))
---zipWithParent2 (T v ts) = do
---  p <- get -- read parent
---  put (Just v) -- set current as new parent
---  ts2 <- traverse zipWithParent2 ts
---  put p -- restore old parent
---  pure (T (p,v) ts2)
---
---covering
---buildNodeTree :
---     IGraph k SmilesBond SmilesAtom
---  -> Tree (Fin k)
---  -> State (Maybe (Fin k)) (Tree (Node k))
---buildNodeTree g (T v ts) = do
---  p <- get
---  put (Just v)
---  ts2 <- traverse (buildNodeTree g) ts
---  put p
---  pure (T (MkNode v (lab g v)) ts2)
---
-----  pure (T (MkNode v (lab g v) (parentEdge g p v)) ts2)
---covering
---buildNodeForest :
---     IGraph k SmilesBond SmilesAtom
---  -> Forest (Fin k)
---  -> Forest (Node k)
---buildNodeForest g forest = eval Nothing (traverse (buildNodeTree g) forest)
---
---covering
---smilesIdxLabelTree5 : String -> IO ()
---smilesIdxLabelTree5 s =
---  case readSmiles' s of
---       Left e   => putStrLn "An error occured"
---       Right (G _ g) =>
---        let forest = dff' g
---            nodes = buildNodeForest g forest
---        in putStrLn $ forestString3 g nodes
 
 
 
 -- [TODO] Square brackets
 -- [TODO] Rings: easy but not the best approach:
 --               [];[1];[1,2];[1,2,3];[1,3];[3];[]
--- [TODO] Aromaticity ("c1ccccc1" should give "c1cccccc1, not in c:c:c:c:c:c")
--- -> Just Arom => ""?
--- ([TODO] Bonustask: Refactor using State Monad)
 -- ([TODO] Bonustask: Refactor using linear types)
 
