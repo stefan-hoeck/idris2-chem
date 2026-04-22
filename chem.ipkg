@@ -72,3 +72,4 @@ modules = Chem
         , Text.Smiles.AtomType
         , Text.Smiles.Parser
         , Text.Smiles.Types
+        , Text.Smiles.Writer
