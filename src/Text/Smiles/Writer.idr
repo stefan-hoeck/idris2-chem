@@ -68,21 +68,19 @@ record RingInfo k where
 
 record Node k where
   constructor MkNode
-  node : Fin k -- could be removed later
   label : SmilesAtom
-  parentNode : Maybe (Fin k) -- could be removed later
   parentEdge : Maybe SmilesBond
   -- rings : List (RingInfo k)
 
 insertBond2 : Node k -> String
-insertBond2 c@(MkNode _ _ _ pE) = case pE of
+insertBond2 c@(MkNode _ pE) = case pE of
                          Nothing   => ""
                          Just Sngl => ""
                          Just Arom => "" -- skipping arom for now
                          Just bo   => interpolate bo
 
 treeString4 : Tree (Node k) -> String
-treeString4 (T c@(MkNode _ v _ _) cs) =
+treeString4 (T c@(MkNode v _) cs) =
   "\{v}\{children cs}"
   where
     children : Forest (Node k) -> String
@@ -155,7 +153,7 @@ buildNodeTree g (T v ts) = do
   put (Just v)
   ts2 <- traverse (buildNodeTree g) ts
   put p
-  pure (T (MkNode v (lab g v) p (parentEdge g p v)) ts2)
+  pure (T (MkNode (lab g v) (parentEdge g p v)) ts2)
 
 covering
 buildNodeForest :
