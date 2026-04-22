@@ -60,6 +60,7 @@ smilesIdxLabelTree3 s =
        Right (G _ g) => putStrLn $ forestString2 g $ dff' g
 
 ------------------------------------------------------------------------------
+-- es gibt einen bestehenden type chem-lib (smiles parser, types)?
 record RingInfo k where
   constructor RI
   neighbour : Fin k
@@ -70,7 +71,8 @@ record Node k where
   constructor MkNode
   label : SmilesAtom
   parentEdge : Maybe SmilesBond
-  -- rings : List (RingInfo k)
+  -- rings : RingInfo k
+  --
 
 insertBond2 : Node k -> String
 insertBond2 c@(MkNode _ pE) = case pE of
@@ -89,6 +91,7 @@ treeString4 (T c@(MkNode v _) cs) =
     children (h@(T c _) :: t) =
       "(\{insertBond2 c}\{treeString4 h})\{children t}"
 
+-- könnte eine zeile sein (fastConcat, intersperse, map) ( in dieser Reihenfolge )
 forestString3 : Forest (Node k) -> String
 forestString3 []       = ""
 forestString3 [h]      = treeString4 h
@@ -147,13 +150,15 @@ covering
 buildNodeTree :
      IGraph k SmilesBond SmilesAtom
   -> Tree (Fin k)
+  -- eher ein record type nehmen: fields sind Dinge über die wir Buch führen
+  -- rings, parent, etc
   -> State (Maybe (Fin k)) (Tree (Node k))
 buildNodeTree g (T v ts) = do
-  p <- get
-  put (Just v)
-  ts2 <- traverse (buildNodeTree g) ts
-  put p
-  pure (T (MkNode (lab g v) (parentEdge g p v)) ts2)
+  p <- get                             -- read curent parent
+  put (Just v)                         -- set yourself as parent
+  ts2 <- traverse (buildNodeTree g) ts -- process children
+  put p                                -- restore old parend
+  pure (T (MkNode (lab g v) (parentEdge g p v)) ts2) -- return built node
 
 covering
 buildNodeForest :
@@ -172,9 +177,20 @@ smilesIdxLabelTree5 s =
 
 
 
+-- issues github:
+-- -> PR machen, im PR Kommentare schreiben.
+-- -> Es git Syntax für Todo lists in PR
+-- in chem lib gibt es ein Beispiel in einem geschlossenen PR
+-- PR #89 in chem-lib
+-- issues eher für main und kommentare für feature branches -> PR
 
--- [TODO] Square brackets
 -- [TODO] Rings: easy but not the best approach:
 --               [];[1];[1,2];[1,2,3];[1,3];[3];[]
+-- (braucht mehr Info; welche Edges?, Fin k -> wo sind Öffnungen etc.
+-- aktuelle Node -> Liste von neighbours mit children vergleichen
+-- bereits registrierter Ringschluss?
+-- 1. Node k anpassen
+-- 2.
+
 -- ([TODO] Bonustask: Refactor using linear types)
 
