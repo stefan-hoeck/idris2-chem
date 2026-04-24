@@ -74,8 +74,9 @@ record Node k where
 record NodeState k where
   constructor NS
   parent : Maybe (Fin k)
-  visited : List (Fin k)
   rings : List (RingInfo k)
+  nextRingNr : Bits8
+  openRings : List ((Fin k, Fin k), RingNr)
 
 showRingNr : List (RingInfo k) -> String
 showRingNr []                     = ""
@@ -158,13 +159,14 @@ parentEdge :
 parentEdge _ Nothing  _ = Nothing
 parentEdge g (Just p) v = elab g p v
 
-getDirectChildren :
-      Tree (Fin k) -- full tree
-   -> List (Fin k) -- direct children
+getDirectChildren : Tree (Fin k) -> List (Fin k)
 getDirectChildren (T _ ts) = map (\(T c _) => c) ts
 
--- also exclude the parents
-dropChildren : List (Fin k) -> List (Fin k, e) -> Maybe (Fin k) -> List (Fin k, e)
+dropChildren :
+     List (Fin k)
+  -> List (Fin k, e)
+  -> Maybe (Fin k)
+  -> List (Fin k, e)
 dropChildren children neighbours Nothing =
   filter (\(n,_) => not (elem n children)) neighbours
 dropChildren children neighbours p =
@@ -174,16 +176,15 @@ compVisN :
      IGraph k SmilesBond SmilesAtom
   -> Fin k -- current
   -> Maybe (Fin k) -- parent
-  -> List (Fin k) -- visited nodes
   -> Tree (Fin k)
   -> List (RingInfo k)
-compVisN g c p vis t =
+compVisN g c p t =
   let nPairs := neighboursAsPairs g c
       children := getDirectChildren t
       filtered := dropChildren children nPairs p
--- numeration of rings
+      ringNr   := 1
 
-   in map (\(n,e) => RI n (R 1 (Just e))) filtered
+   in map (\(n,e) => RI n (R ringNr (Just e))) filtered
 
 
 covering
@@ -192,18 +193,20 @@ buildNodeTree :
   -> Tree (Fin k)
   -> State (NodeState k) (Tree (Node k))
 buildNodeTree g t@(T v ts) = do
-  pNS@(NS p vis ri) <- get             -- read curent parent
-  put (NS (Just v) (vis ++ [v]) (compVisN g v p vis t))    -- set yourself as parent
+  pNS@(NS p ri _ _) <- get             -- read curent parent
+  -- dummy values
+  put (NS (Just v) (compVisN g v p t) 1 [])    -- set yourself as parent
   ts2 <- traverse (buildNodeTree g) ts -- process children
   put pNS                              -- restore old parend
-  pure (T (MkNode (lab g v) (parentEdge g p v) (compVisN g v p vis t)) ts2)
+  pure (T (MkNode (lab g v) (parentEdge g p v) (compVisN g v p t)) ts2)
 
 covering
 buildNodeForest :
      IGraph k SmilesBond SmilesAtom
   -> Forest (Fin k)
   -> Forest (Node k)
-buildNodeForest g ts = eval (NS Nothing [] []) (traverse (buildNodeTree g) ts)
+  -- dummy values
+buildNodeForest g ts = eval (NS Nothing [] 0 []) (traverse (buildNodeTree g) ts)
 
 covering
 smilesIdxLabelTree5 : String -> IO ()
