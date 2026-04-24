@@ -60,29 +60,26 @@ smilesIdxLabelTree3 s =
        Right (G _ g) => putStrLn $ forestString2 g $ dff' g
 
 ------------------------------------------------------------------------------
--- es gibt einen bestehenden type chem-lib (smiles parser, types)?
 record RingInfo k where
   constructor RI
   neighbour : Fin k
-  edge : SmilesBond
-  ringId : Nat
+  ring : Ring
 
 record Node k where
   constructor MkNode
   label : SmilesAtom
   parentEdge : Maybe SmilesBond
-  -- rings : RingInfo k
-  --
+  rings : List (RingInfo k)
 
 insertBond2 : Node k -> String
-insertBond2 c@(MkNode _ pE) = case pE of
+insertBond2 c@(MkNode _ pE _) = case pE of
                          Nothing   => ""
                          Just Sngl => ""
-                         Just Arom => "" -- skipping arom for now
+                         Just Arom => ""
                          Just bo   => interpolate bo
 
 treeString4 : Tree (Node k) -> String
-treeString4 (T c@(MkNode v _) cs) =
+treeString4 (T c@(MkNode v _ _) cs) =
   "\{v}\{children cs}"
   where
     children : Forest (Node k) -> String
@@ -91,12 +88,8 @@ treeString4 (T c@(MkNode v _) cs) =
     children (h@(T c _) :: t) =
       "(\{insertBond2 c}\{treeString4 h})\{children t}"
 
--- könnte eine zeile sein (fastConcat, intersperse, map) ( in dieser Reihenfolge )
 forestString3 : Forest (Node k) -> String
-forestString3 []       = ""
-forestString3 [h]      = treeString4 h
-forestString3 (h :: t) = "\{treeString4 h}.\{forestString3 t}"
-
+forestString3 = fastConcat . intersperse "." . map treeString4
 ------------------------------------------------------------------------------
 -- State Monad Version
 ------------------------------------------------------------------------------
@@ -146,26 +139,34 @@ parentEdge :
 parentEdge _ Nothing  _ = Nothing
 parentEdge g (Just p) v = elab g p v
 
+-- get relevant ring informarion of given node.
+ringsAt : Fin k -> List (RingInfo k) -> List (RingInfo k)
+
 covering
 buildNodeTree :
      IGraph k SmilesBond SmilesAtom
+  -> List (RingInfo k)
   -> Tree (Fin k)
-  -- eher ein record type nehmen: fields sind Dinge über die wir Buch führen
-  -- rings, parent, etc
   -> State (Maybe (Fin k)) (Tree (Node k))
-buildNodeTree g (T v ts) = do
+buildNodeTree g ri (T v ts) = do
   p <- get                             -- read curent parent
   put (Just v)                         -- set yourself as parent
-  ts2 <- traverse (buildNodeTree g) ts -- process children
+  ts2 <- traverse (buildNodeTree g ri) ts -- process children
   put p                                -- restore old parend
-  pure (T (MkNode (lab g v) (parentEdge g p v)) ts2) -- return built node
+  -- return built node
+  pure (T (MkNode (lab g v) (parentEdge g p v) (ringsAt v ri)) ts2)
+
+-- Preprocess RingInformation
+getRingInfo : IGraph k SmilesBond SmilesAtom -> List (RingInfo k)
 
 covering
 buildNodeForest :
      IGraph k SmilesBond SmilesAtom
   -> Forest (Fin k)
   -> Forest (Node k)
-buildNodeForest g ts = eval Nothing (traverse (buildNodeTree g) ts)
+buildNodeForest g ts =
+  let ri = getRingInfo g
+   in eval Nothing (traverse (buildNodeTree g ri) ts)
 
 covering
 smilesIdxLabelTree5 : String -> IO ()
