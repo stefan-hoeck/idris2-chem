@@ -163,10 +163,12 @@ getDirectChildren :
    -> List (Fin k) -- direct children
 getDirectChildren (T _ ts) = map (\(T c _) => c) ts
 
-
-dropChildren : List (Fin k) -> List (Fin k, e) -> List (Fin k, e)
-dropChildren children neighbours =
+-- also exclude the parents
+dropChildren : List (Fin k) -> List (Fin k, e) -> Maybe (Fin k) -> List (Fin k, e)
+dropChildren children neighbours Nothing =
   filter (\(n,_) => not (elem n children)) neighbours
+dropChildren children neighbours p =
+  filter (\(n,_) => not (elem n children) && not (Just n == p)) neighbours
 
 compVisN :
      IGraph k SmilesBond SmilesAtom
@@ -178,7 +180,7 @@ compVisN :
 compVisN g c p vis t =
   let nPairs := neighboursAsPairs g c
       children := getDirectChildren t
-      filtered := dropChildren children nPairs
+      filtered := dropChildren children nPairs p
 -- numeration of rings
 
    in map (\(n,e) => RI n (R 1 (Just e))) filtered
