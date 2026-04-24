@@ -71,6 +71,24 @@ record Node k where
   parentEdge : Maybe SmilesBond
   rings : List (RingInfo k)
 
+record NodeState k where
+  constructor NS
+  parent : Maybe (Fin k)
+  visited : List (Fin k)
+  rings : List (RingInfo k)
+
+showRingNr : List (RingInfo k) -> String
+showRingNr []                     = ""
+showRingNr [ri@(RI _ r@(R rNr@(MkRingNr nr _) _))]    = show nr
+showRingNr (ri@(RI _ r@(R rNr@(MkRingNr nr _) _)::t)) = show nr ++ showRingNr t
+
+
+insertRingNr : Node k -> String
+insertRingNr n@(MkNode _ _ [])                         = ""
+insertRingNr n@(MkNode _ _ [ri@(RI _ r@(R rNr@(MkRingNr nr _) _))])    = show nr
+insertRingNr n@(MkNode _ _ (ri@(RI _ r@(R rNr@(MkRingNr nr _) _))::t)) =
+  show nr ++ showRingNr t
+
 insertBond2 : Node k -> String
 insertBond2 c@(MkNode _ pE _) = case pE of
                          Nothing   => ""
@@ -80,11 +98,12 @@ insertBond2 c@(MkNode _ pE _) = case pE of
 
 treeString4 : Tree (Node k) -> String
 treeString4 (T c@(MkNode v _ _) cs) =
-  "\{v}\{children cs}"
+  let rNr := insertRingNr c
+   in "\{v}\{rNr}\{children cs}"
   where
     children : Forest (Node k) -> String
     children []               = ""
-    children [h@(T c _)] = insertBond2 c ++ treeString4 h
+    children [h@(T c _)]      = insertBond2 c ++ treeString4 h
     children (h@(T c _) :: t) =
       "(\{insertBond2 c}\{treeString4 h})\{children t}"
 
@@ -139,34 +158,50 @@ parentEdge :
 parentEdge _ Nothing  _ = Nothing
 parentEdge g (Just p) v = elab g p v
 
--- get relevant ring informarion of given node.
-ringsAt : Fin k -> List (RingInfo k) -> List (RingInfo k)
+getDirectChildren :
+      Tree (Fin k) -- full tree
+   -> List (Fin k) -- direct children
+getDirectChildren (T _ ts) = map (\(T c _) => c) ts
+
+
+dropChildren : List (Fin k) -> List (Fin k, e) -> List (Fin k, e)
+dropChildren children neighbours =
+  filter (\(n,_) => not (elem n children)) neighbours
+
+compVisN :
+     IGraph k SmilesBond SmilesAtom
+  -> Fin k -- current
+  -> Maybe (Fin k) -- parent
+  -> List (Fin k) -- visited nodes
+  -> Tree (Fin k)
+  -> List (RingInfo k)
+compVisN g c p vis t =
+  let nPairs := neighboursAsPairs g c
+      children := getDirectChildren t
+      filtered := dropChildren children nPairs
+-- numeration of rings
+
+   in map (\(n,e) => RI n (R 1 (Just e))) filtered
+
 
 covering
 buildNodeTree :
      IGraph k SmilesBond SmilesAtom
-  -> List (RingInfo k)
   -> Tree (Fin k)
-  -> State (Maybe (Fin k)) (Tree (Node k))
-buildNodeTree g ri (T v ts) = do
-  p <- get                             -- read curent parent
-  put (Just v)                         -- set yourself as parent
-  ts2 <- traverse (buildNodeTree g ri) ts -- process children
-  put p                                -- restore old parend
-  -- return built node
-  pure (T (MkNode (lab g v) (parentEdge g p v) (ringsAt v ri)) ts2)
-
--- Preprocess RingInformation
-getRingInfo : IGraph k SmilesBond SmilesAtom -> List (RingInfo k)
+  -> State (NodeState k) (Tree (Node k))
+buildNodeTree g t@(T v ts) = do
+  pNS@(NS p vis ri) <- get             -- read curent parent
+  put (NS (Just v) (vis ++ [v]) (compVisN g v p vis t))    -- set yourself as parent
+  ts2 <- traverse (buildNodeTree g) ts -- process children
+  put pNS                              -- restore old parend
+  pure (T (MkNode (lab g v) (parentEdge g p v) (compVisN g v p vis t)) ts2)
 
 covering
 buildNodeForest :
      IGraph k SmilesBond SmilesAtom
   -> Forest (Fin k)
   -> Forest (Node k)
-buildNodeForest g ts =
-  let ri = getRingInfo g
-   in eval Nothing (traverse (buildNodeTree g ri) ts)
+buildNodeForest g ts = eval (NS Nothing [] []) (traverse (buildNodeTree g) ts)
 
 covering
 smilesIdxLabelTree5 : String -> IO ()
