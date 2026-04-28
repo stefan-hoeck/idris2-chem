@@ -184,8 +184,6 @@ compVisN g c p t pNS@(NS _ _ nNr _) =
   let nPairs := neighboursAsPairs g c
       children := getDirectChildren t
       filtered := dropChildren children nPairs p
-      -- kleinste nicht benutzte ringnr verwenden statt 0 wenn möglich
-      -- ringnr idealerweise wiederverwenden
    in map (\(n,e) => RI n (R nNr (Just e))) filtered
 
 covering
@@ -196,12 +194,15 @@ buildNodeTree :
 buildNodeTree g t@(T v ts) = do
   pNS@(NS p ri ringNr@(MkRingNr nr _ ) openR) <- get    -- read curent parent
 
+  -- This is still not right, and I now need to keep track of
+  -- opened and closed rings. But its a step into the right direction.
+  -- also, I should reuse nr's of closed rings
   let nextRingNr = case refineRingNr (nr + 1) of
                          Just nextRingNr => nextRingNr
                          Nothing         => 0
-  put (NS (Just v) ri nextRingNr openR)    -- set yourself as parent
-  ts2 <- traverse (buildNodeTree g) ts -- process children
-  put pNS                              -- restore old parend
+  put (NS (Just v) ri nextRingNr openR) -- set yourself as parent
+  ts2 <- traverse (buildNodeTree g) ts  -- process children
+  put pNS                               -- restore old parend
   pure (T (MkNode (lab g v) (parentEdge g p v) (compVisN g v p t pNS)) ts2)
 
 covering
