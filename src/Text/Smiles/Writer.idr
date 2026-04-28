@@ -75,7 +75,7 @@ record NodeState k where
   constructor NS
   parent : Maybe (Fin k)
   rings : List (RingInfo k)
-  nextRingNr : Bits8
+  nextRingNr : RingNr
   openRings : List ((Fin k, Fin k), RingNr)
 
 showRingNr : List (RingInfo k) -> String
@@ -162,6 +162,7 @@ parentEdge g (Just p) v = elab g p v
 getDirectChildren : Tree (Fin k) -> List (Fin k)
 getDirectChildren (T _ ts) = map (\(T c _) => c) ts
 
+-- rings = neighbours - parent - children
 dropChildren :
      List (Fin k)
   -> List (Fin k, e)
@@ -177,15 +178,15 @@ compVisN :
   -> Fin k -- current
   -> Maybe (Fin k) -- parent
   -> Tree (Fin k)
+  -> NodeState k
   -> List (RingInfo k)
-compVisN g c p t =
+compVisN g c p t pNS@(NS _ _ nNr _) =
   let nPairs := neighboursAsPairs g c
       children := getDirectChildren t
       filtered := dropChildren children nPairs p
-      ringNr   := 1
-
-   in map (\(n,e) => RI n (R ringNr (Just e))) filtered
-
+      -- kleinste nicht benutzte ringnr verwenden statt 0 wenn möglich
+      -- ringnr idealerweise wiederverwenden
+   in map (\(n,e) => RI n (R nNr (Just e))) filtered
 
 covering
 buildNodeTree :
@@ -193,12 +194,15 @@ buildNodeTree :
   -> Tree (Fin k)
   -> State (NodeState k) (Tree (Node k))
 buildNodeTree g t@(T v ts) = do
-  pNS@(NS p ri _ _) <- get             -- read curent parent
-  -- dummy values
-  put (NS (Just v) (compVisN g v p t) 1 [])    -- set yourself as parent
+  pNS@(NS p ri ringNr@(MkRingNr nr _ ) openR) <- get    -- read curent parent
+
+  let nextRingNr = case refineRingNr (nr + 1) of
+                         Just nextRingNr => nextRingNr
+                         Nothing         => 0
+  put (NS (Just v) ri nextRingNr openR)    -- set yourself as parent
   ts2 <- traverse (buildNodeTree g) ts -- process children
   put pNS                              -- restore old parend
-  pure (T (MkNode (lab g v) (parentEdge g p v) (compVisN g v p t)) ts2)
+  pure (T (MkNode (lab g v) (parentEdge g p v) (compVisN g v p t pNS)) ts2)
 
 covering
 buildNodeForest :
