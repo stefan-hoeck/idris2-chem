@@ -76,6 +76,7 @@ record NodeState k where
   parent : Maybe (Fin k)
   rings : List (RingInfo k)
   nextRingNr : RingNr
+  --                 curent, ..
   openRings : List ((Fin k, Fin k), RingNr)
 
 showRingNr : List (RingInfo k) -> String
@@ -181,10 +182,20 @@ compVisN :
   -> NodeState k
   -> List (RingInfo k)
 compVisN g c p t pNS@(NS _ _ nNr _) =
-  let nPairs := neighboursAsPairs g c
+  let nPairs   := neighboursAsPairs g c
       children := getDirectChildren t
       filtered := dropChildren children nPairs p
    in map (\(n,e) => RI n (R nNr (Just e))) filtered
+
+sameEdge : (Fin k, Fin k) -> (Fin k, Fin k) -> Bool
+sameEdge (a,b) (c,d) =
+  (a == c && b == d) || (a == d && b == c)
+
+findOpenRings :
+  (Fin k, Fin k)
+  -> List ((Fin k, Fin k), RingNr)
+  -> Maybe RingNr
+findOpenRings current openRings = lookupBy (\a,b => a == b) current openRings
 
 covering
 buildNodeTree :
@@ -197,13 +208,18 @@ buildNodeTree g t@(T v ts) = do
   -- This is still not right, and I now need to keep track of
   -- opened and closed rings. But its a step into the right direction.
   -- also, I should reuse nr's of closed rings
+
+  -- this increases with every processed node..
   let nextRingNr = case refineRingNr (nr + 1) of
                          Just nextRingNr => nextRingNr
                          Nothing         => 0
+
   put (NS (Just v) ri nextRingNr openR) -- set yourself as parent
   ts2 <- traverse (buildNodeTree g) ts  -- process children
-  put pNS                               -- restore old parend
-  pure (T (MkNode (lab g v) (parentEdge g p v) (compVisN g v p t pNS)) ts2)
+  put pNS                               -- restore old parent
+
+  let listRI = compVisN g v p t pNS
+  pure (T (MkNode (lab g v) (parentEdge g p v) listRI) ts2)
 
 covering
 buildNodeForest :
@@ -211,7 +227,7 @@ buildNodeForest :
   -> Forest (Fin k)
   -> Forest (Node k)
   -- dummy values
-buildNodeForest g ts = eval (NS Nothing [] 0 []) (traverse (buildNodeTree g) ts)
+buildNodeForest g ts = eval (NS Nothing [] 1 []) (traverse (buildNodeTree g) ts)
 
 covering
 smilesIdxLabelTree5 : String -> IO ()
