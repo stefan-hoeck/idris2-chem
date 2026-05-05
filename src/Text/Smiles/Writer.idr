@@ -71,13 +71,16 @@ record Node k where
   parentEdge : Maybe SmilesBond
   rings : List (RingInfo k)
 
+record OpenRings k where
+  constructor OR
+  openRings: List ((Fin k, Fin k), RingNr)
+
 record NodeState k where
   constructor NS
   parent : Maybe (Fin k)
   rings : List (RingInfo k)
-  nextRingNr : RingNr
   --                 curent, ..
-  openRings : List ((Fin k, Fin k), RingNr)
+  openRings : OpenRings k
 
 showRingNr : List (RingInfo k) -> String
 showRingNr []                     = ""
@@ -174,28 +177,59 @@ dropChildren children neighbours Nothing =
 dropChildren children neighbours p =
   filter (\(n,_) => not (elem n children) && not (Just n == p)) neighbours
 
+isOpenRing :
+     Fin k
+  -> OpenRings k
+  -> Maybe RingNr
+isOpenRing c (OR ors) =
+  case find (\((a,b),_) => a == c || b == c) ors of
+  Just (_, ringNr) => Just ringNr
+  Nothing => Nothing
+
+openRingDelete : RingNr -> OpenRings k -> OpenRings k
+openRingDelete nr (OR ors) =
+  OR (filter (\(_, ringNr) => ringNr /= nr) ors)
+
+lowestAvailableRingNr : OpenRings k -> RingNr
+lowestAvailableRingNr (OR ors) =
+  let used = map snd ors
+   in fromMaybe 0 $
+        find (\x => not (elem x used)) (mapMaybe refineRingNr [1..99])
+
+openRingsAdd :
+     (Fin k, Fin k)
+  -> RingNr
+  -> OpenRings k
+  -> OpenRings k
+openRingsAdd edge nr (OR ors) = OR ((edge, nr) :: ors)
+
 compVisN :
      IGraph k SmilesBond SmilesAtom
-  -> Fin k -- current
-  -> Maybe (Fin k) -- parent
+  -> Fin k
+  -> Maybe (Fin k)
   -> Tree (Fin k)
-  -> NodeState k
-  -> List (RingInfo k)
-compVisN g c p t pNS@(NS _ _ nNr _) =
+  -> OpenRings k
+  -> (List (RingInfo k), OpenRings k)
+compVisN g c p t openR =
   let nPairs   := neighboursAsPairs g c
       children := getDirectChildren t
       filtered := dropChildren children nPairs p
-   in map (\(n,e) => RI n (R nNr (Just e))) filtered
+   in case filtered of
+        [] => ([], openR)
 
-sameEdge : (Fin k, Fin k) -> (Fin k, Fin k) -> Bool
-sameEdge (a,b) (c,d) =
-  (a == c && b == d) || (a == d && b == c)
+        (n, e) :: _ =>
+          let (nr, openR') :=
+                case isOpenRing c openR of
+                  Just openNr =>
+                    (openNr, openRingDelete openNr openR)
 
-findOpenRings :
-  (Fin k, Fin k)
-  -> List ((Fin k, Fin k), RingNr)
-  -> Maybe RingNr
-findOpenRings current openRings = lookupBy (\a,b => a == b) current openRings
+                  Nothing =>
+                    let freshNr := lowestAvailableRingNr openR
+                        newOpenR := openRingsAdd (c, n) freshNr openR
+                     in (freshNr, newOpenR)
+
+              listRI := map (\(n, e) => RI n (R nr (Just e))) filtered
+           in (listRI, openR')
 
 covering
 buildNodeTree :
@@ -203,22 +237,15 @@ buildNodeTree :
   -> Tree (Fin k)
   -> State (NodeState k) (Tree (Node k))
 buildNodeTree g t@(T v ts) = do
-  pNS@(NS p ri ringNr@(MkRingNr nr _ ) openR) <- get    -- read curent parent
+  pNS@(NS p ri openR) <- get    -- read curent parent
 
-  -- This is still not right, and I now need to keep track of
-  -- opened and closed rings. But its a step into the right direction.
-  -- also, I should reuse nr's of closed rings
+  -- get info for current node
+  let (listRI, openR') := compVisN g v p t openR
 
-  -- this increases with every processed node..
-  let nextRingNr = case refineRingNr (nr + 1) of
-                         Just nextRingNr => nextRingNr
-                         Nothing         => 0
-
-  put (NS (Just v) ri nextRingNr openR) -- set yourself as parent
+  put (NS (Just v) listRI openR') -- set current node as parent
   ts2 <- traverse (buildNodeTree g) ts  -- process children
   put pNS                               -- restore old parent
 
-  let listRI = compVisN g v p t pNS
   pure (T (MkNode (lab g v) (parentEdge g p v) listRI) ts2)
 
 covering
@@ -226,8 +253,8 @@ buildNodeForest :
      IGraph k SmilesBond SmilesAtom
   -> Forest (Fin k)
   -> Forest (Node k)
-  -- dummy values
-buildNodeForest g ts = eval (NS Nothing [] 1 []) (traverse (buildNodeTree g) ts)
+buildNodeForest g ts =
+  eval (NS Nothing [] (OR [])) (traverse (buildNodeTree g) ts)
 
 covering
 smilesIdxLabelTree5 : String -> IO ()
@@ -245,14 +272,6 @@ smilesIdxLabelTree5 s =
 -- in chem lib gibt es ein Beispiel in einem geschlossenen PR
 -- PR #89 in chem-lib
 -- issues eher für main und kommentare für feature branches -> PR
-
--- [TODO] Rings: easy but not the best approach:
---               [];[1];[1,2];[1,2,3];[1,3];[3];[]
--- (braucht mehr Info; welche Edges?, Fin k -> wo sind Öffnungen etc.
--- aktuelle Node -> Liste von neighbours mit children vergleichen
--- bereits registrierter Ringschluss?
--- 1. Node k anpassen
--- 2.
 
 -- ([TODO] Bonustask: Refactor using linear types)
 
