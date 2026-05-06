@@ -11,6 +11,7 @@ import Data.Array.Core
 
 -- Printing Trees -------------------------------------------------------------
 -- Smiles String to Tree with index and label
+-- This is an aid for debugging and will be removed later
 idxLabelTree : Interpolation n => IGraph k e n -> Tree (Fin k) -> IO ()
 idxLabelTree g = putStrLn . prettyTree False . map pretty
   where
@@ -60,6 +61,9 @@ smilesIdxLabelTree3 s =
        Right (G _ g) => putStrLn $ forestString2 g $ dff' g
 
 ------------------------------------------------------------------------------
+-- Types
+------------------------------------------------------------------------------
+-- This will be moved to Types.idr eventually
 record RingInfo k where
   constructor RI
   neighbour : Fin k
@@ -79,41 +83,38 @@ record NodeState k where
   constructor NS
   parent : Maybe (Fin k)
   rings : List (RingInfo k)
-  --                 curent, ..
   openRings : OpenRings k
 
-showRingNr : List (RingInfo k) -> String
-showRingNr []                     = ""
-showRingNr [ri@(RI _ r@(R rNr@(MkRingNr nr _) _))]    = show nr
-showRingNr (ri@(RI _ r@(R rNr@(MkRingNr nr _) _)::t)) = show nr ++ showRingNr t
+------------------------------------------------------------------------------
+-- SMILES Rendering
+------------------------------------------------------------------------------
+showRingNr : RingInfo k -> String
+showRingNr (RI _ (R (MkRingNr n _) _)) = show n
 
+renderRingNr : Node k -> String
+renderRingNr (MkNode _ _ ris) = fastConcat $ map showRingNr ris
 
-insertRingNr : Node k -> String
-insertRingNr n@(MkNode _ _ [])                         = ""
-insertRingNr n@(MkNode _ _ [ri@(RI _ r@(R rNr@(MkRingNr nr _) _))])    = show nr
-insertRingNr n@(MkNode _ _ (ri@(RI _ r@(R rNr@(MkRingNr nr _) _))::t)) =
-  show nr ++ showRingNr t
-
-insertBond2 : Node k -> String
-insertBond2 c@(MkNode _ pE _) = case pE of
+renderBond : Node k -> String
+renderBond c@(MkNode _ pE _) = case pE of
                          Nothing   => ""
                          Just Sngl => ""
                          Just Arom => ""
                          Just bo   => interpolate bo
 
-treeString4 : Tree (Node k) -> String
-treeString4 (T c@(MkNode v _ _) cs) =
-  let rNr := insertRingNr c
+renderTree : Tree (Node k) -> String
+renderTree (T c@(MkNode v _ _) cs) =
+  let rNr := renderRingNr c
    in "\{v}\{rNr}\{children cs}"
   where
     children : Forest (Node k) -> String
     children []               = ""
-    children [h@(T c _)]      = insertBond2 c ++ treeString4 h
+    children [h@(T c _)]      = renderBond c ++ renderTree h
     children (h@(T c _) :: t) =
-      "(\{insertBond2 c}\{treeString4 h})\{children t}"
+      "(\{renderBond c}\{renderTree h})\{children t}"
 
-forestString3 : Forest (Node k) -> String
-forestString3 = fastConcat . intersperse "." . map treeString4
+renderForest : Forest (Node k) -> String
+renderForest = fastConcat . intersperse "." . map renderTree
+
 ------------------------------------------------------------------------------
 -- State Monad Version
 ------------------------------------------------------------------------------
@@ -154,7 +155,39 @@ put st = S $ \_ => (st,())
 mod : (s -> s) -> State s ()
 mod f = get >>= put . f
 
-----------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+-- Rings
+-------------------------------------------------------------------------------
+findOpenRing :
+     Fin k
+  -> OpenRings k
+  -> Maybe RingNr
+findOpenRing c (OR ors) =
+  case find (\((a,b),_) => a == c || b == c) ors of
+  Just (_, ringNr) => Just ringNr
+  Nothing => Nothing
+
+closeRing : RingNr -> OpenRings k -> OpenRings k
+closeRing nr (OR ors) =
+  OR (filter (\(_, ringNr) => ringNr /= nr) ors)
+
+allocateRingNr : OpenRings k -> RingNr
+allocateRingNr (OR ors) =
+  let used = map snd ors
+   in fromMaybe 0 $
+        find (\x => not (elem x used)) (mapMaybe refineRingNr [1..99])
+
+openRing :
+     (Fin k, Fin k)
+  -> RingNr
+  -> OpenRings k
+  -> OpenRings k
+openRing edge nr (OR ors) = OR ((edge, nr) :: ors)
+
+-------------------------------------------------------------------------------
+-- Traversal Helpers
+-------------------------------------------------------------------------------
 parentEdge :
      IGraph k SmilesBond SmilesAtom
   -> Maybe (Fin k)
@@ -177,40 +210,14 @@ dropChildren children neighbours Nothing =
 dropChildren children neighbours p =
   filter (\(n,_) => not (elem n children) && not (Just n == p)) neighbours
 
-isOpenRing :
-     Fin k
-  -> OpenRings k
-  -> Maybe RingNr
-isOpenRing c (OR ors) =
-  case find (\((a,b),_) => a == c || b == c) ors of
-  Just (_, ringNr) => Just ringNr
-  Nothing => Nothing
-
-openRingDelete : RingNr -> OpenRings k -> OpenRings k
-openRingDelete nr (OR ors) =
-  OR (filter (\(_, ringNr) => ringNr /= nr) ors)
-
-lowestAvailableRingNr : OpenRings k -> RingNr
-lowestAvailableRingNr (OR ors) =
-  let used = map snd ors
-   in fromMaybe 0 $
-        find (\x => not (elem x used)) (mapMaybe refineRingNr [1..99])
-
-openRingsAdd :
-     (Fin k, Fin k)
-  -> RingNr
-  -> OpenRings k
-  -> OpenRings k
-openRingsAdd edge nr (OR ors) = OR ((edge, nr) :: ors)
-
-compVisN :
+computeNodeContext :
      IGraph k SmilesBond SmilesAtom
   -> Fin k
   -> Maybe (Fin k)
   -> Tree (Fin k)
   -> OpenRings k
   -> (List (RingInfo k), OpenRings k)
-compVisN g c p t openR =
+computeNodeContext g c p t openR =
   let nPairs   := neighboursAsPairs g c
       children := getDirectChildren t
       filtered := dropChildren children nPairs p
@@ -219,13 +226,13 @@ compVisN g c p t openR =
 
         (n, e) :: _ =>
           let (nr, openR') :=
-                case isOpenRing c openR of
+                case findOpenRing c openR of
                   Just openNr =>
-                    (openNr, openRingDelete openNr openR)
+                    (openNr, closeRing openNr openR)
 
                   Nothing =>
-                    let freshNr := lowestAvailableRingNr openR
-                        newOpenR := openRingsAdd (c, n) freshNr openR
+                    let freshNr := allocateRingNr openR
+                        newOpenR := openRing (c, n) freshNr openR
                      in (freshNr, newOpenR)
 
               listRI := map (\(n, e) => RI n (R nr (Just e))) filtered
@@ -240,7 +247,7 @@ buildNodeTree g t@(T v ts) = do
   pNS@(NS p ri openR) <- get    -- read curent parent
 
   -- get info for current node
-  let (listRI, openR') := compVisN g v p t openR
+  let (listRI, openR') := computeNodeContext g v p t openR
 
   put (NS (Just v) listRI openR') -- set current node as parent
   ts2 <- traverse (buildNodeTree g) ts  -- process children
@@ -256,13 +263,12 @@ buildNodeForest :
 buildNodeForest g ts =
   eval (NS Nothing [] (OR [])) (traverse (buildNodeTree g) ts)
 
+-- currently still breaks for: "C12C34C56C78C91C2C3C4C5C6C7C8C9"
 covering
-smilesIdxLabelTree5 : String -> IO ()
-smilesIdxLabelTree5 s =
+smilesRoundtrip : String -> IO ()
+smilesRoundtrip s =
   case readSmiles' s of
        Left e   => putStrLn "An error occured"
        Right (G _ g) =>
-        putStrLn $ forestString3 $ buildNodeForest g $ dff' g
-
-
+        putStrLn $ renderForest $ buildNodeForest g $ dff' g
 
