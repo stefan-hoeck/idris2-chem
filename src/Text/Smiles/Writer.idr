@@ -168,6 +168,13 @@ findOpenRing c (OR ors) =
   Just (_, ringNr) => Just ringNr
   Nothing => Nothing
 
+findOpenRing' :
+     Fin k
+  -> OpenRings k
+  -> List RingNr
+findOpenRing' c (OR ors) =
+  map snd $ filter (\((a,b),_) => a == c || b == c) ors
+
 closeRing : RingNr -> OpenRings k -> OpenRings k
 closeRing nr (OR ors) =
   OR (filter (\(_, ringNr) => ringNr /= nr) ors)
@@ -226,6 +233,36 @@ computeNodeContext g c p t openR =
 
         (n, e) :: _ =>
           let (nr, openR') :=
+                -- Ignores possibility of multiple open rings at the same node
+                case findOpenRing c openR of
+                  Just openNr =>
+                    (openNr, closeRing openNr openR)
+
+                  Nothing =>
+                    let freshNr := allocateRingNr openR
+                        newOpenR := openRing (c, n) freshNr openR
+                     in (freshNr, newOpenR)
+
+              listRI := map (\(n, e) => RI n (R nr (Just e))) filtered
+           in (listRI, openR')
+
+computeNodeContext' :
+     IGraph k SmilesBond SmilesAtom
+  -> Fin k
+  -> Maybe (Fin k)
+  -> Tree (Fin k)
+  -> OpenRings k
+  -> (List (RingInfo k), OpenRings k)
+computeNodeContext' g c p t openR =
+  let nPairs   := neighboursAsPairs g c
+      children := getDirectChildren t
+      filtered := dropChildren children nPairs p
+   in case filtered of
+        [] => ([], openR)
+
+        (n, e) :: _ =>
+          let (nr, openR') :=
+                -- Ignores possibility of multiple open rings at the same node
                 case findOpenRing c openR of
                   Just openNr =>
                     (openNr, closeRing openNr openR)
