@@ -266,12 +266,3 @@ smilesIdxLabelTree5 s =
 
 
 
--- issues github:
--- -> PR machen, im PR Kommentare schreiben.
--- -> Es git Syntax für Todo lists in PR
--- in chem lib gibt es ein Beispiel in einem geschlossenen PR
--- PR #89 in chem-lib
--- issues eher für main und kommentare für feature branches -> PR
-
--- ([TODO] Bonustask: Refactor using linear types)
-
