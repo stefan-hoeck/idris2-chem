@@ -89,7 +89,7 @@ record NodeState k where
 -- SMILES Rendering
 ------------------------------------------------------------------------------
 showRingNr : RingInfo k -> String
-showRingNr (RI _ (R (MkRingNr n _) _)) = show n
+showRingNr (RI _ (R ringNr _)) = interpolate ringNr
 
 renderRingNr : Node k -> String
 renderRingNr (MkNode _ _ ris) = fastConcat $ map showRingNr ris
