@@ -89,7 +89,7 @@ record NodeState k where
 -- SMILES Rendering
 ------------------------------------------------------------------------------
 showRingNr : RingInfo k -> String
-showRingNr (RI _ (R (MkRingNr n _) _)) = show n
+showRingNr (RI _ (R ringNr _)) = interpolate ringNr
 
 renderRingNr : Node k -> String
 renderRingNr (MkNode _ _ ris) = fastConcat $ map showRingNr ris
@@ -161,12 +161,16 @@ mod f = get >>= put . f
 -------------------------------------------------------------------------------
 findOpenRing :
      Fin k
+  -> Fin k
   -> OpenRings k
   -> Maybe RingNr
-findOpenRing c (OR ors) =
-  case find (\((a,b),_) => a == c || b == c) ors of
-  Just (_, ringNr) => Just ringNr
-  Nothing => Nothing
+findOpenRing n c (OR ors) =
+  case find
+         (\((a,b), _) =>
+             (a,b) == (c,n) || (a,b) == (n,c))
+         ors of
+    Just (_, ringNr) => Just ringNr
+    Nothing => Nothing
 
 closeRing : RingNr -> OpenRings k -> OpenRings k
 closeRing nr (OR ors) =
@@ -202,9 +206,9 @@ getDirectChildren (T _ ts) = map (\(T c _) => c) ts
 -- rings = neighbours - parent - children
 dropChildren :
      List (Fin k)
-  -> List (Fin k, e)
+  -> List (Fin k, SmilesBond)
   -> Maybe (Fin k)
-  -> List (Fin k, e)
+  -> List (Fin k, SmilesBond)
 dropChildren children neighbours Nothing =
   filter (\(n,_) => not (elem n children)) neighbours
 dropChildren children neighbours p =
@@ -224,18 +228,27 @@ computeNodeContext g c p t openR =
    in case filtered of
         [] => ([], openR)
 
-        (n, e) :: _ =>
-          let (nr, openR') :=
-                case findOpenRing c openR of
-                  Just openNr =>
-                    (openNr, closeRing openNr openR)
+        _ =>
+          let
+            step :
+                 (List (RingInfo k), OpenRings k)
+              -> (Fin k, SmilesBond)
+              -> (List (RingInfo k), OpenRings k)
+            step (acc, ors) (n, e) =
+              let
+                (nr, ors') =
+                  case findOpenRing n c ors of
+                    Just openNr =>
+                      (openNr, closeRing openNr ors)
 
-                  Nothing =>
-                    let freshNr := allocateRingNr openR
-                        newOpenR := openRing (c, n) freshNr openR
-                     in (freshNr, newOpenR)
-
-              listRI := map (\(n, e) => RI n (R nr (Just e))) filtered
+                    Nothing =>
+                      let
+                        freshNr = allocateRingNr ors
+                        newOpenR = openRing (c, n) freshNr ors
+                       in (freshNr, newOpenR)
+               in (acc ++ [RI n (R nr (Just e))], ors')
+            result := foldl step ([], openR) filtered
+            (listRI, openR') = result
            in (listRI, openR')
 
 covering
@@ -263,7 +276,6 @@ buildNodeForest :
 buildNodeForest g ts =
   eval (NS Nothing [] (OR [])) (traverse (buildNodeTree g) ts)
 
--- currently still breaks for: "C12C34C56C78C91C2C3C4C5C6C7C8C9"
 covering
 smilesRoundtrip : String -> IO ()
 smilesRoundtrip s =
