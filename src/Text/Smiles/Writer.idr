@@ -161,19 +161,16 @@ mod f = get >>= put . f
 -------------------------------------------------------------------------------
 findOpenRing :
      Fin k
+  -> Fin k
   -> OpenRings k
   -> Maybe RingNr
-findOpenRing c (OR ors) =
-  case find (\((a,b),_) => a == c || b == c) ors of
-  Just (_, ringNr) => Just ringNr
-  Nothing => Nothing
-
-findOpenRing' :
-     Fin k
-  -> OpenRings k
-  -> List RingNr
-findOpenRing' c (OR ors) =
-  map snd $ filter (\((a,b),_) => a == c || b == c) ors
+findOpenRing n c (OR ors) =
+  case find
+         (\((a,b), _) =>
+             (a,b) == (c,n) || (a,b) == (n,c))
+         ors of
+    Just (_, ringNr) => Just ringNr
+    Nothing => Nothing
 
 closeRing : RingNr -> OpenRings k -> OpenRings k
 closeRing nr (OR ors) =
@@ -209,9 +206,9 @@ getDirectChildren (T _ ts) = map (\(T c _) => c) ts
 -- rings = neighbours - parent - children
 dropChildren :
      List (Fin k)
-  -> List (Fin k, e)
+  -> List (Fin k, SmilesBond)
   -> Maybe (Fin k)
-  -> List (Fin k, e)
+  -> List (Fin k, SmilesBond)
 dropChildren children neighbours Nothing =
   filter (\(n,_) => not (elem n children)) neighbours
 dropChildren children neighbours p =
@@ -231,48 +228,27 @@ computeNodeContext g c p t openR =
    in case filtered of
         [] => ([], openR)
 
-        (n, e) :: _ =>
-          let (nr, openR') :=
-                -- Ignores possibility of multiple open rings at the same node
-                case findOpenRing c openR of
-                  Just openNr =>
-                    (openNr, closeRing openNr openR)
+        _ =>
+          let
+            step :
+                 (List (RingInfo k), OpenRings k)
+              -> (Fin k, SmilesBond)
+              -> (List (RingInfo k), OpenRings k)
+            step (acc, ors) (n, e) =
+              let
+                (nr, ors') =
+                  case findOpenRing n c ors of
+                    Just openNr =>
+                      (openNr, closeRing openNr ors)
 
-                  Nothing =>
-                    let freshNr := allocateRingNr openR
-                        newOpenR := openRing (c, n) freshNr openR
-                     in (freshNr, newOpenR)
-
-              listRI := map (\(n, e) => RI n (R nr (Just e))) filtered
-           in (listRI, openR')
-
-computeNodeContext' :
-     IGraph k SmilesBond SmilesAtom
-  -> Fin k
-  -> Maybe (Fin k)
-  -> Tree (Fin k)
-  -> OpenRings k
-  -> (List (RingInfo k), OpenRings k)
-computeNodeContext' g c p t openR =
-  let nPairs   := neighboursAsPairs g c
-      children := getDirectChildren t
-      filtered := dropChildren children nPairs p
-   in case filtered of
-        [] => ([], openR)
-
-        (n, e) :: _ =>
-          let (nr, openR') :=
-                -- Ignores possibility of multiple open rings at the same node
-                case findOpenRing c openR of
-                  Just openNr =>
-                    (openNr, closeRing openNr openR)
-
-                  Nothing =>
-                    let freshNr := allocateRingNr openR
-                        newOpenR := openRing (c, n) freshNr openR
-                     in (freshNr, newOpenR)
-
-              listRI := map (\(n, e) => RI n (R nr (Just e))) filtered
+                    Nothing =>
+                      let
+                        freshNr = allocateRingNr ors
+                        newOpenR = openRing (c, n) freshNr ors
+                       in (freshNr, newOpenR)
+               in (acc ++ [RI n (R nr (Just e))], ors')
+            result := foldl step ([], openR) filtered
+            (listRI, openR') = result
            in (listRI, openR')
 
 covering
@@ -300,7 +276,6 @@ buildNodeForest :
 buildNodeForest g ts =
   eval (NS Nothing [] (OR [])) (traverse (buildNodeTree g) ts)
 
--- currently still breaks for: "C12C34C56C78C91C2C3C4C5C6C7C8C9"
 covering
 smilesRoundtrip : String -> IO ()
 smilesRoundtrip s =
