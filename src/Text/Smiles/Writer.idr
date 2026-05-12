@@ -64,7 +64,7 @@ smilesIdxLabelTree3 s =
 -- Types
 ------------------------------------------------------------------------------
 -- This will be moved to Types.idr eventually
-record RingInfo k where -- TODO do we even need this?
+record RingInfo k where
   constructor RI
   neighbour : Fin k
   ring : Ring
@@ -73,7 +73,7 @@ record Node k where
   constructor MkNode
   label : SmilesAtom
   parentEdge : Maybe SmilesBond
-  rings : List (RingInfo k) -- TODO replace with OpenRings k?
+  rings : List (RingInfo k)
 
 record OpenRings k where
   constructor OR
@@ -204,7 +204,6 @@ getDirectChildren : Tree (Fin k) -> List (Fin k)
 getDirectChildren (T _ ts) = map (\(T c _) => c) ts
 
 -- rings = neighbours - parent - children
--- TODO zt in computeNodeContext integrieren
 dropChildren :
      List (Fin k)
   -> List (Fin k, SmilesBond)
@@ -229,7 +228,6 @@ computeNodeContext g c p t openR =
    in case filtered of
         [] => ([], openR)
         _  =>
-          -- TODO put this into the state monad?
           let step :
                    (List (RingInfo k), OpenRings k)
                 -> (Fin k, SmilesBond)
@@ -263,7 +261,6 @@ buildNodeTree g t@(T v ts) = do
 
   pure (T (MkNode (lab g v) (parentEdge g p v) listRI) ts2)
 
--- TODO why covering? why not total?
 covering
 buildNodeForest :
      IGraph k SmilesBond SmilesAtom
@@ -279,9 +276,6 @@ smilesRoundtrip s =
   case readSmiles' s of
        Left e   => "An error occured"
        Right (G _ g) => renderForest $ buildNodeForest g $ dff' g
-
--- TODO graph 1 mit graph 2 vergleichen, falls fehler diesen ausgeben
--- success oder roundtripError; smilescode1,2 und graph1,2 werden zurückgegeben
 
 covering
 smilesRoundtripIO : String -> IO ()
