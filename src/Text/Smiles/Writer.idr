@@ -64,7 +64,7 @@ smilesIdxLabelTree3 s =
 -- Types
 ------------------------------------------------------------------------------
 -- This will be moved to Types.idr eventually
-record RingInfo k where
+record RingInfo k where -- TODO do we even need this?
   constructor RI
   neighbour : Fin k
   ring : Ring
@@ -73,7 +73,7 @@ record Node k where
   constructor MkNode
   label : SmilesAtom
   parentEdge : Maybe SmilesBond
-  rings : List (RingInfo k)
+  rings : List (RingInfo k) -- TODO replace with OpenRings k?
 
 record OpenRings k where
   constructor OR
@@ -159,23 +159,23 @@ mod f = get >>= put . f
 -------------------------------------------------------------------------------
 -- Rings
 -------------------------------------------------------------------------------
-findOpenRing :
-     Fin k
-  -> Fin k
+findClosableOpenRing :
+     Fin k -- neighbour
+  -> Fin k -- current
   -> OpenRings k
   -> Maybe RingNr
-findOpenRing n c (OR ors) =
-  case find
-         (\((a,b), _) =>
-             (a,b) == (c,n) || (a,b) == (n,c))
-         ors of
+findClosableOpenRing n c (OR ors) =
+  case find (\((a,b), _) => (a,b) == (c,n) || (a,b) == (n,c)) ors of
     Just (_, ringNr) => Just ringNr
-    Nothing => Nothing
+    Nothing          => Nothing
 
+|||
 closeRing : RingNr -> OpenRings k -> OpenRings k
 closeRing nr (OR ors) =
   OR (filter (\(_, ringNr) => ringNr /= nr) ors)
 
+||| Take the first nr from 1-99 that is currently not used. If all nr are
+||| used, take 0 (for now).
 allocateRingNr : OpenRings k -> RingNr
 allocateRingNr (OR ors) =
   let used = map snd ors
@@ -204,6 +204,7 @@ getDirectChildren : Tree (Fin k) -> List (Fin k)
 getDirectChildren (T _ ts) = map (\(T c _) => c) ts
 
 -- rings = neighbours - parent - children
+-- TODO zt in computeNodeContext integrieren
 dropChildren :
      List (Fin k)
   -> List (Fin k, SmilesBond)
@@ -227,29 +228,23 @@ computeNodeContext g c p t openR =
       filtered := dropChildren children nPairs p
    in case filtered of
         [] => ([], openR)
-
-        _ =>
-          let
-            step :
-                 (List (RingInfo k), OpenRings k)
-              -> (Fin k, SmilesBond)
-              -> (List (RingInfo k), OpenRings k)
-            step (acc, ors) (n, e) =
-              let
-                (nr, ors') =
-                  case findOpenRing n c ors of
-                    Just openNr =>
-                      (openNr, closeRing openNr ors)
-
-                    Nothing =>
-                      let
-                        freshNr = allocateRingNr ors
-                        newOpenR = openRing (c, n) freshNr ors
-                       in (freshNr, newOpenR)
-               in (acc ++ [RI n (R nr (Just e))], ors')
-            result := foldl step ([], openR) filtered
-            (listRI, openR') = result
-           in (listRI, openR')
+        _  =>
+          -- TODO put this into the state monad?
+          let step :
+                   (List (RingInfo k), OpenRings k)
+                -> (Fin k, SmilesBond)
+                -> (List (RingInfo k), OpenRings k)
+              step (acc, ors) (n, e) =
+                let (nr, ors') :=
+                    case findClosableOpenRing n c ors of
+                      Just openNr => (openNr, closeRing openNr ors)
+                      Nothing     => let freshNr  := allocateRingNr ors
+                                         newOpenR := openRing (c, n) freshNr ors
+                                      in (freshNr, newOpenR)
+                 in (acc ++ [RI n (R nr (Just e))], ors')
+              result := foldl step ([], openR) filtered
+              (listRI, openR') = result
+             in (listRI, openR')
 
 covering
 buildNodeTree :
@@ -268,6 +263,7 @@ buildNodeTree g t@(T v ts) = do
 
   pure (T (MkNode (lab g v) (parentEdge g p v) listRI) ts2)
 
+-- TODO why covering? why not total?
 covering
 buildNodeForest :
      IGraph k SmilesBond SmilesAtom
@@ -277,10 +273,17 @@ buildNodeForest g ts =
   eval (NS Nothing [] (OR [])) (traverse (buildNodeTree g) ts)
 
 covering
-smilesRoundtrip : String -> IO ()
+export
+smilesRoundtrip : String -> String
 smilesRoundtrip s =
   case readSmiles' s of
-       Left e   => putStrLn "An error occured"
-       Right (G _ g) =>
-        putStrLn $ renderForest $ buildNodeForest g $ dff' g
+       Left e   => "An error occured"
+       Right (G _ g) => renderForest $ buildNodeForest g $ dff' g
+
+-- TODO graph 1 mit graph 2 vergleichen, falls fehler diesen ausgeben
+-- success oder roundtripError; smilescode1,2 und graph1,2 werden zurückgegeben
+
+covering
+smilesRoundtripIO : String -> IO ()
+smilesRoundtripIO = putStrLn . smilesRoundtrip
 
