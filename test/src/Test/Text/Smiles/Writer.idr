@@ -15,19 +15,23 @@ propSmilesLVL1 : Property
 propSmilesLVL1 = property1 $
   smilesRoundtrip "CC" === "CC"
 
--- propSmilesLVL1' : Property
--- propSmilesLVL1' = property $ smilesRoundtrip "CC" === "CC"
+covering
+propSmilesLVL2 : Property
+propSmilesLVL2 = property1 $
+  smilesRoundtrip "C12CC1C2" === "C12CC1C2"
+
+covering
+propSmilesLVL3 : Property
+propSmilesLVL3 = property1 $
+  smilesRoundtrip "C1C(C2C(C3C(C4C(C5C(C6C(C7C(C8C(C9C(C%10C(CC)C%10C)C9C)C8C)C7C)C6C)C5C)C4C)C3C)C2C)C1" === "C1C(C2C(C3C(C4C(C5C(C6C(C7C(C8C(C9C(C%10C(CC)C%10C)C9C)C8C)C7C)C6C)C5C)C4C)C3C)C2C)C1"
 
 export covering
 props : Group
 props =
   MkGroup "Text.Smiles.Writer"
-    [ ("propSmilesLVL1", propSmilesLVL1)
+    [ ("propSmilesLVL1", propSmilesLVL1),
+      ("propSmilesLVL2", propSmilesLVL2),
+      ("propSmilesLVL3", propSmilesLVL3)
     ]
 
 
--- TODO Bei Roundtrip einmal nach und einmal vor roundtrip substrukturensuche machen und vergleichen
--- TODO substruktursuche -> anzahl nodes/edges vergleichen
--- indexed graph lib: src/data/query/subgraph -> fun query und in tests gibt es ein beispiel
--- wie sie benutzt wird
--- TODO smiles code generieren? siehe chem-generators/src/Test/Data/Graph/Generators.idr
