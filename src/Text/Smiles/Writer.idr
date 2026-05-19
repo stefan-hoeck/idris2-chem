@@ -62,6 +62,7 @@ renderTree (T c@(MkNode v _ rings) cs) =
     children (h@(T c _) :: t) =
       "(\{renderBond c}\{renderTree h})\{children t}"
 
+public export
 renderForest : Forest (Node k) -> String
 renderForest = fastConcat . intersperse "." . map renderTree
 -------------------------------------------------------------------------------
@@ -117,7 +118,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
       step : List (RingData k) -> (Fin k, SmilesBond) -> List (RingData k)
       step ors (n, e) =
         case findClosableOpenRing n c ors of
-          Just (RD _ (R nr _)) => filter (\rn => ringNr rn /= nr) ors
+          Just rd => filter (\r => ringNr r /= ringNr rd) ors
           Nothing              =>
             case mkEdge c n e of
               Just edge => RD edge (R (allocateRingNr ors) Nothing) :: ors
@@ -143,15 +144,24 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
   zipL []      = pure []
   zipL (t::ts) = [| buildNodeTree t :: zipL ts |]
 
+  public export
   buildNodeForest : Forest (Fin k) -> Forest (Node k)
   buildNodeForest ts = evalState (NS Nothing []) (zipL ts)
+
+
 
 export
 smilesRoundtrip : String -> String
 smilesRoundtrip s =
   case readSmiles' s of
-       Left e   => "An error occured"
-       Right (G _ g) => renderForest $ buildNodeForest g $ dff' g
+    Left _        => "Parse error (1)"
+    Right (G _ g) => renderForest $ buildNodeForest g $ dff' g
+
+-- smilesRoundtrip : String -> String
+-- smilesRoundtrip s =
+--   case readSmiles' s of
+--     Left _        => "Parse error (2)"
+--     Right (G _ g) => renderForest $ buildNodeForest g $ dff' g
 
 smilesRoundtripIO : String -> IO ()
 smilesRoundtripIO = putStrLn . smilesRoundtrip
