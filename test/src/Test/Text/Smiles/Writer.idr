@@ -1,14 +1,17 @@
 module Test.Text.Smiles.Writer
 
+import Hedgehog
+
 import Text.Smiles.Types
-import Text.Molfile.Types
 import Text.Smiles.Writer
 import Text.Smiles.Parser
-import Hedgehog
+import Text.Molfile.Types
+import Text.ParseError
+
 import Data.Graph.Indexed.Query.Subgraph
 import Data.Graph.Indexed.Query.DFS
-import Data.Tree
 import Data.Graph.Indexed.Util
+import Data.Tree
 
 
 %default total
@@ -33,7 +36,7 @@ testQuery : Property
 testQuery = property1 $
   traverse_ (\s =>
     case readSmiles' s of
-      Left _ => success
+      Left _ => failure
       Right (G _ g1) =>
         let expected = Just $ (map finToNat (nodes g1))
             actual =
@@ -44,6 +47,23 @@ testQuery = property1 $
         in actual === expected
   ) smilesTests
 
+covering
+testQuery' : Property
+testQuery' = property1 $
+  traverse_ (\s =>
+    let
+        expected : ChemRes [SmilesParseErr] (Maybe (List Nat))
+        expected = do
+          G _ g0 <- readSmiles s
+          pure $ Just $ map finToNat (nodes g0)
+
+        actual : ChemRes [SmilesParseErr] (Maybe (List Nat))
+        actual = do
+          G _ g1 <- readSmiles s
+          G _ g2 <- readSmiles (smilesRoundtrip s)
+          pure $ toList . map finToNat <$> query (==) (==) g1 g2
+    in actual === expected
+  ) smilesTests
 --------------------------------------------------------------------------------
 --          props
 --------------------------------------------------------------------------------
@@ -54,5 +74,8 @@ props : Group
 props =
   MkGroup "Text.Smiles.Writer"
     [ ("propSmilesRoundtrip", propSmilesRoundtrip)
-    , ("testQuery", testQuery)]
+    , ("testQuery" , testQuery )
+    , ("testQuery'", testQuery')
+    ]
+
 
