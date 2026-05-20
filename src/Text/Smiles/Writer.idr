@@ -154,14 +154,8 @@ export
 smilesRoundtrip : String -> String
 smilesRoundtrip s =
   case readSmiles' s of
-    Left _        => "Parse error (1)"
+    Left _        => "Parse error."
     Right (G _ g) => renderForest $ buildNodeForest g $ dff' g
-
--- smilesRoundtrip : String -> String
--- smilesRoundtrip s =
---   case readSmiles' s of
---     Left _        => "Parse error (2)"
---     Right (G _ g) => renderForest $ buildNodeForest g $ dff' g
 
 smilesRoundtripIO : String -> IO ()
 smilesRoundtripIO = putStrLn . smilesRoundtrip

@@ -13,6 +13,15 @@ import Data.Graph.Indexed.Query.DFS
 import Data.Graph.Indexed.Util
 import Data.Tree
 
+import System.File
+
+import Text.ILex
+import Profile
+import Chem
+import Data.List.Quantifiers.Extra
+import Data.String
+import Text.Smiles
+
 
 %default total
 
@@ -31,26 +40,17 @@ propSmilesRoundtrip : Property
 propSmilesRoundtrip = property1 $
   traverse_ (\s => smilesRoundtrip s === s) smilesTests
 
-covering
-testQuery : Property
-testQuery = property1 $
-  traverse_ (\s =>
-    case readSmiles' s of
-      Left _ => failure
-      Right (G _ g1) =>
-        let expected = Just $ (map finToNat (nodes g1))
-            actual =
-              case readSmiles' (smilesRoundtrip s) of
-                Left _ => Nothing
-                Right (G _ g2) =>
-                  toList . map finToNat <$> query (==) (==) g1 g2
-        in actual === expected
-  ) smilesTests
+indexList : List a -> List (Nat, a)
+indexList xs = go 1 xs
+  where
+    go : Nat -> List a -> List (Nat, a)
+    go _ [] = []
+    go n (x :: xs) = (n, x) :: go (n + 1) xs
 
 covering
-testQuery' : Property
-testQuery' = property1 $
-  traverse_ (\s =>
+testNodes : List String -> Property
+testNodes ls = property1 $
+  traverse_ (\(n, s) =>
     let
         expected : ChemRes [SmilesParseErr] (Maybe (List Nat))
         expected = do
@@ -62,8 +62,40 @@ testQuery' = property1 $
           G _ g1 <- readSmiles s
           G _ g2 <- readSmiles (smilesRoundtrip s)
           pure $ toList . map finToNat <$> query (==) (==) g1 g2
-    in actual === expected
-  ) smilesTests
+    in do
+      footnote "Line: \{show n}"
+      footnote "SMILES:    \{s}"
+      footnote "Roundtrip: \{smilesRoundtrip s}"
+      actual === expected
+  ) (indexList ls)
+
+covering
+testNodesMini : Property
+testNodesMini = testNodes smilesTests
+
+covering
+loadZinc : IO (List String)
+loadZinc = do
+  Right content <- readFile "resources/zinc.txt"
+    | Left err => do
+        printLn err
+        pure []
+
+  pure (map trim (lines content))
+
+covering
+zincData : List String
+zincData = unsafePerformIO loadZinc
+
+-- Currently line 80 in zinc.txt gives an error
+-- sadly i have not yet figured out how to show only the smiles string that
+-- failed
+-- Also, it crashes when too many entries are chosen..
+covering
+testNodesZinc : Property
+testNodesZinc = testNodes $ take 81 zincData
+
+
 --------------------------------------------------------------------------------
 --          props
 --------------------------------------------------------------------------------
@@ -74,8 +106,8 @@ props : Group
 props =
   MkGroup "Text.Smiles.Writer"
     [ ("propSmilesRoundtrip", propSmilesRoundtrip)
-    , ("testQuery" , testQuery )
-    , ("testQuery'", testQuery')
+    , ("testNodesMini", testNodesMini)
+    , ("testNodesZinc", testNodesZinc)
     ]
 
 
