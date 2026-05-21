@@ -62,11 +62,13 @@ testNodes ls = property1 $
           G _ g1 <- readSmiles s
           G _ g2 <- readSmiles (smilesRoundtrip s)
           pure $ toList . map finToNat <$> query (==) (==) g1 g2
-    in do
-      footnote "Line: \{show n}"
-      footnote "SMILES:    \{s}"
-      footnote "Roundtrip: \{smilesRoundtrip s}"
-      actual === expected
+    in if actual == expected then
+          success
+       else do
+         footnote "Line: \{show n}"
+         footnote "SMILES:    \{s}"
+         footnote "Roundtrip: \{smilesRoundtrip s}"
+         actual === expected
   ) (indexList ls)
 
 covering
@@ -87,13 +89,38 @@ covering
 zincData : List String
 zincData = unsafePerformIO loadZinc
 
--- Currently line 80 in zinc.txt gives an error
--- sadly i have not yet figured out how to show only the smiles string that
--- failed
--- Also, it crashes when too many entries are chosen..
+
+-- After scrolling through the errors of the first 10'000 entries of zinc.txt
+-- there seem to be 2 kinds of errors; although when converted to structures
+-- they appear to be the same molecules:
+
+-- 1.
+-- Roundtrip: CC(=O)Nc1c2sscc2n(c1=O)C
+-- SMILES:    CC(=O)Nc1c-2sscc2n(c1=O)C
+-- Line: 80
+
+-- caused by:
+-- Text.Smiles.Writer> :exec printLn $ readSmiles' "CC(=O)Nc1c2sscc2n(c1=O)C"
+-- E 5 9 Arom
+-- VS
+-- Text.Smiles.Writer> :exec printLn $ readSmiles' "CC(=O)Nc1c-2sscc2n(c1=O)C"
+-- E 5  Sngl
+
+-- 2.
+-- Roundtrip: [H]/N=c1/n(c(c(s1)C(C)(C)C)C)C
+-- SMILES:    [H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C
+-- Line: 1838
+
+-- caused by?
+-- Interestingly I can't get this to run in the repl, but in the test
+-- this must have worked since we got the output above.
+-- Text.Smiles.Writer> :exec printLn $ readSmiles' "[H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C"
+--                     :exec printLn $ readSmiles' "[H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C"
+-- Left "Error: Unexpected '\\SOH'\n\nvirtual: 1:8--1:9\n 1 | [H]/N=c\SOH/n(c(c(s1)C(C)(C)C)C)C\n            ^\n"
+
 covering
 testNodesZinc : Property
-testNodesZinc = testNodes $ take 81 zincData
+testNodesZinc = testNodes $ zincData
 
 
 --------------------------------------------------------------------------------
