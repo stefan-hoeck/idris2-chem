@@ -104,7 +104,7 @@ zincData = unsafePerformIO loadZinc
 -- E 5 9 Arom
 -- VS
 -- Text.Smiles.Writer> :exec printLn $ readSmiles' "CC(=O)Nc1c-2sscc2n(c1=O)C"
--- E 5  Sngl
+-- E 5 9 Sngl
 
 -- 2.
 -- Roundtrip: [H]/N=c1/n(c(c(s1)C(C)(C)C)C)C
