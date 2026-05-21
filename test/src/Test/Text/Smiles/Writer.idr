@@ -40,13 +40,6 @@ propSmilesRoundtrip : Property
 propSmilesRoundtrip = property1 $
   traverse_ (\s => smilesRoundtrip s === s) smilesTests
 
-indexList : List a -> List (Nat, a)
-indexList xs = go 1 xs
-  where
-    go : Nat -> List a -> List (Nat, a)
-    go _ [] = []
-    go n (x :: xs) = (n, x) :: go (n + 1) xs
-
 covering
 testNodes : List String -> Property
 testNodes ls = property1 $
@@ -69,7 +62,7 @@ testNodes ls = property1 $
          footnote "SMILES:    \{s}"
          footnote "Roundtrip: \{smilesRoundtrip s}"
          actual === expected
-  ) (indexList ls)
+  ) (zip [1..(length ls)] ls)
 
 covering
 testNodesMini : Property
@@ -88,7 +81,6 @@ loadZinc = do
 covering
 zincData : List String
 zincData = unsafePerformIO loadZinc
-
 
 -- After scrolling through the errors of the first 10'000 entries of zinc.txt
 -- there seem to be 2 kinds of errors; although when converted to structures
@@ -122,7 +114,6 @@ covering
 testNodesZinc : Property
 testNodesZinc = testNodes $ zincData
 
-
 --------------------------------------------------------------------------------
 --          props
 --------------------------------------------------------------------------------
@@ -136,5 +127,4 @@ props =
     , ("testNodesMini", testNodesMini)
     , ("testNodesZinc", testNodesZinc)
     ]
-
 
