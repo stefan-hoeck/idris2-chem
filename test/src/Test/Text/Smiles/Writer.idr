@@ -79,8 +79,11 @@ loadZinc = do
   pure (map trim (lines content))
 
 covering
-zincData : List String
-zincData = unsafePerformIO loadZinc
+testNodesZincIO : IO Property
+testNodesZincIO = do
+  zinc <- loadZinc
+  pure (testNodes zinc)
+
 
 -- After scrolling through the errors of the first 10'000 entries of zinc.txt
 -- there seem to be 2 kinds of errors; although when converted to structures
@@ -110,21 +113,18 @@ zincData = unsafePerformIO loadZinc
 --                     :exec printLn $ readSmiles' "[H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C"
 -- Left "Error: Unexpected '\\SOH'\n\nvirtual: 1:8--1:9\n 1 | [H]/N=c\SOH/n(c(c(s1)C(C)(C)C)C)C\n            ^\n"
 
-covering
-testNodesZinc : Property
-testNodesZinc = testNodes $ zincData
-
 --------------------------------------------------------------------------------
 --          props
 --------------------------------------------------------------------------------
 
 covering
 export
-props : Group
-props =
-  MkGroup "Text.Smiles.Writer"
+propsIO : IO Group
+propsIO = do
+  zincProp <- testNodesZincIO
+  pure $ MkGroup "Text.Smiles.Writer"
     [ ("propSmilesRoundtrip", propSmilesRoundtrip)
     , ("testNodesMini", testNodesMini)
-    , ("testNodesZinc", testNodesZinc)
+    , ("testNodesZinc", zincProp)
     ]
 
