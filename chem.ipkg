@@ -73,4 +73,3 @@ modules = Chem
         , Text.Smiles.Parser
         , Text.Smiles.Types
         , Text.Smiles.Writer
-        , Text.Smiles.StateMonadPractice
