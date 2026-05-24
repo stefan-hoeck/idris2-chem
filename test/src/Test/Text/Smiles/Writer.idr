@@ -9,19 +9,11 @@ import Text.Molfile.Types
 import Text.ParseError
 
 import Data.Graph.Indexed.Query.Subgraph
-import Data.Graph.Indexed.Query.DFS
-import Data.Graph.Indexed.Util
-import Data.Tree
+import Data.String
 
 import System.File
 
-import Text.ILex
-import Profile
 import Chem
-import Data.List.Quantifiers.Extra
-import Data.String
-import Text.Smiles
-
 
 %default total
 
