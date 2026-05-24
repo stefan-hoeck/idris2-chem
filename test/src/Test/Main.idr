@@ -22,7 +22,8 @@ import Test.Text.Smiles.Parser
 import Test.Text.Smiles.Writer
 
 main : IO ()
-main =
+main = do
+  writerProps <- Writer.propsIO
   test
     [ Chem.Elem.props
     , Smiles.Parser.props
@@ -41,5 +42,5 @@ main =
     , Bounds.props
     , Point.props
     , Vector.props
-    , Writer.props
+    , writerProps
     ]
