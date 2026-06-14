@@ -9,9 +9,9 @@ import Text.ILex.DStack
 %default total
 %language ElabReflection
 
-data FState : List Type -> Type where
-  FIni : FState [Formula]
-  FEl  : FState [Elem,Formula]
+data FState : SnocList Type -> Type where
+  FIni : FState [<Formula]
+  FEl  : FState [<Formula,Elem]
 
 %runElab deriveIndexed "FState" [Show,ConIndex]
 
@@ -31,12 +31,12 @@ parameters {auto sk : SK q}
 
   %inline
   onelem : Elem -> StateAct q FState FSz
-  onelem el FIni t         = dput FEl $ el::t
-  onelem el FEl  (e::f::t) = dput FEl $ el::insertElem e f::t
+  onelem el FIni sx         = dput FEl $ sx:<el
+  onelem el FEl  (sx:<f:<e) = dput FEl $ sx:<insertElem e f:<el
 
   onnat : Integer -> StateAct q FState FSz
-  onnat n FEl (e::f::t) = dput FIni $ insert e (cast n) f::t
-  onnat n p t           = dput p t
+  onnat n FEl (sx:<f:<e) = dput FIni $ sx :< insert e (cast n) f
+  onnat n p   sx         = dput p sx
 
 el : Steps q FSz SK
 el = vals symbol (\el => \(sk # t) => dact (onelem el) t) values
@@ -54,13 +54,13 @@ formulaErr = errs []
 formulaEOI : Index FSz -> SK q -> F1 q (Either (BoundedErr Void) Formula)
 formulaEOI v sk t =
   case read1 sk.stack_ t of
-    (FIni:>(f::_))   # t => Right f # t
-    (FEl:>(e::f::_)) # t => Right (insertElem e f) # t
+    (_:<f:>FIni)   # t => Right f # t
+    (_:<f:<e:>FEl) # t => Right (insertElem e f) # t
 
 public export
 formula : P1 q (BoundedErr Void) Formula
 formula =
-  P (cast FIni) (init $ FIni:>[neutral]) formulaTrans
+  P (cast FIni) (init $ [<neutral]:>FIni) formulaTrans
     (\_ => (Nothing #)) formulaErr formulaEOI
 
 inBoundsFState FIni = Refl
