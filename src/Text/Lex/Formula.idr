@@ -4,7 +4,7 @@ import Chem
 import Data.Finite
 import Derive.Prelude
 import Text.ILex
-import Text.ILex.DStack
+import Text.ILex.String.DStack
 
 %default total
 %language ElabReflection
