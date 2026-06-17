@@ -158,13 +158,13 @@ parameters {auto sk : CSTCK q}
        addGroup v g l xs
 
 bondStereoV3 : BondStereo -> Step1 q CSz CSTCK
-bondStereoV3 s (_ # t) = let _ # t := modBond {stereo := s} t in BndProp3 # t
+bondStereoV3 s _ t = let _ # t := modBond {stereo := s} t in BndProp3 # t
 
 chargeV3 : Charge -> Step1 q CSz CSTCK
-chargeV3 c (_ # t) = let _ # t := modAtom {charge := c} t in Prop3 # t
+chargeV3 c _ t = let _ # t := modAtom {charge := c} t in Prop3 # t
 
 radicalV3 : Radical -> Step1 q CSz CSTCK
-radicalV3 c (_ # t) = let _ # t := modAtom {radical := c} t in Prop3 # t
+radicalV3 c _ t = let _ # t := modAtom {radical := c} t in Prop3 # t
 
 ||| Recognizes and drops a fixed number of V3000 lines, increasing
 ||| the line count accordingly and setting the column to `6`

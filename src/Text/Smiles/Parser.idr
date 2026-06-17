@@ -205,7 +205,7 @@ endGraph sk = T1.do
     _ => push1 sk.stack_ g >> pure Nothing
 
 onAtom : SmilesAtom -> Step1 q SSz SSTCK
-onAtom a = \(sk # t) =>
+onAtom a = \sk,t =>
  let s # t := read1 sk.st t
   in case read1 sk.dob t of
        No    # t => writeAs sk.st (plainAtom a s) SRing t
@@ -217,7 +217,7 @@ onAtom a = \(sk # t) =>
          in writeAs sk.st (dottedAtom a s) SRing t
 
 onRing : Ring -> Step1 q SSz SSTCK
-onRing r = \(sk # t) =>
+onRing r = \sk,t =>
   let p # t := getPosition t
       s # t := read1 sk.st t
    in case addRing p r s of
@@ -231,7 +231,7 @@ bracket t =
       cy # t := replace1 sk.chirality None t
       h  # t := replace1 sk.hcount 0 t
       ch # t := replace1 sk.charge 0 t
-   in onAtom (bracket (aromIsotope m e) cy h ch) (sk # t)
+   in onAtom (bracket (aromIsotope m e) cy h ch) sk t
 
 mass : (RExp True, Step q SSz SSTCK)
 mass = conv (plus digit) wrt
@@ -246,7 +246,7 @@ chirality : List (RExp True, Step q SSz SSTCK)
 chirality = writeVals interpolate chirality BHCount values
 
 hc : List (RExp True, Step q SSz SSTCK)
-hc = cexpr "H1" (wrt 1) :: vals encodeH (\v => \(sk # t) => wrt v t) values
+hc = cexpr "H1" (wrt 1) :: vals encodeH (\v => \sk,t => wrt v t) values
   where
     wrt : HCount -> (sk : SSTCK q) => F1 q SST
     wrt c = writeAs sk.hcount c BCharge
@@ -257,7 +257,7 @@ chrg =
   :: cexpr "-1" (wrt (-1))
   :: cexpr "++" (wrt 2)
   :: cexpr "--" (wrt (-2))
-  :: vals encodeCharge (\v => \(sk # t) => wrt v t) values
+  :: vals encodeCharge (\v => \sk,t => wrt v t) values
   where
     wrt : Charge -> (sk : SSTCK q) => F1 q SST
     wrt c = writeAs sk.charge c BEnd
@@ -275,7 +275,7 @@ bond : List (RExp True, Step q SSz SSTCK)
 bond = cexpr '.' dot :: vals interpolate wrt values
   where
     %inline wrt   : SmilesBond -> Step1 q SSz SSTCK
-    wrt b = \(sk # t) => writeAs sk.dob (Bnd b) Atom t
+    wrt b = \sk,t => writeAs sk.dob (Bnd b) Atom t
 
     dot : (k : SSTCK q) => F1 q SST
     dot = writeAs k.dob Dot Atom
