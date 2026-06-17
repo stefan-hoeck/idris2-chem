@@ -321,7 +321,7 @@ parameters {auto sk : CSTCK q}
 ||| Sets the isotope of the current atom
 export
 setIso : CST -> Isotope -> Step1 q CSz CSTCK
-setIso x i = \(_ # t) => let _ # t := modAtom {elem := i} t in x # t
+setIso x i = \_,t => let _ # t := modAtom {elem := i} t in x # t
 
 --------------------------------------------------------------------------------
 -- Structure Data

@@ -39,7 +39,7 @@ parameters {auto sk : SK q}
   onnat n p   sx         = dput p sx
 
 el : Steps q FSz SK
-el = vals symbol (\el => \(sk # t) => dact (onelem el) t) values
+el = vals symbol (\el,_ => dact (onelem el)) values
 
 formulaTrans : Lex1 q FSz SK
 formulaTrans =

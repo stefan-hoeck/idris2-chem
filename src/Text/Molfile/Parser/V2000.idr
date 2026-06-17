@@ -166,7 +166,7 @@ parameters {auto sk : CSTCK q}
 
 export
 line : Nat -> a -> (CSTCK q => F1 q CST) -> (a, Step q CSz CSTCK)
-line n x f = (x, Rd $ \(sk # t) => (write1 sk.pos n >> f <* incline 1) t)
+line n x f = (x, Run $ \(sk # t) => (write1 sk.pos n >> f <* incline 1) t)
 
 export
 prop2 : Steps q CSz CSTCK
