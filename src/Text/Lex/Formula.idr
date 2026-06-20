@@ -4,7 +4,7 @@ import Chem
 import Data.Finite
 import Derive.Prelude
 import Text.ILex
-import Text.ILex.String.DStack
+import Text.ILex.DStack
 
 %default total
 %language ElabReflection
@@ -45,20 +45,20 @@ formulaTrans : Lex1 q FSz SK
 formulaTrans =
   lex1
     [ entry FIni $ dfa el
-    , entry FEl  $ dfa (conv decimal (dact . onnat . decimal) :: el)
+    , entry FEl  $ dfa (bytes decimal (dact . onnat . decimal) :: el)
     ]
 
-formulaErr : Arr32 FSz (SK q -> F1 q (BoundedErr Void))
+formulaErr : Arr32 FSz (SK q -> F1 q (BBErr Void))
 formulaErr = errs []
 
-formulaEOI : Index FSz -> SK q -> F1 q (Either (BoundedErr Void) Formula)
+formulaEOI : Index FSz -> SK q -> F1 q (Either (BBErr Void) Formula)
 formulaEOI v sk t =
   case read1 sk.stack_ t of
     (_:<f:>FIni)   # t => Right f # t
     (_:<f:<e:>FEl) # t => Right (insertElem e f) # t
 
 public export
-formula : P1 q (BoundedErr Void) Formula
+formula : P1 q (BBErr Void) Formula
 formula =
   P (cast FIni) (init $ [<neutral]:>FIni) formulaTrans
     (\_ => (Nothing #)) formulaErr formulaEOI

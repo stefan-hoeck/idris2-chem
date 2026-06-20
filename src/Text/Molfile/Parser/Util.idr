@@ -235,11 +235,11 @@ parameters {auto sk : CSTCK q}
   export
   fail : ErrPair -> F1' q
   fail (BS l $ BV _ o2 _, x) = T1.do
-    BS _ (BV _ o1 _) <- read1 (bytes sk)
-    p                <- getPosition
-    let ps := addCol (o2 `minus` o1) p
-        pe := addCol l ps
-    write1 sk.error_ (Just $ B (Custom x) $ BS ps pe)
+    BS _ (BV _ o1 _) <- getBytes
+    p                <- startPos
+    let ps := incLen (o2 `minus` o1) p
+        pe := incLen l ps
+    write1 sk.error_ (Just $ B (Custom x) $ BB ps pe)
 
   ||| Convenience alias for `fail p >> pure CErr`.
   export
@@ -267,19 +267,13 @@ parameters {auto sk : CSTCK q}
     mg <- read1 sk.mgraph
     mod1 mg.bond (map $ map f)
 
-  ||| Returns the current position in the bytestring
-  ||| and increases it by the given number of bytes.
-  export %inline
-  inc : Nat -> F1 q Nat
-  inc k = read1 sk.pos >>= \n => writeAs sk.pos (k+n) n
-
   ||| Converts the next `len` bytes of the recognized byte string
   ||| using the given convertion function.
   export
   read : (ByteString -> a) -> (len : Nat) -> F1 q a
   read f len = T1.do
-    bs <- read1 sk.bytes_
-    p  <- inc len
+    bs <- getBytes
+    p  <- incPos len
     pure (f $ substring p len bs)
 
   ||| Converts the remainder of the recognized byte string to a `String`,
@@ -288,7 +282,7 @@ parameters {auto sk : CSTCK q}
   remString : F1 q String
   remString = T1.do
     p  <- read1 sk.pos
-    bs <- read1 sk.bytes_
+    bs <- getBytes
     pure (stringTillEOL $ drop p bs)
 
   ||| Finalizes the current molecule
@@ -331,15 +325,15 @@ setIso x i = \_,t => let _ # t := modAtom {elem := i} t in x # t
 export
 sdata : Steps q CSz CSTCK
 sdata =
-  [ newline ("$$$$" >> newline) (end >> pure H1)
-  , cexpr  "$$$$" (end >> pure CDone)
-  , convline ( '>' >> star dot >> newline) sdheader
+  [ step ("$$$$" >> newline) (end >> pure H1)
+  , step  "$$$$" (end >> pure CDone)
+  , bytes ( '>' >> star dot >> newline) sdheader
   ]
 
 ||| Transition steps for structure data value entries.
 export
 sdvalue : Steps q CSz CSTCK
 sdvalue =
-  [ newline newline endSDValue
-  , convline (dots >> newline) (pushStr Stack.SDValue . stringTillEOL)
+  [ step newline endSDValue
+  , bytes (dots >> newline) (pushStr Stack.SDValue . stringTillEOL)
   ]

@@ -139,7 +139,7 @@ parameters {auto sk : CSTCK q}
   export
   sup : ByteString -> F1 q CST
   sup bs = case keyVals bs of
-    Left x => getPosition >>= \p => failWith (fromPosition x p) CErr
+    Left x => startPos >>= \p => failWith (fromBytePos x p) CErr
     Right (I n::S _::I _::t) => case lookupVal "LABEL" t >>= toString of
       Just lbl => case lookupVal "ATOMS" t >>= toNats of
         Just as => T1.do
@@ -171,14 +171,14 @@ radicalV3 c _ t = let _ # t := modAtom {radical := c} t in Prop3 # t
 ||| (right after the `M  V30` prefix). Constant `mv30` must not be
 ||| part of the given regular expression.
 export
-mv30prefix : Nat -> RExp b -> CST -> (RExp True, Step q CSz CSTCK)
-mv30prefix n x = linecol' n 6 (orT $ x >> mv30)
+mv30prefix : RExp b -> CST -> (RExp True, Step q CSz CSTCK)
+mv30prefix x = step' (orT $ x >> mv30)
 
 export
 emptyEnd : List (RExp True, Step q CSz CSTCK)
 emptyEnd =
  let pre := zeroes >> endV3 "CTAB" >> m_end
-  in [newlines' 3 pre CDone, newlines' 3 (pre >> newline) EndMol]
+  in [step' pre CDone, step' (pre >> newline) EndMol]
 
 ||| Recognizers for additional atom properties.
 |||
@@ -194,30 +194,30 @@ prop3 : List (RExp True, Step q CSz CSTCK)
 prop3 =
      vals (("CHG="++) . interpolate) chargeV3 values
   ++ vals (("RAD="++) . dispRadical) radicalV3 values
-  ++ [ conv   (like "MASS=" >> plus digit) massV3
-     , cexpr' (like "CFG=" >> oneof ['0','1','2','3']) Prop3
-     , conv'  (like "VAL=" >> integer) Prop3
-     , conv'  (like "HCOUNT=" >> integer) Prop3
-     , cexpr' (like "STBOX=" >> bindigit) Prop3
-     , cexpr' (like "INVERT=" >> oneof ['0','1','2']) Prop3
-     , cexpr' (like "EXACHG=" >> bindigit) Prop3
-     , conv'  (like "SUBST=" >> integer) Prop3
-     , cexpr' (like "UNSAT=" >> bindigit) Prop3
-     , conv'  (like "RBCNT=" >> integer) Prop3
-     , conv'  (like "ATTACHPT=" >> integer) Prop3
-     , mv30prefix 1 ('-' >> newline) Prop3
-     , newline newline atomV3
+  ++ [ bytes   (like "MASS=" >> plus digit) massV3
+     , step' (like "CFG=" >> oneof ['0','1','2','3']) Prop3
+     , step' (like "VAL=" >> integer) Prop3
+     , step' (like "HCOUNT=" >> integer) Prop3
+     , step' (like "STBOX=" >> bindigit) Prop3
+     , step' (like "INVERT=" >> oneof ['0','1','2']) Prop3
+     , step' (like "EXACHG=" >> bindigit) Prop3
+     , step' (like "SUBST=" >> integer) Prop3
+     , step' (like "UNSAT=" >> bindigit) Prop3
+     , step' (like "RBCNT=" >> integer) Prop3
+     , step' (like "ATTACHPT=" >> integer) Prop3
+     , mv30prefix ('-' >> newline) Prop3
+     , step newline atomV3
      ]
 
 export
 bondProp3 : List (RExp True, Step q CSz CSTCK)
 bondProp3 =
      vals (("CFG="++) . dispStereoV3) bondStereoV3 values
-  ++ [ cexpr' (like "TOPO=" >> oneof ['0','1','2']) BndProp3
-     , conv'  (like "RXCTR=" >> integer) BndProp3
-     , cexpr' (like "STBOX=" >> bindigit) BndProp3
-     , mv30prefix 1 ('-' >> newline) BndProp3
-     , newline newline checkBondV3
+  ++ [ step' (like "TOPO=" >> oneof ['0','1','2']) BndProp3
+     , step' (like "RXCTR=" >> integer) BndProp3
+     , step' (like "STBOX=" >> bindigit) BndProp3
+     , mv30prefix ('-' >> newline) BndProp3
+     , step newline checkBondV3
      ]
 
 ||| Recognizes (and currently discards) all remaining lines starting
@@ -225,16 +225,16 @@ bondProp3 =
 export
 rest3 : List (RExp True, Step q CSz CSTCK)
 rest3 =
-  [ conv' m_end CDone
-  , newline' (m_end >> newline) EndMol
-  , newline' (beginV3 "Sgroup") SGroup
-  , newline' (mv30 >> dots >> newline) RestV3
+  [ step' m_end CDone
+  , step' (m_end >> newline) EndMol
+  , step' (beginV3 "Sgroup") SGroup
+  , step' (mv30 >> dots >> newline) RestV3
   ]
 
 export
 sgroup : List (RExp True, Step q CSz CSTCK)
 sgroup =
-  [ newline' (endV3 "Sgroup") RestV3
-  , multiline supLines sup
-  , newline' (mv30 >> dots >> newline) SGroup
+  [ step' (endV3 "Sgroup") RestV3
+  , bytes supLines sup
+  , step' (mv30 >> dots >> newline) SGroup
   ]

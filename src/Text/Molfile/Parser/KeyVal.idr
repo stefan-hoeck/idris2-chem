@@ -124,8 +124,8 @@ keyValRest = dots >> star ('-' >> newline >> mv30 >> dots) >> newline
 
 ||| Recognizes some tokens, dropping any optional white space around them.
 export %inline
-spaced : HasBytes s => HasPosition s => Index r -> Steps q r s -> DFA q r s
-spaced x ss = dfa $ conv' (plus ' ') x :: ss
+spaced : HasBytes s => Steps q r s -> DFA q r s
+spaced ss = dfa $ ignore' (plus ' ') :: ss
 
 size : RExp True
 size = posdigit >> star digit
@@ -144,37 +144,37 @@ unquoted = start >> star uqc
     uqc   = dot && not ' ' && not ')' && not '='
     start = uqc && not '"' && not '('
 
-splitted : KST -> Steps q KSz SK -> DFA q KSz SK
-splitted x ss =
-  spaced x $
-    [ linecol' 1 6 ('-' >> newline >> mv30) x
-    , newline' newline KDone
+splitted : Steps q KSz SK -> DFA q KSz SK
+splitted ss =
+  spaced $
+    [ ignore' ('-' >> newline >> mv30)
+    , step' newline KDone
     ] ++ ss
 
-val : KST -> Steps q KSz SK -> DFA q KSz SK
-val x ss =
-  splitted x $
-    [ conv integer (onPrim . I . decimal)
-    , read unquoted (onPrim . S)
-    , copen' '"' InStr
+val : Steps q KSz SK -> DFA q KSz SK
+val ss =
+  splitted $
+    [ bytes integer (onPrim . I . decimal)
+    , string unquoted (onPrim . S)
+    , opn' '"' InStr
     ] ++ ss
 
-toplevel : KST -> DFA q KSz SK
-toplevel x =
-  val x
-    [ conv (plus alphaNum >> '=') onKey
-    , copen' '(' LStart
+toplevel : DFA q KSz SK
+toplevel =
+  val
+    [ bytes (plus alphaNum >> '=') onKey
+    , opn' '(' LStart
     ]
 
 str : DFA q KSz SK
 str =
   dfa
-    [ read (plus $ dot && not '"' && not '-') (pushStr InStr)
-    , cexpr "\"\"" (pushStr InStr "\"")
-    , cexpr '-'    (pushStr InStr "-")
-    , linecol' 1 7 ('-' >> newline >> mv30 >> ' ') InStr
-    , linecol' 1 6 ('-' >> newline >> mv30)  InStr
-    , ccloseStr '"' (onPrim . S)
+    [ string (plus $ dot && not '"' && not '-') (pushStr InStr)
+    , step "\"\"" (pushStr InStr "\"")
+    , step '-'    (pushStr InStr "-")
+    , step' ('-' >> newline >> mv30 >> ' ') InStr
+    , step' ('-' >> newline >> mv30)  InStr
+    , closeStr '"' (onPrim . S)
     ]
 
 --------------------------------------------------------------------------------
@@ -184,16 +184,16 @@ str =
 kvTrans : Lex1 q KSz SK
 kvTrans =
   lex1
-    [ E KIni   $ dfa [cexpr' mv30 KeyVal.Entry]
-    , E Entry     $ toplevel Entry
-    , E KVal   $ toplevel KVal
-    , E LVal   $ val LVal []
-    , E LStart $ splitted LStart [conv size startList]
-    , E LEnd   $ splitted LEnd [cclose ')' (pure Entry)]
+    [ E KIni   $ dfa [step' mv30 KeyVal.Entry]
+    , E Entry  $ toplevel
+    , E KVal   $ toplevel
+    , E LVal   $ val []
+    , E LStart $ splitted [bytes size startList]
+    , E LEnd   $ splitted [close ')' (pure Entry)]
     , E InStr    str
     ]
 
-kvErr : Arr32 KSz (SK q -> F1 q (BoundedErr MolErr))
+kvErr : Arr32 KSz (SK q -> F1 q (BBErr MolErr))
 kvErr =
   arr32 KSz (unexpected [])
     [ E InStr  $ unclosedIfEOI "\"" []
@@ -202,7 +202,7 @@ kvErr =
     , E LEnd   $ unclosedIfEOI "(" [")"]
     ]
 
-kvEOI : KST -> SK q -> F1 q (Either (BoundedErr MolErr) (List KeyVal))
+kvEOI : KST -> SK q -> F1 q (Either (BBErr MolErr) (List KeyVal))
 kvEOI sk s t =
   case sk == KDone || sk == Entry of
     False => arrFail SK kvErr sk s t
@@ -210,12 +210,12 @@ kvEOI sk s t =
       VS vs # t => Right (vs <>> []) # t
       _     # t => Right [] # t -- impossible
 
-kv : P1 q (BoundedErr MolErr) (List KeyVal)
+kv : P1 q (BBErr MolErr) (List KeyVal)
 kv = P KIni (init (VS [<])) kvTrans noChunk kvErr kvEOI
 
 ||| Parses V3000 key-value pairs from a (possibly multiline) bytestring.
 export %inline
-keyVals : ByteString -> Either (BoundedErr MolErr) (List KeyVal)
+keyVals : ByteString -> Either (BBErr MolErr) (List KeyVal)
 keyVals = runBytes kv
 
 test : String -> IO ()
