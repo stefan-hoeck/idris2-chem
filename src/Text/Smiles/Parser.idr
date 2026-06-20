@@ -55,7 +55,7 @@ record RingInfo n where
   nr    : RingNr
   atom  : SmilesAtom
   bond  : Maybe SmilesBond
-  pos   : Position
+  pos   : BytePos
 
 record AtomInfo n where
   constructor A
@@ -87,9 +87,9 @@ delete : RingNr -> List (RingInfo n) -> List (RingInfo n)
 delete r []      = []
 delete r (x::xs) = if r == x.nr then xs else x::delete r xs
 
-ringBondMismatch : Ring -> Position -> BoundedErr SmilesErr
+ringBondMismatch : Ring -> BytePos -> BBErr SmilesErr
 ringBondMismatch r p =
- let bs := BS p $ addCol (length "\{r}") p
+ let bs := BB p $ incLen (length "\{r}") p
   in B (Custom RingBondMismatch) bs
 
 record ST where
@@ -103,10 +103,10 @@ record ST where
 empty : ST
 empty = S 0 [] [<] [] []
 
-toGraph : ST -> Either (BoundedErr SmilesErr) SmilesGraph
+toGraph : ST -> Either (BBErr SmilesErr) SmilesGraph
 toGraph (S n _ a b [])                = Right $ G n (mkGraph (cast a) b)
 toGraph (S _ _ _ _ (R _ r _ b p ::_)) =
- let bs := BS p $ addCol (length "\{R r b}") p
+ let bs := BB p $ incLen (length "\{R r b}") p
   in Left $ B (Custom UnclosedRing) bs
 
 weakenST : List (AtomInfo n) -> List (AtomInfo $ S n)
@@ -136,7 +136,7 @@ dottedAtom : SmilesAtom -> ST -> ST
 dottedAtom a1 (S c st sa bs rs) =
   S (S c) (A last a1 :: weakenST st) (sa:<a1) (weakenBS bs) (weakenRS rs)
 
-addRing : Position -> Ring -> ST -> Either (BoundedErr SmilesErr) ST
+addRing : BytePos -> Ring -> ST -> Either (BBErr SmilesErr) ST
 addRing p (R r mb1) st =
   case st.stck of
     A n1 a1::_ => case lookupRing r st.rings of
@@ -155,30 +155,34 @@ addRing p (R r mb1) st =
 export
 record SSTCK (q : Type) where
   constructor SS
-  line_      : Ref q Nat
-  col_       : Ref q Nat
-  positions_ : Ref q (SnocList Position)
+  prev_      : Ref q ByteString
+  cur_       : Ref q ByteString
+  offset_    : Ref q Nat
+  relpos_    : Ref q Integer
+  len_       : Ref q Nat
+  positions_ : Ref q (SnocList BytePos)
   st         : Ref q ST
   dob        : Ref q DOB
-  bytes_     : Ref q ByteString
   mass       : Ref q (Maybe MassNr)
   elem       : Ref q AromElem
   chirality  : Ref q Chirality
   hcount     : Ref q HCount
   charge     : Ref q Charge
-  error_     : Ref q (Maybe $ BoundedErr SmilesErr)
+  error_     : Ref q (Maybe $ BBErr SmilesErr)
   stack_     : Ref q (SnocList SmilesGraph)
 
-%runElab derive "SSTCK" [HasPosition, HasBytes, HasError, HasStack]
+%runElab derive "SSTCK" [HasBytes, HasBBErr, HasStack]
 
 init : F1 q (SSTCK q)
 init = T1.do
-  l   <- ref1 Z
-  c   <- ref1 Z
-  p   <- ref1 [<]
+  pr  <- ref1 empty
+  fl  <- ref1 empty
+  ro  <- ref1 Z
+  rr  <- ref1 0
+  ll  <- ref1 Z
+  ps  <- ref1 [<]
   s   <- ref1 empty
   db  <- ref1 Dot
-  b   <- ref1 ByteString.empty
   ms  <- ref1 Nothing
   el  <- ref1 (MkAE C False)
   cy  <- ref1 (the Chirality None)
@@ -186,20 +190,20 @@ init = T1.do
   ch  <- ref1 (the Charge 0)
   er  <- ref1 Nothing
   st  <- ref1 [<]
-  pure (SS l c p s db b ms el cy hc ch er st)
+  pure (SS pr fl ro rr ll ps s db ms el cy hc ch er st)
 
 %runElab deriveParserState "SSz" "SST"
   [ "Chain", "NewBranch", "SRing", "Closed", "Err", "Atom"
   , "BMass","BElem","BChiral","BHCount","BCharge","BEnd"
   ]
 
-endGraph : SSTCK q -> F1 q (Maybe (BoundedErr SmilesErr))
+endGraph : SSTCK q -> F1 q (Maybe (BBErr SmilesErr))
 endGraph sk = T1.do
   st    <- replace1 sk.st empty
   write1 sk.dob Dot
   let Right g := toGraph st | Left err => pure (Just err)
   [<] <- replace1 sk.positions_ [<]
-    | _:<p => pure $ Just (B (Unclosed "(") (BS p (incCol p)))
+    | _:<p => pure $ Just (B (Unclosed "(") (BB p p))
   case g.order of
     0 => pure Nothing
     _ => push1 sk.stack_ g >> pure Nothing
@@ -218,7 +222,7 @@ onAtom a = \sk,t =>
 
 onRing : Ring -> Step1 q SSz SSTCK
 onRing r = \sk,t =>
-  let p # t := getPosition t
+  let p # t := startPos t
       s # t := read1 sk.st t
    in case addRing p r s of
         Right s2 => writeAs sk.st s2 SRing t
@@ -234,7 +238,7 @@ bracket t =
    in onAtom (bracket (aromIsotope m e) cy h ch) sk t
 
 mass : (RExp True, Step q SSz SSTCK)
-mass = conv (plus digit) wrt
+mass = bytes (plus digit) wrt
   where
     %inline wrt : (sk : SSTCK q) =>  ByteString ->F1 q SST
     wrt bs = writeAs sk.mass (refineMassNr $ cast $ decimal bs) BElem
@@ -246,33 +250,33 @@ chirality : List (RExp True, Step q SSz SSTCK)
 chirality = writeVals interpolate chirality BHCount values
 
 hc : List (RExp True, Step q SSz SSTCK)
-hc = cexpr "H1" (wrt 1) :: vals encodeH (\v => \sk,t => wrt v t) values
+hc = step "H1" (wrt 1) :: vals encodeH (\v => \sk,t => wrt v t) values
   where
     wrt : HCount -> (sk : SSTCK q) => F1 q SST
     wrt c = writeAs sk.hcount c BCharge
 
 chrg : List (RExp True, Step q SSz SSTCK)
 chrg =
-     cexpr "+1" (wrt 1)
-  :: cexpr "-1" (wrt (-1))
-  :: cexpr "++" (wrt 2)
-  :: cexpr "--" (wrt (-2))
+     step "+1" (wrt 1)
+  :: step "-1" (wrt (-1))
+  :: step "++" (wrt 2)
+  :: step "--" (wrt (-2))
   :: vals encodeCharge (\v => \sk,t => wrt v t) values
   where
     wrt : Charge -> (sk : SSTCK q) => F1 q SST
     wrt c = writeAs sk.charge c BEnd
 
 bend : List (RExp True, Step q SSz SSTCK)
-bend = [cclose ']' bracket]
+bend = [close ']' bracket]
 
 atom : List (RExp True, Step q SSz SSTCK)
-atom = copen' '[' BMass :: vals encodeAtom onAtom subset
+atom = opn' '[' BMass :: vals encodeAtom onAtom subset
 
 ring : List (RExp True, Step q SSz SSTCK)
 ring = vals interpolate onRing values
 
 bond : List (RExp True, Step q SSz SSTCK)
-bond = cexpr '.' dot :: vals interpolate wrt values
+bond = step '.' dot :: vals interpolate wrt values
   where
     %inline wrt   : SmilesBond -> Step1 q SSz SSTCK
     wrt b = \sk,t => writeAs sk.dob (Bnd b) Atom t
@@ -281,14 +285,14 @@ bond = cexpr '.' dot :: vals interpolate wrt values
     dot = writeAs k.dob Dot Atom
 
 openClose : List (RExp True, Step q SSz SSTCK)
-openClose = [copen '(' opn, cclose ')' cls]
+openClose = [opn '(' op, close ')' cls]
   where
-    opn,cls : (k : SSTCK q) => F1 q SST
-    opn = read1 k.st >>= \s => writeAs k.st ({stck $= doubleHead} s) NewBranch
+    op,cls : (k : SSTCK q) => F1 q SST
+    op = read1 k.st >>= \s => writeAs k.st ({stck $= doubleHead} s) NewBranch
     cls = read1 k.st >>= \s => writeAs k.st ({stck $= drop} s) Closed
 
 space : List (RExp True, Step q SSz SSTCK)
-space = [conv (plus $ oneof [' ', '\t']) (const end), newline nl end]
+space = [bytes (plus $ oneof [' ', '\t']) (const end), step nl end]
   where
     nl : RExp True
     nl = "\r\n" <|> '\n' <|> '\r'
@@ -314,7 +318,7 @@ smilesTrans =
     , E BEnd      $ dfa bend
     ]
 
-smilesErr : Arr32 SSz (SSTCK q -> F1 q (BoundedErr SmilesErr))
+smilesErr : Arr32 SSz (SSTCK q -> F1 q (BBErr SmilesErr))
 smilesErr =
   arr32 SSz (unexpected [])
     [ E BMass   $ unclosedIfNLorEOI "[" []
@@ -327,7 +331,7 @@ smilesErr =
 smilesEOI :
      SST
   -> SSTCK q
-  -> F1 q (Either (BoundedErr SmilesErr) (List SmilesGraph))
+  -> F1 q (Either (BBErr SmilesErr) (List SmilesGraph))
 smilesEOI st sk =
   case st == Chain || st == SRing || st == Closed of
     False => arrFail SSTCK smilesErr st sk
@@ -336,7 +340,7 @@ smilesEOI st sk =
       Nothing => getList sk.stack_ >>= pure . Right
 
 public export
-smiles : P1 q (BoundedErr SmilesErr) (List SmilesGraph)
+smiles : P1 q (BBErr SmilesErr) (List SmilesGraph)
 smiles = P Chain init smilesTrans snocChunk smilesErr smilesEOI
 
 ||| Parses a list of smiles codes separated by whitespace

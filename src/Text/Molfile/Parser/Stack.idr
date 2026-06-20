@@ -54,9 +54,12 @@ public export
 record CSTCK (q : Type) where
   constructor CK
   -- text position
-  line_      : Ref q Nat
-  col_       : Ref q Nat
-  positions_ : Ref q (SnocList Position)
+  prev_      : Ref q ByteString
+  cur_       : Ref q ByteString
+  offset_    : Ref q Nat
+  relpos_    : Ref q Integer
+  len_       : Ref q Nat
+  positions_ : Ref q (SnocList BytePos)
 
   -- headers
   h1,h2,h3   : Ref q MolLine
@@ -73,19 +76,21 @@ record CSTCK (q : Type) where
   sdvals     : Ref q (SnocList StructureData)
 
   -- utilities
-  error_     : Ref q (Maybe $ BoundedErr MolErr)
-  bytes_     : Ref q ByteString
+  error_     : Ref q (Maybe $ BBErr MolErr)
   strings_   : Ref q (SnocList String)
   pos        : Ref q Nat
 
-%runElab derive "CSTCK" [HasPosition,HasError,HasBytes,HasStack,HasStringLits]
+%runElab derive "CSTCK" [HasBBErr,HasBytes,HasStack,HasStringLits]
 
 export
 init : F1 q (CSTCK q)
 init = T1.do
-  l   <- ref1 Z
-  c   <- ref1 Z
-  ps  <- ref1 [<]
+  pr <- ref1 empty
+  fl <- ref1 empty
+  ro <- ref1 Z
+  rr <- ref1 0
+  ll <- ref1 Z
+  ps <- ref1 [<]
   h1  <- ref1 ""
   h2  <- ref1 ""
   h3  <- ref1 ""
@@ -98,7 +103,16 @@ init = T1.do
   sdh <- ref1 ""
   sdd <- ref1 [<]
   err <- ref1 Nothing
-  bs  <- ref1 empty
   str <- ref1 [<]
   pos <- ref1 Z
-  pure (CK l c ps h1 h2 h3 gr gs grp cnt ie sdh sdd err bs str pos)
+  pure (CK pr fl ro rr ll ps h1 h2 h3 gr gs grp cnt ie sdh sdd err str pos)
+
+export %inline
+setPos : (sk : CSTCK q) => Nat -> F1' q
+setPos n = write1 sk.pos n
+
+export %inline
+incPos : (sk : CSTCK q) => Nat -> F1 q Nat
+incPos n = T1.do
+  v <- read1 sk.pos
+  writeAs sk.pos (v+n) v
