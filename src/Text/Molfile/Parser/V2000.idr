@@ -164,9 +164,9 @@ parameters {auto sk : CSTCK q}
       Nothing => m
     pure Prop2
 
-export
+export %inline
 line : Nat -> a -> (CSTCK q => F1 q CST) -> (a, Step q CSz CSTCK)
-line n x f = (x, Rd $ \(sk # t) => (write1 sk.pos n >> f <* incline 1) t)
+line n x f = step x $ setPos n >> f
 
 export
 prop2 : Steps q CSz CSTCK
@@ -177,7 +177,7 @@ prop2 =
   , line 6 ("M  SAL" >> star sdigit >> newline) sal
   , line 6 ("M  STY" >> styExpr >> newline) sty
   , line 6 ("M  SMT " >> smtExpr >> newline) smt
-  , newline m_end (end >> pure CDone)
-  , newline' (m_end >> newline) EndMol
-  , newline' (oneof ['M','V','G','A'] >> "  " >> star dot >> newline) Prop2
+  , step m_end (end >> pure CDone)
+  , step' (m_end >> newline) EndMol
+  , step' (oneof ['M','V','G','A'] >> "  " >> star dot >> newline) Prop2
   ]
