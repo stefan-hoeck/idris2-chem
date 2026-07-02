@@ -1,44 +1,175 @@
 module Test.Text.Smiles.Writer
 
-import Text.Smiles.Writer
 import Hedgehog
 
+import Text.Smiles.Types
+import Text.Smiles.Writer
+import Text.Smiles.Parser
+import Text.Molfile.Types
+import Text.ParseError
+
+import Data.String
+import Data.Graph.Indexed.Query.Subgraph
+import Data.Graph.Indexed.Util as GU
+
+import Test.Data.Graph.Generators
+import Test.Text.Smiles.Generators
+
+import System.File
+
+import Chem
 
 %default total
+
+smilesTests : List String
+smilesTests =
+  [ "CC"
+  , "[Cu+2].[O-]S(=O)(=O)[O-]"
+  , "C1C(C2C(C3C(C4C(C5C(C6C(C7C(C8C(C9C(C%10C(CC)C%10C)C9C)C8C)C7C)C6C)C5C)C4C)C3C)C2C)C1"
+  , "C12CC1C2"
+  ]
 
 --------------------------------------------------------------------------------
 --          Properties
 --------------------------------------------------------------------------------
+propSmilesRoundtrip : Property
+propSmilesRoundtrip = property1 $
+  traverse_ (\s => smilesRoundtrip s === s) smilesTests
 
 covering
-propSmilesLVL1 : Property
-propSmilesLVL1 = property1 $
-  smilesRoundtrip "CC" === "CC"
+testNodes : List String -> Property
+testNodes ls = property1 $
+  traverse_ (\(n, s) =>
+    let
+        actual : ChemRes [SmilesParseErr] Bool
+        actual = do
+          G o1 g1 <- readSmiles s
+          G o2 g2 <- readSmiles (smilesRoundtrip s)
+          pure $ isJust (query (==) (==) g1 g2)
+                        && (o1 == o2)
+                        && (GU.size g1 == GU.size g2)
+    in case actual of
+            Left _      => do
+                           footnote "failed to read Smiles: {s}"
+                           failure
+            Right True  => success
+            Right False => do
+              footnote "Line: \{show n}"
+              footnote "SMILES:    \{s}"
+              footnote "Roundtrip: \{smilesRoundtrip s}"
+              failure
+            ) (zip [1..(length ls)] ls)
 
 covering
-propSmilesLVL2 : Property
-propSmilesLVL2 = property1 $
-  smilesRoundtrip "[Cu+2].[O-]S(=O)(=O)[O-]" === "[Cu+2].[O-]S(=O)(=O)[O-]"
+-- old version, keeping it to compare nr of errors later
+testNodes' : List String -> Property
+testNodes' ls = property1 $
+  traverse_ (\(n, s) =>
+    let
+        expected : ChemRes [SmilesParseErr] (Maybe (List Nat))
+        expected = do
+          G _ g0 <- readSmiles s
+          pure $ Just $ map finToNat (nodes g0)
+
+        actual : ChemRes [SmilesParseErr] (Maybe (List Nat))
+        actual = do
+          G _ g1 <- readSmiles s
+          G _ g2 <- readSmiles (smilesRoundtrip s)
+          pure $ toList . map finToNat <$> query (==) (==) g1 g2
+    in if actual == expected then
+          success
+       else do
+         footnote "Line: \{show n}"
+         footnote "SMILES:    \{s}"
+         footnote "Roundtrip: \{smilesRoundtrip s}"
+         actual === expected
+  ) (zip [1..(length ls)] ls)
+
+genGraph : Gen (Graph SmilesBond SmilesAtom)
+genGraph = lgraph (linear 1 20) (linear 0 20) bond atom
 
 covering
-propSmilesLVL3 : Property
-propSmilesLVL3 = property1 $
-  smilesRoundtrip "C1C(C2C(C3C(C4C(C5C(C6C(C7C(C8C(C9C(C%10C(CC)C%10C)C9C)C8C)C7C)C6C)C5C)C4C)C3C)C2C)C1" === "C1C(C2C(C3C(C4C(C5C(C6C(C7C(C8C(C9C(C%10C(CC)C%10C)C9C)C8C)C7C)C6C)C5C)C4C)C3C)C2C)C1"
+testNodesGen : Property
+testNodesGen = property $ do
+  G k1 g1 <- forAll genGraph
+  let s = graphToSmiles g1
+  let actual : ChemRes [SmilesParseErr] Bool
+      actual = do
+        G k2 g2 <- readSmiles s
+        pure $ isJust (query (==) (==) g1 g2)
+               && (k1 == k2)
+               && (GU.size g1 == GU.size g2)
+  case actual of
+    Left _      => do
+                   footnote "failed to read Smiles: \{s}"
+                   failure
+    Right True  => success
+    Right False => do
+                   footnote "SMILES: \{s}"
+                   failure
 
 covering
-propSmilesLVL4 : Property
-propSmilesLVL4 = property1 $
-  smilesRoundtrip "C12CC1C2" === "C12CC1C2"
+testNodesMini : Property
+testNodesMini = testNodes smilesTests
+
+covering
+loadZinc : IO (List String)
+loadZinc = do
+  Right content <- readFile "resources/zinc.txt"
+    | Left err => do
+        printLn err
+        pure []
+
+  pure (map trim (lines content))
+
+covering
+testNodesZincIO : IO Property
+testNodesZincIO = do
+  zinc <- loadZinc
+  pure (testNodes zinc)
 
 
-export covering
-props : Group
-props =
-  MkGroup "Text.Smiles.Writer"
-    [ ("propSmilesLVL1", propSmilesLVL1),
-      ("propSmilesLVL2", propSmilesLVL2),
-      ("propSmilesLVL3", propSmilesLVL3),
-      ("propSmilesLVL4", propSmilesLVL4)
+-- After scrolling through the errors of the first 10'000 entries of zinc.txt
+-- there seem to be 2 kinds of errors; although when converted to structures
+-- they appear to be the same molecules:
+
+-- 1.
+-- Roundtrip: CC(=O)Nc1c2sscc2n(c1=O)C
+-- SMILES:    CC(=O)Nc1c-2sscc2n(c1=O)C
+-- Line: 80
+
+-- caused by:
+-- Text.Smiles.Writer> :exec printLn $ readSmiles' "CC(=O)Nc1c2sscc2n(c1=O)C"
+-- E 5 9 Arom
+-- VS
+-- Text.Smiles.Writer> :exec printLn $ readSmiles' "CC(=O)Nc1c-2sscc2n(c1=O)C"
+-- E 5 9 Sngl
+
+-- 2.
+-- Roundtrip: [H]/N=c1/n(c(c(s1)C(C)(C)C)C)C
+-- SMILES:    [H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C
+-- Line: 1838
+
+-- caused by?
+-- Interestingly I can't get this to run in the repl, but in the test
+-- this must have worked since we got the output above.
+-- Text.Smiles.Writer> :exec printLn $ readSmiles' "[H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C"
+--                     :exec printLn $ readSmiles' "[H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C"
+-- Left "Error: Unexpected '\\SOH'\n\nvirtual: 1:8--1:9\n 1 | [H]/N=c\SOH/n(c(c(s1)C(C)(C)C)C)C\n            ^\n"
+
+--------------------------------------------------------------------------------
+--          props
+--------------------------------------------------------------------------------
+
+covering
+export
+propsIO : IO Group
+propsIO = do
+  zincProp <- testNodesZincIO
+  pure $ MkGroup "Text.Smiles.Writer"
+    [ ("propSmilesRoundtrip", propSmilesRoundtrip)
+    , ("testNodesMini", testNodesMini)
+    , ("testNodesZinc", zincProp)
+    , ("testNodesGen", testNodesGen)
     ]
-
 
