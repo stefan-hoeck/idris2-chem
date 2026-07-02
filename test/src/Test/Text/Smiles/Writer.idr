@@ -8,8 +8,9 @@ import Text.Smiles.Parser
 import Text.Molfile.Types
 import Text.ParseError
 
-import Data.Graph.Indexed.Query.Subgraph
 import Data.String
+import Data.Graph.Indexed.Query.Subgraph
+import Data.Graph.Indexed.Util as GU
 
 import System.File
 
@@ -35,6 +36,31 @@ propSmilesRoundtrip = property1 $
 covering
 testNodes : List String -> Property
 testNodes ls = property1 $
+  traverse_ (\(n, s) =>
+    let
+        actual : ChemRes [SmilesParseErr] Bool
+        actual = do
+          G o1 g1 <- readSmiles s
+          G o2 g2 <- readSmiles (smilesRoundtrip s)
+          pure $ isJust (query (==) (==) g1 g2)
+                        && (o1 == o2)
+                        && (GU.size g1 == GU.size g2)
+    in case actual of
+            Left _      => do
+                           footnote "failed to read Smiles: {s}"
+                           failure
+            Right True  => success
+            Right False => do
+              footnote "Line: \{show n}"
+              footnote "SMILES:    \{s}"
+              footnote "Roundtrip: \{smilesRoundtrip s}"
+              failure
+            ) (zip [1..(length ls)] ls)
+
+covering
+-- old version, keeping it to compare nr of errors later
+testNodes' : List String -> Property
+testNodes' ls = property1 $
   traverse_ (\(n, s) =>
     let
         expected : ChemRes [SmilesParseErr] (Maybe (List Nat))
@@ -75,6 +101,7 @@ testNodesZincIO : IO Property
 testNodesZincIO = do
   zinc <- loadZinc
   pure (testNodes zinc)
+
 
 
 -- After scrolling through the errors of the first 10'000 entries of zinc.txt
