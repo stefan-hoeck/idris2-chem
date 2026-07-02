@@ -86,7 +86,7 @@ testNodes' ls = property1 $
   ) (zip [1..(length ls)] ls)
 
 genGraph : Gen (Graph SmilesBond SmilesAtom)
-genGraph = lgraph (linear 1 20) (linear 0 20) bond atom
+genGraph = lgraph (linear 1 50) (linear 0 80) bond atom
 
 covering
 testNodesGen : Property
@@ -128,34 +128,26 @@ testNodesZincIO = do
   zinc <- loadZinc
   pure (testNodes zinc)
 
-
--- After scrolling through the errors of the first 10'000 entries of zinc.txt
--- there seem to be 2 kinds of errors; although when converted to structures
--- they appear to be the same molecules:
+-- The code does not produce canonical smiles code which is why we get
+-- errors like this one occasionaly from testNodesGen.
 
 -- 1.
--- Roundtrip: CC(=O)Nc1c2sscc2n(c1=O)C
--- SMILES:    CC(=O)Nc1c-2sscc2n(c1=O)C
--- Line: 80
+-- ━━━ Failed (- lhs) (+ rhs) ━━━
+-- - "\"C=1CC=1=1CC=1.C\""
+-- + "\"C1CC=11CC=1.C\""
 
--- caused by:
--- Text.Smiles.Writer> :exec printLn $ readSmiles' "CC(=O)Nc1c2sscc2n(c1=O)C"
--- E 5 9 Arom
--- VS
--- Text.Smiles.Writer> :exec printLn $ readSmiles' "CC(=O)Nc1c-2sscc2n(c1=O)C"
--- E 5 9 Sngl
+-- Both have the same graph.
+-- Text.Smiles.Writer> :exec printLn $ readSmiles' "C1CC=11CC=1.C"
+-- Right (G 6 (mkGraph [SubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom
+-- = False}, SubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom = False}, S
+-- ubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom = False}] [E 0 1 Sngl,
+--  E 0 2 Dbl, E 1 2 Sngl, E 2 3 Sngl, E 2 4 Dbl, E 3 4 Sngl]))
 
--- 2.
--- Roundtrip: [H]/N=c1/n(c(c(s1)C(C)(C)C)C)C
--- SMILES:    [H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C
--- Line: 1838
-
--- caused by?
--- Interestingly I can't get this to run in the repl, but in the test
--- this must have worked since we got the output above.
--- Text.Smiles.Writer> :exec printLn $ readSmiles' "[H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C"
---                     :exec printLn $ readSmiles' "[H]/N=c\1/n(c(c(s1)C(C)(C)C)C)C"
--- Left "Error: Unexpected '\\SOH'\n\nvirtual: 1:8--1:9\n 1 | [H]/N=c\SOH/n(c(c(s1)C(C)(C)C)C)C\n            ^\n"
+-- Text.Smiles.Writer> :exec printLn $ readSmiles' "C=1CC=1=1CC=1.C"
+-- Right (G 6 (mkGraph [SubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom
+-- = False}, SubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom = False}, S
+-- ubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom = False}] [E 0 1 Sngl,
+--  E 0 2 Dbl, E 1 2 Sngl, E 2 3 Sngl, E 2 4 Dbl, E 3 4 Sngl]))
 
 --------------------------------------------------------------------------------
 --          props

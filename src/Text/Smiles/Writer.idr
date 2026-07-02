@@ -26,6 +26,7 @@ record Node k where
   constructor MkNode
   label : SmilesAtom
   parentEdge : Maybe SmilesBond
+  parentArom : Bool
   rings : List (RingData k)
 
 record NodeState k where
@@ -37,63 +38,72 @@ record NodeState k where
 ------------------------------------------------------------------------------
 -- SMILES Rendering
 ------------------------------------------------------------------------------
-ringNr : RingData k -> RingNr
-ringNr (RD _ (R nr _)) = nr
+parameters (g : IGraph k SmilesBond SmilesAtom)
 
-renderRingNr : List (RingData k) -> String
-renderRingNr =
-  fastConcat . map (interpolate . ringNr) . sortBy (compare `on` ringNr)
+  ringNr : RingData k -> RingNr
+  ringNr (RD _ (R nr _)) = nr
 
-renderBond : Node k -> String
-renderBond c@(MkNode _ pE _) = case pE of
-                         Nothing   => ""
-                         Just Sngl => ""
-                         Just Arom => ""
-                         Just bo   => interpolate bo
+  renderRingNr : List (RingData k) -> String
+  renderRingNr =
+    fastConcat . map render . sortBy (compare `on` ringNr)
+    where
+      render : RingData k -> String
+      render rd@(RD e _) =
+        let bo        = label e
+            bothArom  = isArom (lab g (node1 e)) && isArom (lab g (node2 e))
+            isDefault = if bothArom then bo == Arom else bo == Sngl
+            sym       = if isDefault then "" else interpolate bo
+         in sym ++ interpolate (ringNr rd)
 
-renderTree : Tree (Node k) -> String
-renderTree (T c@(MkNode v _ rings) cs) =
-  let rNr := renderRingNr rings
-   in "\{v}\{rNr}\{children cs}"
-  where
-    children : Forest (Node k) -> String
-    children []               = ""
-    children [h@(T c _)]      = renderBond c ++ renderTree h
-    children (h@(T c _) :: t) =
-      "(\{renderBond c}\{renderTree h})\{children t}"
+  renderBond : Node k -> String
+  renderBond (MkNode v pE bothArom _) =
+    case pE of
+      Nothing => ""
+      Just bo =>
+        let isDefault = if bothArom then bo == Arom else bo == Sngl
+         in if isDefault then "" else interpolate bo
 
-public export
-renderForest : Forest (Node k) -> String
-renderForest = fastConcat . intersperse "." . map renderTree
+  renderTree : Tree (Node k) -> String
+  renderTree (T c@(MkNode v _ _ rings) cs) =
+    let rNr := renderRingNr rings
+     in "\{v}\{rNr}\{children cs}"
+    where
+      children : Forest (Node k) -> String
+      children []               = ""
+      children [h@(T c _)]      = renderBond c ++ renderTree h
+      children (h@(T c _) :: t) =
+        "(\{renderBond c}\{renderTree h})\{children t}"
+
+  public export
+  renderForest : Forest (Node k) -> String
+  renderForest = fastConcat . intersperse "." . map renderTree
 -------------------------------------------------------------------------------
 -- Rings
 -------------------------------------------------------------------------------
-findClosableOpenRing :
-     Fin k -- neighbour
-  -> Fin k -- current
-  -> List (RingData k)
-  -> Maybe (RingData k)
-findClosableOpenRing n c =
-  find (\rd =>
-    let e = edge rd in
-    (node1 e == c && node2 e == n) ||
-    (node1 e == n && node2 e == c))
+  findClosableOpenRing :
+       Fin k -- neighbour
+    -> Fin k -- current
+    -> List (RingData k)
+    -> Maybe (RingData k)
+  findClosableOpenRing n c =
+    find (\rd =>
+      let e = edge rd in
+      (node1 e == c && node2 e == n) ||
+      (node1 e == n && node2 e == c))
 
-allocateRingNr : List (RingData k) -> RingNr
-allocateRingNr ors =
-   fromMaybe 0 $
-     find (\x => not (elem x (map ringNr ors)))
-          (mapMaybe refineRingNr [1..99])
+  allocateRingNr : List (RingData k) -> RingNr
+  allocateRingNr ors =
+     fromMaybe 0 $
+       find (\x => not (elem x (map ringNr ors)))
+            (mapMaybe refineRingNr [1..99])
 
 -------------------------------------------------------------------------------
 -- Traversal Helpers
 -------------------------------------------------------------------------------
 
-parameters (g : IGraph k SmilesBond SmilesAtom)
-
   parentE : Maybe (Fin k) -> Fin k -> Maybe SmilesBond
-  parentE (Just p) v = elab g p v
   parentE Nothing  _ = Nothing
+  parentE (Just p) v = elab g p v
 
   -- rings = neighbours - parent - children
   computeNodeContext :
@@ -133,14 +143,17 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
     -- get info for current node
     let openR'  = computeNodeContext v p t openR
         ringChanges =
-          filter (\x => not (elem x openR)) openR' ++
-          filter (\x => not (elem x openR')) openR
+          filter (\x => not (elem x openR')) openR ++
+          filter (\x => not (elem x openR )) openR'
 
     put (NS (Just v) openR') -- set current node as parent
     ts2 <- zipL ts -- process children
     put pNS -- restore old parent
 
-    pure (T (MkNode (lab g v) (parentE p v) ringChanges) ts2)
+    let pe        = parentE p v
+        bothArom  = maybe False (\pn => isArom (lab g pn) && isArom (lab g v)) p
+
+    pure (T (MkNode (lab g v) pe bothArom ringChanges) ts2)
 
   zipL []      = pure []
   zipL (t::ts) = [| buildNodeTree t :: zipL ts |]
@@ -151,7 +164,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
 
 export
 graphToSmiles : {k : _} -> IGraph k SmilesBond SmilesAtom -> String
-graphToSmiles g = renderForest $ buildNodeForest g $ dff' g
+graphToSmiles g = renderForest g $ buildNodeForest g $ dff' g
 
 export
 smilesRoundtrip : String -> String
