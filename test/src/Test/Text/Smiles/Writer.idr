@@ -12,6 +12,9 @@ import Data.String
 import Data.Graph.Indexed.Query.Subgraph
 import Data.Graph.Indexed.Util as GU
 
+import Test.Data.Graph.Generators
+import Test.Text.Smiles.Generators
+
 import System.File
 
 import Chem
@@ -82,6 +85,29 @@ testNodes' ls = property1 $
          actual === expected
   ) (zip [1..(length ls)] ls)
 
+genGraph : Gen (Graph SmilesBond SmilesAtom)
+genGraph = lgraph (linear 1 20) (linear 0 20) bond atom
+
+covering
+testNodesGen : Property
+testNodesGen = property $ do
+  G k1 g1 <- forAll genGraph
+  let s = graphToSmiles g1
+  let actual : ChemRes [SmilesParseErr] Bool
+      actual = do
+        G k2 g2 <- readSmiles s
+        pure $ isJust (query (==) (==) g1 g2)
+               && (k1 == k2)
+               && (GU.size g1 == GU.size g2)
+  case actual of
+    Left _      => do
+                   footnote "failed to read Smiles: \{s}"
+                   failure
+    Right True  => success
+    Right False => do
+                   footnote "SMILES: \{s}"
+                   failure
+
 covering
 testNodesMini : Property
 testNodesMini = testNodes smilesTests
@@ -101,7 +127,6 @@ testNodesZincIO : IO Property
 testNodesZincIO = do
   zinc <- loadZinc
   pure (testNodes zinc)
-
 
 
 -- After scrolling through the errors of the first 10'000 entries of zinc.txt
@@ -145,5 +170,6 @@ propsIO = do
     [ ("propSmilesRoundtrip", propSmilesRoundtrip)
     , ("testNodesMini", testNodesMini)
     , ("testNodesZinc", zincProp)
+    , ("testNodesGen", testNodesGen)
     ]
 
