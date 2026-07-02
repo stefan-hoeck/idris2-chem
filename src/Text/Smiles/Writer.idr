@@ -148,14 +148,16 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
   buildNodeForest : Forest (Fin k) -> Forest (Node k)
   buildNodeForest ts = evalState (NS Nothing []) (zipL ts)
 
-
+export
+graphToSmiles : {k : _} -> IGraph k SmilesBond SmilesAtom -> String
+graphToSmiles g = renderForest $ buildNodeForest g $ dff' g
 
 export
 smilesRoundtrip : String -> String
 smilesRoundtrip s =
   case readSmiles' s of
     Left _        => "Parse error."
-    Right (G _ g) => renderForest $ buildNodeForest g $ dff' g
+    Right (G _ g) => graphToSmiles g
 
 smilesRoundtripIO : String -> IO ()
 smilesRoundtripIO = putStrLn . smilesRoundtrip
