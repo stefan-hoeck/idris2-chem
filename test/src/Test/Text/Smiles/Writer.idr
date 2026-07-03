@@ -117,9 +117,9 @@ propsIO : IO Group
 propsIO = do
   zincProp <- testRoundtripsZincIO
   pure $ MkGroup "Text.Smiles.Writer"
-    [ ("testRoundtripsMini",          testRoundtripsMini)
-    , ("testRoundtripsZinc",          zincProp)
-    , ("testRoundtripsGen",           testRoundtripsGen)
+    [ ("testRoundtripsMini", testRoundtripsMini)
+    , ("testRoundtripsZinc", zincProp)
+    , ("testRoundtripsGen",  testRoundtripsGen)
     ]
 
 
