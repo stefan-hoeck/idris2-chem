@@ -15,6 +15,7 @@ import Derive.Prelude
 ------------------------------------------------------------------------------
 -- Types
 ------------------------------------------------------------------------------
+
 record RingData k where
   constructor RD
   edge : Edge k SmilesBond
@@ -35,14 +36,17 @@ record NodeState k where
   openRings : List (RingData k)
 
 %runElab deriveIndexed "NodeState" [Eq]
+
 ------------------------------------------------------------------------------
 -- SMILES Rendering
 ------------------------------------------------------------------------------
+
 parameters (g : IGraph k SmilesBond SmilesAtom)
 
   ringNr : RingData k -> RingNr
   ringNr (RD _ (R nr _)) = nr
 
+  -- refactor?
   renderRingNr : List (RingData k) -> String
   renderRingNr =
     fastConcat . map render . sortBy (compare `on` ringNr)
@@ -55,6 +59,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
             sym       = if isDefault then "" else interpolate bo
          in sym ++ interpolate (ringNr rd)
 
+  -- refactor?
   renderBond : Node k -> String
   renderBond (MkNode v pE bothArom _) =
     case pE of
@@ -77,9 +82,11 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
   public export
   renderForest : Forest (Node k) -> String
   renderForest = fastConcat . intersperse "." . map renderTree
+
 -------------------------------------------------------------------------------
 -- Rings
 -------------------------------------------------------------------------------
+
   findClosableOpenRing :
        Fin k -- neighbour
     -> Fin k -- current
@@ -100,7 +107,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
 -------------------------------------------------------------------------------
 -- Traversal Helpers
 -------------------------------------------------------------------------------
-
+  -- is this needed? maybe use directly?
   parentE : Maybe (Fin k) -> Fin k -> Maybe SmilesBond
   parentE Nothing  _ = Nothing
   parentE (Just p) v = elab g p v
@@ -124,6 +131,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
           (\(n, _) => not (elem n children) && not (Just n == p))
           (neighboursAsPairs g c)
 
+      -- format?
       -- close an existing ring or open a new one
       step : List (RingData k) -> (Fin k, SmilesBond) -> List (RingData k)
       step ors (n, e) =
@@ -137,6 +145,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
 
   zipL : Forest (Fin k) -> State (NodeState k) (Forest (Node k))
 
+  -- refactor?
   buildNodeTree : Tree (Fin k) -> State (NodeState k) (Tree (Node k))
   buildNodeTree t@(T v ts) = do
     pNS@(NS p openR) <- get
