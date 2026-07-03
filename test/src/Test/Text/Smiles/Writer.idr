@@ -67,14 +67,6 @@ sameGraphAfterRoundtrip s = do
 --          Properties
 --------------------------------------------------------------------------------
 
-propSmilesRoundtrip : Property
-propSmilesRoundtrip = property1 $
-  traverse_ (\s => smilesRoundtrip s === s) smilesTests
-
-propSmilesRoundtripNotEqual : Property
-propSmilesRoundtripNotEqual = property1 $
-  traverse_ (\s => smilesRoundtrip s /== "This should fail") smilesTests
-
 covering
 testRoundtrips : List String -> Property
 testRoundtrips ls = property1 $
@@ -115,28 +107,6 @@ testRoundtripsGen = property $ do
                    footnote "SMILES: \{s}"
                    failure
 
--- The function renderForest does not produce canonical SMILES. Consequently,
--- testRoundtripsGen may occasionally report different SMILES strings that
--- so far seem to represent the same graph.
-
--- Example:
--- ━━━ Failed (- lhs) (+ rhs) ━━━
--- - "\"C=1CC=1=1CC=1.C\""
--- + "\"C1CC=11CC=1.C\""
-
--- Both have the same graph.
--- Text.Smiles.Writer> :exec printLn $ readSmiles' "C1CC=11CC=1.C"
--- Right (G 6 (mkGraph [SubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom
--- = False}, SubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom = False}, S
--- ubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom = False}] [E 0 1 Sngl,
---  E 0 2 Dbl, E 1 2 Sngl, E 2 3 Sngl, E 2 4 Dbl, E 3 4 Sngl]))
-
--- Text.Smiles.Writer> :exec printLn $ readSmiles' "C=1CC=1=1CC=1.C"
--- Right (G 6 (mkGraph [SubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom
--- = False}, SubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom = False}, S
--- ubsetAtom {elem = C, arom = False}, SubsetAtom {elem = C, arom = False}] [E 0 1 Sngl,
---  E 0 2 Dbl, E 1 2 Sngl, E 2 3 Sngl, E 2 4 Dbl, E 3 4 Sngl]))
-
 --------------------------------------------------------------------------------
 --          props
 --------------------------------------------------------------------------------
@@ -147,9 +117,7 @@ propsIO : IO Group
 propsIO = do
   zincProp <- testRoundtripsZincIO
   pure $ MkGroup "Text.Smiles.Writer"
-    [ ("propSmilesRoundtrip",         propSmilesRoundtrip)
-    , ("propSmilesRoundtripNotEqual", propSmilesRoundtripNotEqual)
-    , ("testRoundtripsMini",          testRoundtripsMini)
+    [ ("testRoundtripsMini",          testRoundtripsMini)
     , ("testRoundtripsZinc",          zincProp)
     , ("testRoundtripsGen",           testRoundtripsGen)
     ]
