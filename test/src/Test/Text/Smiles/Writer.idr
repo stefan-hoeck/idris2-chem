@@ -36,77 +36,34 @@ propSmilesRoundtrip : Property
 propSmilesRoundtrip = property1 $
   traverse_ (\s => smilesRoundtrip s === s) smilesTests
 
+propSmilesRoundtripNotEqual : Property
+propSmilesRoundtripNotEqual = property1 $
+  traverse_ (\s => smilesRoundtrip s /== "This should fail") smilesTests
+
+covering
+graphsRoundtripOk : String -> ChemRes [SmilesParseErr] Bool
+graphsRoundtripOk s = do
+  G o1 g1 <- readSmiles s
+  G o2 g2 <- readSmiles (smilesRoundtrip s)
+  pure $ isJust (query (==) (==) g1 g2)
+                && (o1 == o2)
+                && (GU.size g1 == GU.size g2)
+
 covering
 testNodes : List String -> Property
 testNodes ls = property1 $
   traverse_ (\(n, s) =>
-    let
-        actual : ChemRes [SmilesParseErr] Bool
-        actual = do
-          G o1 g1 <- readSmiles s
-          G o2 g2 <- readSmiles (smilesRoundtrip s)
-          pure $ isJust (query (==) (==) g1 g2)
-                        && (o1 == o2)
-                        && (GU.size g1 == GU.size g2)
-    in case actual of
-            Left _      => do
-                           footnote "failed to read Smiles: {s}"
-                           failure
-            Right True  => success
-            Right False => do
-              footnote "Line: \{show n}"
-              footnote "SMILES:    \{s}"
-              footnote "Roundtrip: \{smilesRoundtrip s}"
-              failure
-            ) (zip [1..(length ls)] ls)
-
-covering
--- old version, keeping it to compare nr of errors later
-testNodes' : List String -> Property
-testNodes' ls = property1 $
-  traverse_ (\(n, s) =>
-    let
-        expected : ChemRes [SmilesParseErr] (Maybe (List Nat))
-        expected = do
-          G _ g0 <- readSmiles s
-          pure $ Just $ map finToNat (nodes g0)
-
-        actual : ChemRes [SmilesParseErr] (Maybe (List Nat))
-        actual = do
-          G _ g1 <- readSmiles s
-          G _ g2 <- readSmiles (smilesRoundtrip s)
-          pure $ toList . map finToNat <$> query (==) (==) g1 g2
-    in if actual == expected then
-          success
-       else do
-         footnote "Line: \{show n}"
-         footnote "SMILES:    \{s}"
-         footnote "Roundtrip: \{smilesRoundtrip s}"
-         actual === expected
-  ) (zip [1..(length ls)] ls)
-
-genGraph : Gen (Graph SmilesBond SmilesAtom)
-genGraph = lgraph (linear 1 50) (linear 0 80) bond atom
-
-covering
-testNodesGen : Property
-testNodesGen = property $ do
-  G k1 g1 <- forAll genGraph
-  let s = graphToSmiles g1
-  let actual : ChemRes [SmilesParseErr] Bool
-      actual = do
-        G k2 g2 <- readSmiles s
-        pure $ isJust (query (==) (==) g1 g2)
-               && (k1 == k2)
-               && (GU.size g1 == GU.size g2)
-  case actual of
-    Left _      => do
-                   footnote "failed to read Smiles: \{s}"
-                   failure
-    Right True  => success
-    Right False => do
-                   footnote "SMILES: \{s}"
-                   failure
+    case graphsRoundtripOk s of
+         Left _      => do
+           footnote "failed to read Smiles: {s}"
+           failure
+         Right True  => success
+         Right False => do
+           footnote "Line: \{show n}"
+           footnote "SMILES:    \{s}"
+           footnote "Roundtrip: \{smilesRoundtrip s}"
+           failure
+             ) (zip [1..(length ls)] ls)
 
 covering
 testNodesMini : Property
@@ -127,6 +84,23 @@ testNodesZincIO : IO Property
 testNodesZincIO = do
   zinc <- loadZinc
   pure (testNodes zinc)
+
+genGraph : Gen (Graph SmilesBond SmilesAtom)
+genGraph = lgraph (linear 1 50) (linear 0 80) bond atom
+
+covering
+testNodesGen : Property
+testNodesGen = property $ do
+  G _ g1 <- forAll genGraph
+  let s = graphToSmiles g1
+  case graphsRoundtripOk s of
+    Left _      => do
+                   footnote "failed to read Smiles: \{s}"
+                   failure
+    Right True  => success
+    Right False => do
+                   footnote "SMILES: \{s}"
+                   failure
 
 -- The code does not produce canonical smiles code which is why we get
 -- errors like this one occasionaly from testNodesGen.
@@ -160,6 +134,7 @@ propsIO = do
   zincProp <- testNodesZincIO
   pure $ MkGroup "Text.Smiles.Writer"
     [ ("propSmilesRoundtrip", propSmilesRoundtrip)
+    , ("propSmilesRoundtripNotEqual", propSmilesRoundtripNotEqual)
     , ("testNodesMini", testNodesMini)
     , ("testNodesZinc", zincProp)
     , ("testNodesGen", testNodesGen)
