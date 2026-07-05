@@ -40,33 +40,28 @@ record NodeState k where
 ------------------------------------------------------------------------------
 -- SMILES Rendering
 ------------------------------------------------------------------------------
-
 parameters (g : IGraph k SmilesBond SmilesAtom)
+
+  bondSymbol : (bothArom : Bool) -> SmilesBond -> String
+  bondSymbol bothArom bo =
+    if bo == (if bothArom then Arom else Sngl)
+       then ""
+       else interpolate bo
 
   ringNr : RingData k -> RingNr
   ringNr (RD _ (R nr _)) = nr
 
-  -- refactor?
   renderRingNr : List (RingData k) -> String
   renderRingNr =
     fastConcat . map render . sortBy (compare `on` ringNr)
     where
       render : RingData k -> String
       render rd@(RD e _) =
-        let bo        = label e
-            bothArom  = isArom (lab g (node1 e)) && isArom (lab g (node2 e))
-            isDefault = if bothArom then bo == Arom else bo == Sngl
-            sym       = if isDefault then "" else interpolate bo
-         in sym ++ interpolate (ringNr rd)
+        let bothArom = isArom (lab g (node1 e)) && isArom (lab g (node2 e))
+         in bondSymbol bothArom (label e) ++ interpolate (ringNr rd)
 
-  -- refactor?
   renderBond : Node k -> String
-  renderBond (MkNode v pE bothArom _) =
-    case pE of
-      Nothing => ""
-      Just bo =>
-        let isDefault = if bothArom then bo == Arom else bo == Sngl
-         in if isDefault then "" else interpolate bo
+  renderBond (MkNode _ pE bothArom _) = maybe "" (bondSymbol bothArom) pE
 
   renderTree : Tree (Node k) -> String
   renderTree (T c@(MkNode v _ _ rings) cs) =
@@ -107,10 +102,6 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
 -------------------------------------------------------------------------------
 -- Traversal Helpers
 -------------------------------------------------------------------------------
-  -- is this needed? maybe use directly?
-  parentE : Maybe (Fin k) -> Fin k -> Maybe SmilesBond
-  parentE Nothing  _ = Nothing
-  parentE (Just p) v = elab g p v
 
   -- rings = neighbours - parent - children
   computeNodeContext :
@@ -131,36 +122,44 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
           (\(n, _) => not (elem n children) && not (Just n == p))
           (neighboursAsPairs g c)
 
-      -- format?
       -- close an existing ring or open a new one
       step : List (RingData k) -> (Fin k, SmilesBond) -> List (RingData k)
       step ors (n, e) =
         case findClosableOpenRing n c ors of
-
           Just rd => filter (\r => ringNr r /= ringNr rd) ors
-          Nothing              =>
-            case mkEdge c n e of
-              Just edge => RD edge (R (allocateRingNr ors) Nothing) :: ors
-              Nothing   => ors
+          Nothing =>
+            maybe ors
+                  (\edge => RD edge (R (allocateRingNr ors) Nothing) :: ors)
+                  (mkEdge c n e)
 
   zipL : Forest (Fin k) -> State (NodeState k) (Forest (Node k))
 
-  -- refactor?
+  -- Rings that were opened or closed at this node.
+  ringDelta : List (RingData k) -> List (RingData k) -> List (RingData k)
+  ringDelta openR openR' =
+    filter (\x => not (elem x openR')) openR ++
+    filter (\x => not (elem x openR )) openR'
+
+  -- bond to parent (if any) and whether both atoms are aromatic
+  parentInfo : Maybe (Fin k) -> Fin k -> (Maybe SmilesBond, Bool)
+  parentInfo p v =
+    ( maybe Nothing (\p => elab g p v) p
+    , maybe False (\pn => isArom (lab g pn) && isArom (lab g v)) p
+    )
+
   buildNodeTree : Tree (Fin k) -> State (NodeState k) (Tree (Node k))
   buildNodeTree t@(T v ts) = do
     pNS@(NS p openR) <- get
+
     -- get info for current node
     let openR'  = computeNodeContext v p t openR
-        ringChanges =
-          filter (\x => not (elem x openR')) openR ++
-          filter (\x => not (elem x openR )) openR'
+        ringChanges = ringDelta openR openR'
 
     put (NS (Just v) openR') -- set current node as parent
-    ts2 <- zipL ts -- process children
-    put pNS -- restore old parent
+    ts2 <- zipL ts           -- process children
+    put pNS                  -- restore old parent
 
-    let pe        = parentE p v
-        bothArom  = maybe False (\pn => isArom (lab g pn) && isArom (lab g v)) p
+    let (pe, bothArom) = parentInfo p v
 
     pure (T (MkNode (lab g v) pe bothArom ringChanges) ts2)
 
@@ -173,7 +172,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
 
 export
 graphToSmiles : {k : _} -> IGraph k SmilesBond SmilesAtom -> String
-graphToSmiles g = renderForest g $ buildNodeForest g $ dff' g
+graphToSmiles g = renderForest g . buildNodeForest g $ dff' g
 
 export
 smilesRoundtrip : String -> String
