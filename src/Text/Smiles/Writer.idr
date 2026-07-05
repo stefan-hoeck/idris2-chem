@@ -1,3 +1,10 @@
+||| Writes a molecular graph (IGraph k SmilesBond SmilesAtom) out as a
+||| SMILES string.
+|||
+||| Limitation: Currently only stereochemistry that is already explicitly
+||| encoded in the graph is written into a SMILES string.
+||| No stereochemistry is derived from atom coordinates.
+
 module Text.Smiles.Writer
 
 import Text.Smiles.Types
@@ -27,7 +34,7 @@ record Node k where
   constructor MkNode
   label : SmilesAtom
   parentEdge : Maybe SmilesBond
-  parentArom : Bool
+  bothArom : Bool
   rings : List (RingData k)
 
 record NodeState k where
@@ -42,11 +49,14 @@ record NodeState k where
 ------------------------------------------------------------------------------
 parameters (g : IGraph k SmilesBond SmilesAtom)
 
-  bondSymbol : (bothArom : Bool) -> SmilesBond -> String
+  bondSymbol : Bool -> SmilesBond -> String
   bondSymbol bothArom bo =
     if bo == (if bothArom then Arom else Sngl)
        then ""
        else interpolate bo
+
+  bothAromatic : Fin k -> Fin k -> Bool
+  bothAromatic a b = isArom (lab g a) && isArom (lab g b)
 
   ringNr : RingData k -> RingNr
   ringNr (RD _ (R nr _)) = nr
@@ -57,7 +67,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
     where
       render : RingData k -> String
       render rd@(RD e _) =
-        let bothArom = isArom (lab g (node1 e)) && isArom (lab g (node2 e))
+        let bothArom = bothAromatic (node1 e) (node2 e)
          in bondSymbol bothArom (label e) ++ interpolate (ringNr rd)
 
   renderBond : Node k -> String
@@ -143,8 +153,8 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
   -- bond to parent (if any) and whether both atoms are aromatic
   parentInfo : Maybe (Fin k) -> Fin k -> (Maybe SmilesBond, Bool)
   parentInfo p v =
-    ( maybe Nothing (\p => elab g p v) p
-    , maybe False (\pn => isArom (lab g pn) && isArom (lab g v)) p
+    ( maybe Nothing (\pn => elab g pn v) p
+    , maybe False   (\pn => bothAromatic pn v) p
     )
 
   buildNodeTree : Tree (Fin k) -> State (NodeState k) (Tree (Node k))
@@ -152,7 +162,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
     pNS@(NS p openR) <- get
 
     -- get info for current node
-    let openR'  = computeNodeContext v p t openR
+    let openR'      = computeNodeContext v p t openR
         ringChanges = ringDelta openR openR'
 
     put (NS (Just v) openR') -- set current node as parent
