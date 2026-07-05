@@ -1,3 +1,10 @@
+||| Writes a molecular graph (IGraph k SmilesBond SmilesAtom) out as a
+||| SMILES string.
+|||
+||| Limitation: Currently only stereochemistry that is already explicitly
+||| encoded in the graph is written into a SMILES string.
+||| No stereochemistry is derived from atom coordinates.
+
 module Text.Smiles.Writer
 
 import Text.Smiles.Types
@@ -15,6 +22,7 @@ import Derive.Prelude
 ------------------------------------------------------------------------------
 -- Types
 ------------------------------------------------------------------------------
+
 record RingData k where
   constructor RD
   edge : Edge k SmilesBond
@@ -26,7 +34,7 @@ record Node k where
   constructor MkNode
   label : SmilesAtom
   parentEdge : Maybe SmilesBond
-  parentArom : Bool
+  bothArom : Bool
   rings : List (RingData k)
 
 record NodeState k where
@@ -35,10 +43,20 @@ record NodeState k where
   openRings : List (RingData k)
 
 %runElab deriveIndexed "NodeState" [Eq]
+
 ------------------------------------------------------------------------------
 -- SMILES Rendering
 ------------------------------------------------------------------------------
 parameters (g : IGraph k SmilesBond SmilesAtom)
+
+  bondSymbol : Bool -> SmilesBond -> String
+  bondSymbol bothArom bo =
+    if bo == (if bothArom then Arom else Sngl)
+       then ""
+       else interpolate bo
+
+  bothAromatic : Fin k -> Fin k -> Bool
+  bothAromatic a b = isArom (lab g a) && isArom (lab g b)
 
   ringNr : RingData k -> RingNr
   ringNr (RD _ (R nr _)) = nr
@@ -49,19 +67,11 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
     where
       render : RingData k -> String
       render rd@(RD e _) =
-        let bo        = label e
-            bothArom  = isArom (lab g (node1 e)) && isArom (lab g (node2 e))
-            isDefault = if bothArom then bo == Arom else bo == Sngl
-            sym       = if isDefault then "" else interpolate bo
-         in sym ++ interpolate (ringNr rd)
+        let bothArom = bothAromatic (node1 e) (node2 e)
+         in bondSymbol bothArom (label e) ++ interpolate (ringNr rd)
 
   renderBond : Node k -> String
-  renderBond (MkNode v pE bothArom _) =
-    case pE of
-      Nothing => ""
-      Just bo =>
-        let isDefault = if bothArom then bo == Arom else bo == Sngl
-         in if isDefault then "" else interpolate bo
+  renderBond (MkNode _ pE bothArom _) = maybe "" (bondSymbol bothArom) pE
 
   renderTree : Tree (Node k) -> String
   renderTree (T c@(MkNode v _ _ rings) cs) =
@@ -77,9 +87,11 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
   public export
   renderForest : Forest (Node k) -> String
   renderForest = fastConcat . intersperse "." . map renderTree
+
 -------------------------------------------------------------------------------
 -- Rings
 -------------------------------------------------------------------------------
+
   findClosableOpenRing :
        Fin k -- neighbour
     -> Fin k -- current
@@ -100,10 +112,6 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
 -------------------------------------------------------------------------------
 -- Traversal Helpers
 -------------------------------------------------------------------------------
-
-  parentE : Maybe (Fin k) -> Fin k -> Maybe SmilesBond
-  parentE Nothing  _ = Nothing
-  parentE (Just p) v = elab g p v
 
   -- rings = neighbours - parent - children
   computeNodeContext :
@@ -128,30 +136,40 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
       step : List (RingData k) -> (Fin k, SmilesBond) -> List (RingData k)
       step ors (n, e) =
         case findClosableOpenRing n c ors of
-
           Just rd => filter (\r => ringNr r /= ringNr rd) ors
-          Nothing              =>
-            case mkEdge c n e of
-              Just edge => RD edge (R (allocateRingNr ors) Nothing) :: ors
-              Nothing   => ors
+          Nothing =>
+            maybe ors
+                  (\edge => RD edge (R (allocateRingNr ors) Nothing) :: ors)
+                  (mkEdge c n e)
 
   zipL : Forest (Fin k) -> State (NodeState k) (Forest (Node k))
+
+  -- Rings that were opened or closed at this node.
+  ringDelta : List (RingData k) -> List (RingData k) -> List (RingData k)
+  ringDelta openR openR' =
+    filter (\x => not (elem x openR')) openR ++
+    filter (\x => not (elem x openR )) openR'
+
+  -- bond to parent (if any) and whether both atoms are aromatic
+  parentInfo : Maybe (Fin k) -> Fin k -> (Maybe SmilesBond, Bool)
+  parentInfo p v =
+    ( maybe Nothing (\pn => elab g pn v) p
+    , maybe False   (\pn => bothAromatic pn v) p
+    )
 
   buildNodeTree : Tree (Fin k) -> State (NodeState k) (Tree (Node k))
   buildNodeTree t@(T v ts) = do
     pNS@(NS p openR) <- get
+
     -- get info for current node
-    let openR'  = computeNodeContext v p t openR
-        ringChanges =
-          filter (\x => not (elem x openR')) openR ++
-          filter (\x => not (elem x openR )) openR'
+    let openR'      = computeNodeContext v p t openR
+        ringChanges = ringDelta openR openR'
 
     put (NS (Just v) openR') -- set current node as parent
-    ts2 <- zipL ts -- process children
-    put pNS -- restore old parent
+    ts2 <- zipL ts           -- process children
+    put pNS                  -- restore old parent
 
-    let pe        = parentE p v
-        bothArom  = maybe False (\pn => isArom (lab g pn) && isArom (lab g v)) p
+    let (pe, bothArom) = parentInfo p v
 
     pure (T (MkNode (lab g v) pe bothArom ringChanges) ts2)
 
@@ -164,7 +182,7 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
 
 export
 graphToSmiles : {k : _} -> IGraph k SmilesBond SmilesAtom -> String
-graphToSmiles g = renderForest g $ buildNodeForest g $ dff' g
+graphToSmiles g = renderForest g . buildNodeForest g $ dff' g
 
 export
 smilesRoundtrip : String -> String
