@@ -49,6 +49,8 @@ record NodeState k where
 ------------------------------------------------------------------------------
 parameters (g : IGraph k SmilesBond SmilesAtom)
 
+  -- hock: for testability, this should not be under the parameters block,
+  -- as it makes no use of `g` internally.
   bondSymbol : Bool -> SmilesBond -> String
   bondSymbol bothArom bo =
     if bo == (if bothArom then Arom else Sngl)
@@ -58,6 +60,8 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
   bothAromatic : Fin k -> Fin k -> Bool
   bothAromatic a b = isArom (lab g a) && isArom (lab g b)
 
+  -- hock: for testability, this should not be under the parameters block,
+  -- as it makes no use of `g` internally.
   ringNr : RingData k -> RingNr
   ringNr (RD _ (R nr _)) = nr
 
@@ -70,6 +74,8 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
         let bothArom = bothAromatic (node1 e) (node2 e)
          in bondSymbol bothArom (label e) ++ interpolate (ringNr rd)
 
+  -- hock: for testability, this should not be under the parameters block,
+  -- as it makes no use of `g` internally.
   renderBond : Node k -> String
   renderBond (MkNode _ pE bothArom _) = maybe "" (bondSymbol bothArom) pE
 
@@ -92,6 +98,8 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
 -- Rings
 -------------------------------------------------------------------------------
 
+  -- hock: for testability, this should not be under the parameters block,
+  -- as it makes no use of `g` internally.
   findClosableOpenRing :
        Fin k -- neighbour
     -> Fin k -- current
@@ -103,6 +111,8 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
       (node1 e == c && node2 e == n) ||
       (node1 e == n && node2 e == c))
 
+  -- hock: for testability, this should not be under the parameters block,
+  -- as it makes no use of `g` internally.
   allocateRingNr : List (RingData k) -> RingNr
   allocateRingNr ors =
      fromMaybe 0 $
@@ -125,6 +135,11 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
     where
       children : List (Fin k)
       children = map (\(T c _) => c) ts
+      -- hock: better:
+      -- children = map value ts
+      -- note also, that - for performance reasons - this should be bound
+      -- to a variable in a `let` expression, otherwise it gets recomputed
+      -- everytime it is needed in `filtered`
 
       filtered : List (Fin k, SmilesBond)
       filtered =
@@ -150,12 +165,19 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
     filter (\x => not (elem x openR')) openR ++
     filter (\x => not (elem x openR )) openR'
 
+    -- hock: avoid lambdas for readability
+    -- filter (not . flip elem openR') openR ++
+    -- filter (not . flip elem openR ) openR'
+
   -- bond to parent (if any) and whether both atoms are aromatic
   parentInfo : Maybe (Fin k) -> Fin k -> (Maybe SmilesBond, Bool)
   parentInfo p v =
     ( maybe Nothing (\pn => elab g pn v) p
     , maybe False   (\pn => bothAromatic pn v) p
     )
+    -- hock: use currying, if possible
+    --       `maybe Nothing foo bar` is just monadic bind, so `foo >>= bar`
+    -- (p >>= elab g v, maybe False (bothAromatic v) p)
 
   buildNodeTree : Tree (Fin k) -> State (NodeState k) (Tree (Node k))
   buildNodeTree t@(T v ts) = do
@@ -176,6 +198,9 @@ parameters (g : IGraph k SmilesBond SmilesAtom)
   zipL []      = pure []
   zipL (t::ts) = [| buildNodeTree t :: zipL ts |]
 
+  -- hock: Only use `public export` when stuff needs to reduce
+  --       during unification. If you don't know what this means,
+  --       you probably don't need `public export` for functions.
   public export
   buildNodeForest : Forest (Fin k) -> Forest (Node k)
   buildNodeForest ts = evalState (NS Nothing []) (zipL ts)
@@ -184,6 +209,8 @@ export
 graphToSmiles : {k : _} -> IGraph k SmilesBond SmilesAtom -> String
 graphToSmiles g = renderForest g . buildNodeForest g $ dff' g
 
+-- hock: this should not be exported as it seems to not be very useful
+-- (or well typed)
 export
 smilesRoundtrip : String -> String
 smilesRoundtrip s =
