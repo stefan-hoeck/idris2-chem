@@ -54,43 +54,42 @@ public export
 record CSTCK (q : Type) where
   constructor CK
   -- text position
-  prev_      : Ref q ByteString
-  cur_       : Ref q ByteString
-  offset_    : Ref q Nat
-  relpos_    : Ref q Integer
-  len_       : Ref q Nat
-  positions_ : Ref q (SnocList BytePos)
+  bufSize_    : Nat
+  prev_       : ByteString
+  cur_        : IBuffer bufSize_
+  prevOffset_ : Nat
+  curOffset_  : Nat
+  from_       : Ref q (LTENat bufSize_)
+  till_       : Ref q (LTENat bufSize_)
+  positions_  : Ref q (SnocList BytePos)
 
   -- headers
-  h1,h2,h3   : Ref q MolLine
+  h1,h2,h3    : Ref q MolLine
 
   -- graphs
-  mgraph     : Ref q (MGraph q)
-  stack_     : Ref q (SnocList Molfile)
-  groups     : Ref q (SortedMap Nat String)
-  count      : Ref q Nat
-  isEmpty    : Ref q Bool
+  mgraph      : Ref q (MGraph q)
+  stack_      : Ref q (SnocList Molfile)
+  groups      : Ref q (SortedMap Nat String)
+  count       : Ref q Nat
+  isEmpty     : Ref q Bool
 
   -- sdata
-  sdhead     : Ref q SDHeader
-  sdvals     : Ref q (SnocList StructureData)
+  sdhead      : Ref q SDHeader
+  sdvals      : Ref q (SnocList StructureData)
 
   -- utilities
-  error_     : Ref q (Maybe $ BBErr MolErr)
-  strings_   : Ref q (SnocList String)
-  pos        : Ref q Nat
+  error_      : Ref q (Maybe $ BBErr MolErr)
+  strings_    : Ref q (SnocList String)
+  pos         : Ref q Nat
 
 %runElab derive "CSTCK" [HasBBErr,HasBytes,HasStack,HasStringLits]
 
 export
-init : F1 q (CSTCK q)
-init = T1.do
-  pr <- ref1 empty
-  fl <- ref1 empty
-  ro <- ref1 Z
-  rr <- ref1 0
-  ll <- ref1 Z
-  ps <- ref1 [<]
+init : (n : Nat) -> IBuffer n -> F1 q (CSTCK q)
+init n buf = T1.do
+  rf  <- ref1 (first n)
+  rt  <- ref1 (first n)
+  ps  <- ref1 [<]
   h1  <- ref1 ""
   h2  <- ref1 ""
   h3  <- ref1 ""
@@ -105,7 +104,7 @@ init = T1.do
   err <- ref1 Nothing
   str <- ref1 [<]
   pos <- ref1 Z
-  pure (CK pr fl ro rr ll ps h1 h2 h3 gr gs grp cnt ie sdh sdd err str pos)
+  pure (CK n empty buf 0 0 rf rt ps h1 h2 h3 gr gs grp cnt ie sdh sdd err str pos)
 
 export %inline
 setPos : (sk : CSTCK q) => Nat -> F1' q

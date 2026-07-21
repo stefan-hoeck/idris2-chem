@@ -125,7 +125,7 @@ keyValRest = dots >> star ('-' >> newline >> mv30 >> dots) >> newline
 ||| Recognizes some tokens, dropping any optional white space around them.
 export %inline
 spaced : HasBytes s => Steps q r s -> DFA q r s
-spaced ss = dfa $ ignore' (plus ' ') :: ss
+spaced ss = dfa $ ignore (plus ' ') :: ss
 
 size : RExp True
 size = posdigit >> star digit
@@ -147,7 +147,7 @@ unquoted = start >> star uqc
 splitted : Steps q KSz SK -> DFA q KSz SK
 splitted ss =
   spaced $
-    [ ignore' ('-' >> newline >> mv30)
+    [ ignore ('-' >> newline >> mv30)
     , step' newline KDone
     ] ++ ss
 
