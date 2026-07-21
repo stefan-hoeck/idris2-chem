@@ -155,31 +155,30 @@ addRing p (R r mb1) st =
 export
 record SSTCK (q : Type) where
   constructor SS
-  prev_      : Ref q ByteString
-  cur_       : Ref q ByteString
-  offset_    : Ref q Nat
-  relpos_    : Ref q Integer
-  len_       : Ref q Nat
-  positions_ : Ref q (SnocList BytePos)
-  st         : Ref q ST
-  dob        : Ref q DOB
-  mass       : Ref q (Maybe MassNr)
-  elem       : Ref q AromElem
-  chirality  : Ref q Chirality
-  hcount     : Ref q HCount
-  charge     : Ref q Charge
-  error_     : Ref q (Maybe $ BBErr SmilesErr)
-  stack_     : Ref q (SnocList SmilesGraph)
+  bufSize_    : Nat
+  prev_       : ByteString
+  cur_        : IBuffer bufSize_
+  prevOffset_ : Nat
+  curOffset_  : Nat
+  from_       : Ref q (LTENat bufSize_)
+  till_       : Ref q (LTENat bufSize_)
+  positions_  : Ref q (SnocList BytePos)
+  st          : Ref q ST
+  dob         : Ref q DOB
+  mass        : Ref q (Maybe MassNr)
+  elem        : Ref q AromElem
+  chirality   : Ref q Chirality
+  hcount      : Ref q HCount
+  charge      : Ref q Charge
+  error_      : Ref q (Maybe $ BBErr SmilesErr)
+  stack_      : Ref q (SnocList SmilesGraph)
 
 %runElab derive "SSTCK" [HasBytes, HasBBErr, HasStack]
 
-init : F1 q (SSTCK q)
-init = T1.do
-  pr  <- ref1 empty
-  fl  <- ref1 empty
-  ro  <- ref1 Z
-  rr  <- ref1 0
-  ll  <- ref1 Z
+init : (n : Nat) -> IBuffer n -> F1 q (SSTCK q)
+init n buf = T1.do
+  rf  <- ref1 (first n)
+  rt  <- ref1 (first n)
   ps  <- ref1 [<]
   s   <- ref1 empty
   db  <- ref1 Dot
@@ -190,7 +189,7 @@ init = T1.do
   ch  <- ref1 (the Charge 0)
   er  <- ref1 Nothing
   st  <- ref1 [<]
-  pure (SS pr fl ro rr ll ps s db ms el cy hc ch er st)
+  pure (SS n empty buf 0 0 rf rt ps s db ms el cy hc ch er st)
 
 %runElab deriveParserState "SSz" "SST"
   [ "Chain", "NewBranch", "SRing", "Closed", "Err", "Atom"

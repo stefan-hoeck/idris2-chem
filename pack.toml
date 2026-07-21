@@ -35,6 +35,7 @@ path   = "profile"
 ipkg   = "profile.ipkg"
 
 [custom.all]
+array.commit      = "latest:main"
 ilex-core.commit  = "latest:main"
 ilex.commit       = "latest:main"
 ilex-debug.commit = "latest:main"
