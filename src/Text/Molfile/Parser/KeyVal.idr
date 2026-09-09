@@ -3,7 +3,8 @@ module Text.Molfile.Parser.KeyVal
 import Derive.Prelude
 import Syntax.T1
 import Text.ILex
-import Text.ILex.Derive
+import Text.ILex.State.Derive
+import Text.ILex.State.Regular
 import Text.Molfile.Parser.Util
 import Text.Molfile.Types
 
@@ -68,14 +69,14 @@ data Part : Type where
   VL : SnocList KeyVal -> String -> Nat -> SnocList (KV 0) -> Part
 
 public export
-0 SK : Type -> Type
-SK = Stack MolErr Part KSz
+0 ST : Type -> Type
+ST = State MolErr Part KSz
 
 --------------------------------------------------------------------------------
 -- Transformations
 --------------------------------------------------------------------------------
 
-parameters {auto sk : SK q}
+parameters {auto sk : ST q}
   part : KV 0 -> Part -> F1 q KST
   part p (VS sx)      = putStackAs (VS $ sx:<w1 p) Entry
   part p (VK sx s)    = putStackAs (VS $ sx:<P s (w0 p)) Entry
@@ -144,14 +145,14 @@ unquoted = start >> star uqc
     uqc   = dot && not ' ' && not ')' && not '='
     start = uqc && not '"' && not '('
 
-splitted : Steps q KSz SK -> DFA q KSz SK
+splitted : Steps q KSz ST -> DFA q KSz ST
 splitted ss =
   spaced $
     [ ignore ('-' >> newline >> mv30)
     , step' newline KDone
     ] ++ ss
 
-val : Steps q KSz SK -> DFA q KSz SK
+val : Steps q KSz ST -> DFA q KSz ST
 val ss =
   splitted $
     [ bytes integer (onPrim . I . decimal)
@@ -159,14 +160,14 @@ val ss =
     , opn' '"' InStr
     ] ++ ss
 
-toplevel : DFA q KSz SK
+toplevel : DFA q KSz ST
 toplevel =
   val
     [ bytes (plus alphaNum >> '=') onKey
     , opn' '(' LStart
     ]
 
-str : DFA q KSz SK
+str : DFA q KSz ST
 str =
   dfa
     [ string (plus $ dot && not '"' && not '-') (pushStr InStr)
@@ -181,7 +182,7 @@ str =
 -- Parser
 --------------------------------------------------------------------------------
 
-kvTrans : Lex1 q KSz SK
+kvTrans : Lex1 q KSz ST
 kvTrans =
   lex1
     [ E KIni   $ dfa [step' mv30 KeyVal.Entry]
@@ -193,7 +194,7 @@ kvTrans =
     , E InStr    str
     ]
 
-kvErr : Arr32 KSz (SK q -> F1 q (BBErr MolErr))
+kvErr : Arr32 KSz (ST q -> F1 q (BBErr MolErr))
 kvErr =
   arr32 KSz (unexpected [])
     [ E InStr  $ unclosedIfEOI "\"" []
@@ -202,10 +203,10 @@ kvErr =
     , E LEnd   $ unclosedIfEOI "(" [")"]
     ]
 
-kvEOI : KST -> SK q -> F1 q (Either (BBErr MolErr) (List KeyVal))
+kvEOI : KST -> ST q -> F1 q (Either (BBErr MolErr) (List KeyVal))
 kvEOI sk s t =
   case sk == KDone || sk == Entry of
-    False => arrFail SK kvErr sk s t
+    False => arrFail ST kvErr sk s t
     True  => case getStack t of
       VS vs # t => Right (vs <>> []) # t
       _     # t => Right [] # t -- impossible

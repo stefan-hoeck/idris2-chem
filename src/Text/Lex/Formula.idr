@@ -4,7 +4,7 @@ import Chem
 import Data.Finite
 import Derive.Prelude
 import Text.ILex
-import Text.ILex.DStack
+import Text.ILex.State.Dependent
 
 %default total
 %language ElabReflection
@@ -24,10 +24,10 @@ export %inline
 Cast (FState ts) (Index FSz) where
   cast v = I (cast $ conIndexFState v) @{mkLT $ inBoundsFState v}
 
-0 SK : Type -> Type
-SK = DStack FState Void
+0 ST : Type -> Type
+ST = DState FState Void
 
-parameters {auto sk : SK q}
+parameters {auto sk : ST q}
 
   %inline
   onelem : Elem -> StateAct q FState FSz
@@ -38,20 +38,20 @@ parameters {auto sk : SK q}
   onnat n FEl (sx:<f:<e) = dput FIni $ sx :< insert e (cast n) f
   onnat n p   sx         = dput p sx
 
-el : Steps q FSz SK
+el : Steps q FSz ST
 el = vals symbol (\el,_ => dact (onelem el)) values
 
-formulaTrans : Lex1 q FSz SK
+formulaTrans : Lex1 q FSz ST
 formulaTrans =
   lex1
     [ entry FIni $ dfa el
     , entry FEl  $ dfa (bytes decimal (dact . onnat . decimal) :: el)
     ]
 
-formulaErr : Arr32 FSz (SK q -> F1 q (BBErr Void))
+formulaErr : Arr32 FSz (ST q -> F1 q (BBErr Void))
 formulaErr = errs []
 
-formulaEOI : Index FSz -> SK q -> F1 q (Either (BBErr Void) Formula)
+formulaEOI : Index FSz -> ST q -> F1 q (Either (BBErr Void) Formula)
 formulaEOI v sk t =
   case read1 sk.stack_ t of
     (_:<f:>FIni)   # t => Right f # t
