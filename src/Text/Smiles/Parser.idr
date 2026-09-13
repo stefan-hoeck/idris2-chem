@@ -6,7 +6,7 @@ import Data.SnocVect
 import Derive.Prelude
 import Syntax.T1
 import Text.ILex
-import Text.ILex.Derive
+import Text.ILex.State.Derive
 import Text.Smiles.Types
 
 %default total
