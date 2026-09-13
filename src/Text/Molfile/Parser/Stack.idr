@@ -5,7 +5,7 @@ import Data.SortedMap as SM
 
 import Syntax.T1
 
-import Text.ILex.Derive
+import Text.ILex.State.Derive
 
 import public Text.ILex
 import public Text.Molfile.Types
