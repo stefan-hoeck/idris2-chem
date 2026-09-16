@@ -50,6 +50,16 @@ genGraph = lgraph (linear 1 50) (linear 0 80) bond atom
 --------------------------------------------------------------------------------
 --          Helpers
 --------------------------------------------------------------------------------
+export
+smilesRoundtrip : String -> String
+smilesRoundtrip s =
+  case readSmiles' s of
+    Left _        => "Parse error."
+    Right (G _ g) => graphToSmiles g
+
+||| Convenience function for manual testing. Might delete later.
+smilesRoundtripIO : String -> IO ()
+smilesRoundtripIO = putStrLn . smilesRoundtrip
 
 ||| Checks if converting a SMILES string into a graph yields an equivalent
 ||| graph as when converting to graph, then back to SMILES string
