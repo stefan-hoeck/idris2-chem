@@ -125,8 +125,8 @@ keyValRest = dots >> star ('-' >> newline >> mv30 >> dots) >> newline
 
 ||| Recognizes some tokens, dropping any optional white space around them.
 export %inline
-spaced : HasBytes s => Steps q r s -> DFA q r s
-spaced ss = dfa $ ignore (plus ' ') :: ss
+spaced : HasBytes s => Steps q r s -> DFA1 q r s
+spaced ss = dfa $ ign (plus ' ') :: ss
 
 size : RExp True
 size = posdigit >> star digit
@@ -145,14 +145,14 @@ unquoted = start >> star uqc
     uqc   = dot && not ' ' && not ')' && not '='
     start = uqc && not '"' && not '('
 
-splitted : Steps q KSz ST -> DFA q KSz ST
+splitted : Steps q KSz ST -> DFA1 q KSz ST
 splitted ss =
   spaced $
-    [ ignore ('-' >> newline >> mv30)
+    [ ign ('-' >> newline >> mv30)
     , step' newline KDone
     ] ++ ss
 
-val : Steps q KSz ST -> DFA q KSz ST
+val : Steps q KSz ST -> DFA1 q KSz ST
 val ss =
   splitted $
     [ bytes integer (onPrim . I . decimal)
@@ -160,14 +160,14 @@ val ss =
     , opn' '"' InStr
     ] ++ ss
 
-toplevel : DFA q KSz ST
+toplevel : DFA1 q KSz ST
 toplevel =
-  val
+  KeyVal.val
     [ bytes (plus alphaNum >> '=') onKey
     , opn' '(' LStart
     ]
 
-str : DFA q KSz ST
+str : DFA1 q KSz ST
 str =
   dfa
     [ string (plus $ dot && not '"' && not '-') (pushStr InStr)
@@ -188,7 +188,7 @@ kvTrans =
     [ E KIni   $ dfa [step' mv30 KeyVal.Entry]
     , E Entry  $ toplevel
     , E KVal   $ toplevel
-    , E LVal   $ val []
+    , E LVal   $ KeyVal.val []
     , E LStart $ splitted [bytes size startList]
     , E LEnd   $ splitted [close ')' (pure Entry)]
     , E InStr    str
