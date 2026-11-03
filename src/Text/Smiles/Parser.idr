@@ -309,9 +309,9 @@ smilesTrans =
     , E SRing     $ dfa (atom ++ ring ++ bond ++ openClose ++ space)
     , E NewBranch $ dfa (atom ++ bond)
     , E Closed    $ dfa (atom ++ bond ++ openClose ++ space)
-    , E BMass     $ dfa (mass :: elem)
-    , E BElem     $ dfa elem
-    , E BChiral   $ dfa (chirality ++ hc ++ chrg ++ bend)
+    , E BMass     $ dfa (mass :: Parser.elem)
+    , E BElem     $ dfa Parser.elem
+    , E BChiral   $ dfa (Parser.chirality ++ hc ++ chrg ++ bend)
     , E BHCount   $ dfa (hc ++ chrg ++ bend)
     , E BCharge   $ dfa (chrg ++ bend)
     , E BEnd      $ dfa bend
