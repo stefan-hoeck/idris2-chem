@@ -216,16 +216,16 @@ Finite RingNr where
 
 ||| A bond in a SMILES string
 public export
-data SmilesBond = Sngl | Arom | Dbl | Trpl | Quad | FW | BW
+data SmilesBondOrder = Sngl | Arom | Dbl | Trpl | Quad | FW | BW
 
 export
-Cast SmilesBond BondOrder where
+Cast SmilesBondOrder BondOrder where
   cast Dbl  = Dbl
   cast Trpl = Triple
   cast _    = Single
 
 export %inline
-Interpolation SmilesBond where
+Interpolation SmilesBondOrder where
   interpolate Sngl = "-"
   interpolate Arom = ":"
   interpolate Dbl  = "="
@@ -234,13 +234,13 @@ Interpolation SmilesBond where
   interpolate FW   = "/"
   interpolate BW   = "\\"
 
-%runElab derive "SmilesBond" [Show,Eq,Ord, Finite]
+%runElab derive "SmilesBondOrder" [Show,Eq,Ord, Finite]
 
 public export
 record Ring where
   constructor R
   ring   : RingNr
-  bond   : Maybe SmilesBond
+  bond   : Maybe SmilesBondOrder
 
 %runElab derive "Ring" [Show,Eq,Finite]
 
@@ -248,6 +248,40 @@ export
 Interpolation Ring where
   interpolate (R r (Just b)) = "\{b}\{r}"
   interpolate (R r Nothing)  = "\{r}"
+
+public export
+record RingIdx where
+  constructor RI
+  idx : Nat
+
+export %inline
+zero : RingIdx
+zero = RI 0
+
+export %inline
+inc : RingIdx -> RingIdx
+inc (RI i) = RI (S i)
+
+%runElab derive "RingIdx" [Show,Eq,Ord]
+
+public export
+data BondTag = CHAIN | RING RingIdx RingIdx
+
+%runElab derive "BondTag" [Show,Eq]
+
+public export
+record SmilesBond where
+  constructor SB
+  seqtag : BondTag
+  order  : SmilesBondOrder
+
+%runElab derive "SmilesBond" [Show,Eq]
+
+export %inline
+Cast SmilesBond BondOrder where cast = cast . order
+
+export %inline
+Interpolation SmilesBond where interpolate = interpolate . order
 
 public export
 0 SmilesGraph : Type

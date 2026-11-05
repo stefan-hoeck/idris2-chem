@@ -49,8 +49,12 @@ atom = frequency
   ]
 
 export
+bondOrder : Gen SmilesBondOrder
+bondOrder = element [Sngl,Dbl,Trpl,Quad,Arom,FW,BW]
+
+export
 bond : Gen SmilesBond
-bond = element [Sngl,Dbl,Trpl,Quad,Arom,FW,BW]
+bond = SB CHAIN <$> bondOrder
 
 export
 ringNr : Gen RingNr
@@ -58,4 +62,4 @@ ringNr = fromMaybe 0 . refineRingNr <$> bits8 (linear 0 99)
 
 export
 ring : Gen Ring
-ring = [| R ringNr (maybe bond) |]
+ring = [| R ringNr (maybe bondOrder) |]

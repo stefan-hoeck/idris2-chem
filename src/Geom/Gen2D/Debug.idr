@@ -20,7 +20,7 @@ toMolatomAT (p,a) =
   , elem      $= cast
   } a
 
-toMolbond : SmilesBond -> MolBond
+toMolbond : SmilesBondOrder -> MolBond
 toMolbond Sngl = MkBond False Single NoBondStereo
 toMolbond Arom = MkBond False Single NoBondStereo
 toMolbond Dbl  = MkBond False Dbl    NoBondStereo
@@ -64,11 +64,11 @@ coords s =
 export
 smilesToMol : String -> Either String MolfileAT
 smilesToMol s =
-  case (kekulize (const Dbl) . perceiveSmilesAtomTypes) <$> readSmiles' s of
+  case (kekulize {order := Dbl} . perceiveSmilesAtomTypes) <$> readSmiles' s of
     Left x  => Left x
     Right (G k g) =>
      let cg := coordinates {dg = NoDebugging} g
-         mg := bimap toMolbond toMolatomAT cg
+         mg := bimap (toMolbond . order) toMolatomAT cg
       in Right $ MkMolfile "" "" "" (G k mg) []
 
 export
