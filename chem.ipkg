@@ -21,6 +21,7 @@ modules = Chem
         , Chem.Elem
         , Chem.Formula
         , Chem.Isotope
+        , Chem.Parity
         , Chem.Query
         , Chem.Types
         , Chem.Util

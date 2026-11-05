@@ -6,12 +6,13 @@ import Test.Chem.Atom
 import Test.Chem.AtomType
 import Test.Chem.CyByBug
 import Test.Chem.Elem
-import Test.Chem.Query
-import Test.Chem.QSAR.HDonor
+import Test.Chem.Parity
 import Test.Chem.QSAR.HAcceptor
+import Test.Chem.QSAR.HDonor
 import Test.Chem.QSAR.JPlogP
 import Test.Chem.QSAR.RotatableBonds
 import Test.Chem.QSAR.TPSA
+import Test.Chem.Query
 import Test.Geom.Angle
 import Test.Geom.Bounds
 import Test.Geom.Point
@@ -40,4 +41,5 @@ main =
     , Bounds.props
     , Point.props
     , Vector.props
+    , Parity.props
     ]
