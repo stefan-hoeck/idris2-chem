@@ -12,28 +12,30 @@ import Hedgehog
 -- Utilities
 --------------------------------------------------------------------------------
 
-toSB : AromBond SmilesBond -> SmilesBond
-toSB ab = if ab.arom then Arom else if ab.type == Arom then Sngl else ab.type
+readSMO : String -> Either String (Graph SmilesBondOrder SmilesAtomAT)
+readSMO = map (mapFst order . perceiveSmilesAtomTypes) . readSmiles'
 
-to1 : SmilesBond -> SmilesBond
+toSB : AromBond SmilesBondOrder -> SmilesBondOrder
+toSB ab =
+  if ab.arom then Arom else if ab.type == Arom then Sngl else ab.type
+
+to1 : SmilesBondOrder -> SmilesBondOrder
 to1 Arom = Sngl
 to1 b    = b
 
-readArom : String -> Either String (Graph SmilesBond SmilesAtomAT)
-readArom =
-  map (mapFst toSB . aromatize atomType . perceiveSmilesAtomTypes) . readSmiles'
+readArom : String -> Either String (Graph SmilesBondOrder SmilesAtomAT)
+readArom = map (mapFst toSB . aromatize atomType) . readSMO
 
-readKekulee : String -> Either String (Graph SmilesBond SmilesAtomAT)
-readKekulee =
-  map (mapFst to1 . kekulize (const Dbl) . perceiveSmilesAtomTypes) . readSmiles'
+readKekulee : String -> Either String (Graph SmilesBondOrder SmilesAtomAT)
+readKekulee = map (mapFst to1 . kekulize (const Dbl)) . readSMO
 
 triples : Graph e n -> List (Nat,Nat,e)
 triples (G o g) = (\(E x y l) => (finToNat x, finToNat y, l)) <$> edges g
 
-testArom : String -> List (Nat,Nat,SmilesBond) -> Property
+testArom : String -> List (Nat,Nat,SmilesBondOrder) -> Property
 testArom s ts = property1 $ map triples (readArom s) === Right ts
 
-testKekulize : String -> List (Nat,Nat,SmilesBond) -> Property
+testKekulize : String -> List (Nat,Nat,SmilesBondOrder) -> Property
 testKekulize s ts = property1 $ map triples (readKekulee s) === Right ts
 
 --------------------------------------------------------------------------------

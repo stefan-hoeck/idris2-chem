@@ -25,7 +25,7 @@ export %inline
 genInchiForMol : (n, i, ct : MolLine) -> MolGraph' h t c -> String
 genInchiForMol n i c g = genInchi $ withBuilder $ putMol n i c g
 
-toMolBond : SmilesBond -> MolBond
+toMolBond : SmilesBondOrder -> MolBond
 toMolBond Sngl = MkBond False Single NoBondStereo
 toMolBond Arom = MkBond False Single NoBondStereo
 toMolBond Dbl  = MkBond False Dbl NoBondStereo
@@ -40,7 +40,7 @@ toMolAtom (Bracket (MkAtom elem ch _ _ _ _ _ _)) =
   MkAtom (cast elem) ch [0,0,0] NoRadical () () () Nothing
 
 toMolGraph : SmilesGraph -> MolGraph
-toMolGraph = bimap toMolBond toMolAtom
+toMolGraph = bimap (toMolBond . order) toMolAtom
 
 export %inline
 genInchiForSmiles : String -> Either String String
