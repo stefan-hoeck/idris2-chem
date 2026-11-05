@@ -29,7 +29,7 @@ SmilesGraphAT = Graph SmilesBond SmilesAtomAT
 --          Utilities
 --------------------------------------------------------------------------------
 
-sbToBonds : SmilesBond -> Bonds
+sbToBonds : SmilesBondOrder -> Bonds
 sbToBonds Sngl = BS 1 0 0
 sbToBonds Arom = BS 0 0 0
 sbToBonds Dbl  = BS 0 1 0
@@ -66,19 +66,21 @@ addAromaticBonds _  n bs = {single $= (+n)} bs
 -- a SMILES atom and the list of bonds connected to it
 calcAT : Fin k -> Adj k SmilesBond SmilesAtom -> SmilesAtomAT
 calcAT n (A at@(SubsetAtom e a) ns) =
-  let iso     := MkAI e Nothing a
-      arom    := count (Arom ==) ns
-      bonds   := addAromaticBonds e arom $ foldMap sbToBonds ns
+  let bs      := map order ns
+      iso     := MkAI e Nothing a
+      arom    := count (Arom ==) bs
+      bonds   := addAromaticBonds e arom $ foldMap sbToBonds bs
       (h,tpe) := atomTypeAndHydrogens e NoRadical 0 bonds
    in MkAtom iso 0 () () h tpe None ()
 
 calcAT n (A (Bracket x) ns) =
   let e    := cast {to = Elem} x.elem
-      arom := count (Arom ==) ns
+      bs   := map order ns
+      arom := count (Arom ==) bs
       bs   :=
           addAromaticBonds e arom               -- add aromatic bonds
         . {single $= (+ cast x.hydrogen.value)} -- add bonds to implicit Hs
-        $ foldMap sbToBonds ns                    -- compute non-aromatic bonds
+        $ foldMap sbToBonds bs                    -- compute non-aromatic bonds
    in {type := exactAtomType e NoRadical x.charge bs} x
 
 export %inline

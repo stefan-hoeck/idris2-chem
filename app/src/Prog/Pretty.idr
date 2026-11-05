@@ -14,11 +14,11 @@ act _ _        = invalid
 
 kekulizeSmiles : SmilesGraph -> SmilesGraphAT
 kekulizeSmiles =
-  mapFst unarom . kekulize (const Dbl) . perceiveSmilesAtomTypes
+  mapFst unarom . kekulize {order := Dbl} . perceiveSmilesAtomTypes
   where
     unarom : SmilesBond -> SmilesBond
-    unarom Arom = Sngl
-    unarom b    = b
+    unarom (SB t Arom) = SB t Sngl
+    unarom b           = b
 
 export
 fromSmiles : String -> Prog SmilesGraph
