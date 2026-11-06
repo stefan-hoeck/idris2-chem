@@ -78,6 +78,10 @@ export
 Cast e Elem => Cast (Atom e c p r HCount t ch l) Formula where
   cast a = singleton (cast a.elem) 1 <+> singleton H (cast a.hydrogen.value)
 
+export %inline
+Cast h HCount => Cast (Atom e c p r h t ch l) HCount where
+  cast = cast . hydrogen
+
 public export
 interface HasMolecularMass a where
   molecularMass      : a -> MolecularMass
