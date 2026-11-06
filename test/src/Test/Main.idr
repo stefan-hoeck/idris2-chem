@@ -20,6 +20,7 @@ import Test.Geom.Vector
 import Test.Text.Lex.Formula
 import Test.Text.Molfile
 import Test.Text.Smiles.Parser
+import Test.Text.Smiles.Stereo
 
 main : IO ()
 main =
@@ -42,4 +43,5 @@ main =
     , Point.props
     , Vector.props
     , Parity.props
+    , Stereo.props
     ]
