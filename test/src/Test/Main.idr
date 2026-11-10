@@ -20,10 +20,12 @@ import Test.Geom.Vector
 import Test.Text.Lex.Formula
 import Test.Text.Molfile
 import Test.Text.Smiles.Parser
+import Test.Text.Smiles.Writer
 import Test.Text.Smiles.Stereo
 
 main : IO ()
-main =
+main = do
+  writerProps <- Writer.propsIO
   test
     [ Chem.Elem.props
     , Smiles.Parser.props
@@ -42,6 +44,7 @@ main =
     , Bounds.props
     , Point.props
     , Vector.props
+    , writerProps
     , Parity.props
     , Stereo.props
     ]
