@@ -103,23 +103,18 @@ public export
   mtrans = mtrans @{m}
   modPoint = map . modPoint
 
-public export
-{k : _} -> (m : ModPoint a) => ModPoint (IGraph k b a) where
-  mtrans   = mtrans @{m}
-  modPoint = map . modPoint
-
 --------------------------------------------------------------------------------
 --          Bond Lengths and Normalization
 --------------------------------------------------------------------------------
 
 ||| Calculate the length of an edge in a molecule
 export
-bondLength : GetPoint a => {k : _} -> IGraph k b a -> Edge k b -> Double
-bondLength g (E x y _) = distance (point $ lab g x) (point $ lab g y)
+bondLength : GetPoint a => (g : Graph b a) -> LEdg g -> Double
+bondLength g (LE x y _) = distance (point $ lab x) (point $ lab y)
 
 ||| Calculate the average length of bonds in a molecule.
 export
-averageBondLength : GetPoint a => {k : _} -> IGraph k b a -> Maybe Double
+averageBondLength : GetPoint a => Graph b a -> Maybe Double
 averageBondLength g = case edges g of
   [] => Nothing
   es => Just $ sum (bondLength g <$> es) / cast (length es)
@@ -129,11 +124,10 @@ export
 normalizeMol :
      {auto mod : ModPoint a}
   -> {auto get : GetPoint a}
-  -> {k : _}
   -> {auto 0 mp : mtrans @{mod} === Mol}
   -> {auto 0 gp : gtrans @{get} === Mol}
-  -> IGraph k b a
-  -> IGraph k b a
+  -> Graph b a
+  -> Graph b a
 normalizeMol g = case averageBondLength g of
   Nothing => g
   Just v  => scale (BondLengthInAngstrom / scale v) g
