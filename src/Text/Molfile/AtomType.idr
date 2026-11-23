@@ -22,5 +22,5 @@ calcMolAtomType ns a =
 ||| Perceive atom types and implicit hydrogens for a .mol-file graph
 export %inline
 perceiveMolAtomTypes : MolGraph -> MolGraphAT
-perceiveMolAtomTypes (G o g) =
-  G o $ mapWithCtxt (\_,(A a ns) => calcMolAtomType ns a) g
+perceiveMolAtomTypes g =
+  mapWithCtxt g (\_,(A a ns) => calcMolAtomType ns a)

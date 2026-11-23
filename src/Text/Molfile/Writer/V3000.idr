@@ -43,8 +43,8 @@ parameters {auto b : Builder q}
   begin s = mv30 >> putText "BEGIN " >> putTextLn s
   end   s = mv30 >> putText "END " >> putTextLn s
 
-  fin : Fin k -> F1' q
-  fin x = putText " \{show $ S $ finToNat x}"
+  node : Node g -> F1' q
+  node x = putText " \{show $ S $ cast x}"
 
   coordsV3 : Vect 3 Coordinate -> F1' q
   coordsV3 [x,y,z] =
@@ -65,12 +65,12 @@ parameters {auto b : Builder q}
   cfg NoBondStereo = linebreak
   cfg x            = putTextLn " CFG=\{dispStereoV3 x}"
 
-  bondsV3 : (Nat, Edge k MolBond) -> F1' q
-  bondsV3 (n, E x y (MkBond b o s)) =
+  bondsV3 : {0 g : MolGraph' h t c} -> (Nat, LEdg g) -> F1' q
+  bondsV3 (n, LE x y (MkBond b o s)) =
    let pre  := mv30 >> putShow (S n) >> putText " \{o}"
     in case b of
-      True  => pre >> fin x >> fin y >> cfg s
-      False => pre >> fin y >> fin x >> cfg s
+      True  => pre >> node x >> node y >> cfg s
+      False => pre >> node y >> node x >> cfg s
 
   nats : List Nat -> F1' q
   nats ns =
@@ -81,12 +81,12 @@ parameters {auto b : Builder q}
     mv30 >> putShow n >> putText " SUP 0 LABEL=\"\{l}\" ATOMS=" >> nats (x<>>[])
 
   export
-  putMol3000 : List (Edge k MolBond) -> MolGraph' h t c -> F1' q
-  putMol3000 es (G o g) = T1.do
+  putMol3000 : {g : MolGraph' h t c} -> List (LEdg g) -> F1' q
+  putMol3000 es = T1.do
     let gs := kvList $ foldrKV appendLbl empty g.graph
     putTextLn "00000999 V3000"
     begin "CTAB"
-    counts o (length es) (length gs)
+    counts g.order (length es) (length gs)
     begin "ATOM"
     traverseKV1_ atomV3 g.graph
     end   "ATOM"

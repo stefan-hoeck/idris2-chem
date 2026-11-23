@@ -299,7 +299,7 @@ parameters {auto sk : CSTCK q}
         grps <- replace1 sk.groups SM.empty
         lupdNodes mg.graph $ {label $= map (groupLbl grps)}
         g  <- Array.Core.unsafeFreeze mg.graph
-        push1 sk.stack_ (MkMolfile h1 h2 h3 (G _ $ IG g) sds)
+        push1 sk.stack_ (MkMolfile h1 h2 h3 (G _ g) sds)
       True  => push1 sk.stack_ (MkMolfile h1 h2 h3 (G 0 empty) sds)
 
   sdheader : ByteString -> F1 q CST

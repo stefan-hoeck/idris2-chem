@@ -103,16 +103,16 @@ parameters {auto b : Builder q}
   atom (MkAtom a c p _ _ _ _ _) = coords p >> fill @{IP_ISO} 4 a >> atomRem
 
   -- 111222tttsssxxxrrrccc
-  bond : Edge k MolBond -> F1' q
-  bond (E x y $ MkBond True t s) =
+  bond : {0 g : MolGraph' h t c} -> LEdg g -> F1' q
+  bond (LE x y $ MkBond True t s) =
    fill 3 x >> fill 3 y >> fill 3 t >> fill 3 s >> bondRem
-  bond (E x y $ MkBond False t s) =
+  bond (LE x y $ MkBond False t s) =
    fill 3 y >> fill 3 x >> fill 3 t >> fill 3 s >> bondRem
 
   export
-  putMol2000 : List (Edge k MolBond) -> MolGraph' h t c -> F1' q
-  putMol2000 es (G o g) = T1.do
-    counts o (length es)
+  putMol2000 : {g : MolGraph' h t c} -> List (LEdg g) -> F1' q
+  putMol2000 es = T1.do
+    counts g.order (length es)
     traverse1_ (atom . label) g.graph
     traverse1_ bond es
     props $ foldrKV adjProps (P [] [] [] empty) g.graph

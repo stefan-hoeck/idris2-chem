@@ -27,13 +27,13 @@ parameters {default V2000 version : MolVersion}
   putMol : Builder q => (n,i,ct : MolLine) -> MolGraph' h t c -> F1' q
   putMol n i c (G 0 _) = pure ()
   putMol n i c g       =
-   let es := edges g.graph
+   let es := edges g
        v3 := version == V3000 || g.order >= 1000 || length es >= 1000
     in T1.do
          putTextLn n.value
          putTextLn i.value
          putTextLn c.value
-         if v3 then putMol3000 es g else putMol2000 es g
+         if v3 then putMol3000 es else putMol2000 es
          putTextLn "M  END"
 
   export
