@@ -35,8 +35,4 @@ path   = "profile"
 ipkg   = "profile.ipkg"
 
 [custom.all]
-array.commit      = "latest:main"
-ilex-core.commit  = "latest:main"
-ilex.commit       = "latest:main"
-ilex-debug.commit = "latest:main"
-hedgehog.commit   = "latest:main"
+indexed-graph.commit             = "latest:indexed_nodes"

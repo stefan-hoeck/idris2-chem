@@ -29,8 +29,8 @@ record AromBond (a : Type) where
 
 ||| True, if the given node is connected to at least one aromatic edge.
 export %inline
-isAromatic : IGraph k (AromBond e) n -> Fin k -> Bool
-isAromatic g = any arom . neighboursAsAL g
+isAromatic : {g : Graph (AromBond e) n} -> Node g -> Bool
+isAromatic = any arom . neighboursAsAL
 
 export %inline
 Cast a BondOrder => Cast (AromBond a) BondOrder where
@@ -72,14 +72,14 @@ totalBondOrder (ABS s a d t) =
 -- Utilities
 --------------------------------------------------------------------------------
 
-0 Edges : Nat -> Type
-Edges k = SortedSet (Fin k, Fin k)
+0 Edges : Graph e n -> Type
+Edges g = SortedSet (Edg g)
 
-toPair : Fin k -> Fin k -> (Fin k, Fin k)
-toPair x y = if x > y then (y,x) else (x,y)
+toEdgs : Node g -> Node g -> List (Edg g) -> List (Edg g)
+toEdgs x y xs = maybe xs (::xs) $ mkEdg x y
 
-%inline hasEdge : Fin k -> Fin k -> Edges k -> Bool
-hasEdge x y = contains (toPair x y)
+%inline hasEdge : Fin g.order -> Fin g.order -> Edges g -> Bool
+hasEdge x y es = maybe False (`contains` es) (mkEdg (N x) (N y))
 
 -- we use `n & 7 == 4` here, because the contribution of
 -- every node is counted twice
@@ -96,27 +96,21 @@ parameters {0 e,n   : Type}
   ||| Perceives aromaticity for a mol graph using the given contribution
   ||| function.
   export
-  aromatizeI : {k : _} -> IGraph k e n -> IGraph k (AromBond e) n
-  aromatizeI {k} g =
+  aromatize : Graph e n -> Graph (AromBond e) n
+  aromatize g =
     let bs := foldl (pairs [] 0) empty (map ecycle . cr $ computeCrAndMCB g)
-     in IG $ mapWithIndex (toArom bs) g.graph
+     in G _ $ mapWithIndex (toArom bs) g.graph
 
     where
-      toArom : Edges k -> Fin k -> Adj k e n -> Adj k (AromBond e) n
+      toArom : Edges g -> Fin g.order -> Adj g.order e n -> Adj g.order (AromBond e) n
       toArom ps m = {neighbours $= mapKV (\n,v => AB v $ hasEdge m n ps)}
 
-      pairs : List (Fin k, Fin k) -> Nat -> Edges k -> ECycle k -> Edges k
-      pairs xs k es all@(E x y _ :: ys) =
-        case [| contrib (lab g x) + contrib (lab g y) |] of
+      pairs : List (Edg g) -> Nat -> Edges g -> ECycle g -> Edges g
+      pairs xs k es all@(EG x y :: ys) =
+        case [| contrib (lab x) + contrib (lab y) |] of
           Nothing => es
-          Just v  => pairs (toPair x y :: xs) (k+v) es ys
+          Just v  => pairs (toEdgs x y xs) (k+v) es ys
       pairs xs k es [] = if hueckel k then foldl (flip insert) es xs else es
-
-  ||| Perceives aromaticity for a mol graph using the given contribution
-  ||| function.
-  export %inline
-  aromatize : Graph e n -> Graph (AromBond e) n
-  aromatize (G o g) = G o $ aromatizeI g
 
 --------------------------------------------------------------------------------
 -- Models
@@ -164,13 +158,13 @@ parameters {0 b,e,c,p,r,h,ch,l : Type}
            {auto cb : Cast b BondOrder}
            (setdbl  : b -> b)
 
-  available : IGraph k b (KAtom e c p r h ch l) -> Fin k -> Bool
+  available : (g : Graph b (KAtom e c p r h ch l)) -> Node g -> Bool
   available g x =
-   let A l es := adj g x
+   let A l es := adj x
     in S (count ((Dbl ==) . cast) es) == l.type.double
 
   export
   kekulize : Graph b (KAtom e c p r h ch l) -> Graph b (KAtom e c p r h ch l)
-  kekulize (G k g) =
-   let es := map setdbl <$> matchEdgesWhere g (available g)
-    in G k $ insEdges es g
+  kekulize g =
+   let es := {label $= setdbl} <$> matchEdgesWhere g (available g)
+    in insEdges g es
