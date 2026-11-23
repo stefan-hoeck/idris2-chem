@@ -10,11 +10,10 @@ import Chem.QSAR.Util
 parameters {0 b,e,c,p,r,h,t,ch,l : Type}
            {auto ce          : Cast e Elem}
            {auto cb          : Cast b BondOrder}
-           {k                : Nat}
-           (ringBonds        : EdgeSet k)
+           (g                : Graph b (Atom e c p r h t ch l))
+           (ringBonds        : EdgeSet g)
            (includeTerminals : Bool)
            (excludeAmides    : Bool)
-           (g                : IGraph k b (Atom e c p r h t ch l))
 
   ||| True if the given edge counts as a rotatable bond.
   |||
@@ -26,11 +25,11 @@ parameters {0 b,e,c,p,r,h,t,ch,l : Type}
   |||    is set to `True`)
   |||  * it is an amide bond and `excludeAmides` is set to `True`
   export
-  isRotatableBond : Edge k b -> Bool
-  isRotatableBond (E x y l) =
+  isRotatableBond : LEdg g -> Bool
+  isRotatableBond (LE x y l) =
        cast l == Single
     && not (isElem g H x || isElem g H y)
-    && not (contains (E x y ()) ringBonds)
+    && not (contains (EG x y) ringBonds)
     && (maxBondOrder g x < Triple && maxBondOrder g y < Triple)
     && (includeTerminals || (heavyDegree g x > 1 && heavyDegree g y > 1))
     && (not $ excludeAmides && isAmideBond g x y)

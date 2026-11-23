@@ -14,8 +14,7 @@ import Chem.QSAR.Util
 
 parameters {0 b,e,p,r,t,c,l : Type}
            {auto cst : Cast e Elem}
-           {k        : Nat}
-           (g        : IGraph k (AromBond b) (Atom e Charge p r HCount t c l))
+           (g        : Graph (AromBond b) (Atom e Charge p r HCount t c l))
 
   ||| True, if the atom at the given node is a hydrogen bond donor.
   |||
@@ -23,9 +22,9 @@ parameters {0 b,e,p,r,t,c,l : Type}
   |||  * a non-negatively charge oxygen bound to at least on hydrogen
   |||  * a non-negatively charge nitrogen bound to at least on hydrogen
   export
-  isHDonor : Fin k -> Bool
+  isHDonor : Node g -> Bool
   isHDonor n =
-    let A a ns := adj g n
+    let A a ns := adj n
      in case cast @{cst} (elem a) of
           N => charge a >= 0 && (hydrogen a > 0 || hasElem g H ns)
           O => charge a >= 0 && (hydrogen a > 0 || hasElem g H ns)

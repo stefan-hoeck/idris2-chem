@@ -15,11 +15,10 @@ import Chem.QSAR.Util
 
 parameters {0 b,e,p,r,h,t,c,l : Type}
            {auto cst : Cast e Elem}
-           {k        : Nat}
-           (g        : IGraph k (AromBond b) (Atom e Charge p r h t c l))
-  
-  isAromEther : AssocList k (AromBond b) -> Bool
-  isAromEther bs = countNonHs g bs > 1 && any (isAromatic g) (keys bs)
+           (g        : Graph (AromBond b) (Atom e Charge p r h t c l))
+
+  isAromEther : AssocList g.order (AromBond b) -> Bool
+  isAromEther bs = countNonHs g bs > 1 && any isAromatic (alNodes bs)
 
   ||| True, if the atom at the given node is a hydrogen bond acceptor.
   |||
@@ -28,9 +27,9 @@ parameters {0 b,e,p,r,h,t,c,l : Type}
   |||    nor adjacent to a nitrogen
   |||  * a non-positively charge nitrogen that is not adjacent to an oxygen
   export
-  isHAcceptor : Fin k -> Bool
+  isHAcceptor : Node g -> Bool
   isHAcceptor n =
-    let A atm ns := adj g n
+    let A atm ns := adj n
      in case cast @{cst} (elem atm) of
           N => charge atm <= 0 && not (hasElem g O ns)
           O => charge atm <= 0 && not (hasElem g N ns || isAromEther ns)

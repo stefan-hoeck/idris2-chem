@@ -29,19 +29,19 @@ toMolbond Quad = MkBond False Single NoBondStereo
 toMolbond FW   = MkBond False Single NoBondStereo
 toMolbond BW   = MkBond False Single NoBondStereo
 
-attachPoint : AttachPoint n -> String
+attachPoint : AttachPoint g -> String
 attachPoint None         = ""
 attachPoint (Attach a n) = " (\{show a} -> \{show n})"
 
 export
-showComponent : Component k e n -> String
+showComponent : Component g -> String
 showComponent (C a xs r _) =
  let pre := the String $ if r then "Ring" else "Chain"
   in "\{pre}: \{show xs}\{attachPoint a}"
 
 export
 printComponents : Graph e n -> IO ()
-printComponents (G _ g) = traverse_ (putStrLn . showComponent) (components g)
+printComponents g = traverse_ (putStrLn . showComponent) (components g)
 
 export
 test : String -> IO ()
@@ -55,7 +55,7 @@ coords : String -> IO ()
 coords s =
   case perceiveSmilesAtomTypes <$> readSmiles' s of
     Left x  => putStrLn "\{x}"
-    Right (G _ g) => putStrLn (pretty interpolate disp $ coordinates {dg = Debugging} g)
+    Right g => putStrLn (pretty interpolate disp $ coordinates {dg = Debugging} g)
 
   where
     disp : (MolPoint, SmilesAtomAT) -> String
@@ -66,10 +66,10 @@ smilesToMol : String -> Either String MolfileAT
 smilesToMol s =
   case (kekulize {order := Dbl} . perceiveSmilesAtomTypes) <$> readSmiles' s of
     Left x  => Left x
-    Right (G k g) =>
+    Right g =>
      let cg := coordinates {dg = NoDebugging} g
          mg := bimap (toMolbond . order) toMolatomAT cg
-      in Right $ MkMolfile "" "" "" (G k mg) []
+      in Right $ MkMolfile "" "" "" mg []
 
 export
 mol : String -> IO ()

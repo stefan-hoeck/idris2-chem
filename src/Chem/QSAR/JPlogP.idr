@@ -47,14 +47,13 @@ weights : SortedMap Nat Double
 parameters {0 b,e,p,r,t,c,l : Type}
            {auto ce : Cast e Elem}
            {auto cb : Cast b BondOrder}
-           {k       : Nat}
-           (g       : IGraph k (AromBond b) (Atom e Charge p r HCount t c l))
+           (g       : Graph (AromBond b) (Atom e Charge p r HCount t c l))
 
-  subsel : Elem -> HCount -> AssocList k (AromBond b) -> Nat
+  subsel : Elem -> HCount -> AssocList g.order (AromBond b) -> Nat
 
-  hydrogenSpecial : List (Fin k) -> Nat
+  hydrogenSpecial : Nodes g -> Nat
 
-  hydrogenCode : Fin k -> Nat
+  hydrogenCode : Node g -> Nat
   hydrogenCode n = 101_100 + hydrogenSpecial [n]
 
   -- returns an atom code in the form CAANSS where
@@ -62,9 +61,9 @@ parameters {0 b,e,p,r,t,c,l : Type}
   -- AA = Atomic Number
   -- N  = NonH Neighbour count
   -- SS = elemental subselection via bonding and neighbour identification
-  atomCode : Fin k -> Nat
+  atomCode : Node g -> Nat
   atomCode n =
-    let A a ns := adj g n
+    let A a ns := adj n
         el     := cast @{ce} (elem a)
         chrg   := a.charge.value + 1
         nonHs  := countNonHs g ns
@@ -80,15 +79,15 @@ parameters {0 b,e,p,r,t,c,l : Type}
   ||| Returns `Nothing` in case the atom is of an unsupported element
   ||| or connectivity.
   export
-  jpLogPContrib : Fin k -> Maybe Double
+  jpLogPContrib : Node g -> Maybe Double
   jpLogPContrib n =
-    case hydrogen $ lab g n of
+    case hydrogen $ lab n of
       0 => lookup (atomCode n) weights
       h =>
         let Just cn := lookup (atomCode n) weights     | _ => Nothing
             Just ch := lookup (hydrogenCode n) weights | _ => Nothing
          in Just $ cast h.value * ch + cn
-  
+
   ||| Sums up the logP contributions for all atoms in a molecule.
   |||
   ||| Returns `Nothing` in case `jpLogPContrib` returns `Nothing` for
@@ -101,7 +100,7 @@ parameters {0 b,e,p,r,t,c,l : Type}
 -- Implementation
 --------------------------------------------------------------------------------
 
-  addBond : (Elem -> Bool) -> AromBonds -> (Fin k, AromBond b) -> AromBonds
+  addBond : (Elem -> Bool) -> AromBonds -> (Node g, AromBond b) -> AromBonds
   addBond p bs (n,AB t ar) =
     let True  := p (elemAt g n) | False => bs
         False := ar             | True  => {arom $= S} bs
@@ -110,18 +109,18 @@ parameters {0 b,e,p,r,t,c,l : Type}
           Dbl    => {double $= S} bs
           Triple => {triple $= S} bs
 
-  bondsWhere : (Elem -> Bool) -> AssocList k (AromBond b) -> AromBonds
-  bondsWhere p = foldl (addBond p) (ABS 0 0 0 0) . pairs
+  bondsWhere : (Elem -> Bool) -> AssocList g.order (AromBond b) -> AromBonds
+  bondsWhere p = foldl (addBond p) (ABS 0 0 0 0) . fromAL
 
-  bondCount : Fin k -> Nat
-  bondCount n = let A a ns := adj g n in numNeighbours a ns
+  bondCount : Node g -> Nat
+  bondCount n = let A a ns := adj n in numNeighbours a ns
 
   -- formal oxidation state computed from the bond order of
   -- electron withdrawing neighbours.
-  formalOx : Fin k -> Nat
-  formalOx = foldl acc 0 . neighboursAsPairs g
+  formalOx : Node g -> Nat
+  formalOx = foldl acc 0 . neighboursAsPairs
     where
-      acc : Nat -> (Fin k, AromBond b) -> Nat
+      acc : Nat -> (Node g, AromBond b) -> Nat
       acc c (n,b) =
         case (isElectronWithdrawing (elemAt g n), cast @{cb} b.type) of
           (True, Single) => c + 1
@@ -129,23 +128,23 @@ parameters {0 b,e,p,r,t,c,l : Type}
           (True, Triple) => c + 3
           _              => c
 
-  alphaCarbonyl : Elem -> AssocList k (AromBond b) -> Bool
-  alphaCarbonyl el = any (hasNeighbour g el Single) . keys
+  alphaCarbonyl : Elem -> AssocList g.order (AromBond b) -> Bool
+  alphaCarbonyl el = any (hasNeighbour g el Single) . alNodes
 
-  nextToAromatic : AssocList k (AromBond b) -> Bool
+  nextToAromatic : AssocList g.order (AromBond b) -> Bool
   nextToAromatic ns =
     not (any AromBond.arom ns) &&
-    any (\(n,b) => Single == cast b && isAromatic g n) (pairs ns)
+    any (\(n,b) => Single == cast b && isAromatic n) (fromAL ns)
 
-  doubleBondHetero : AssocList k (AromBond b) -> Bool
+  doubleBondHetero : AssocList g.order (AromBond b) -> Bool
   doubleBondHetero =
-    any (\(n,AB t b) => not b && cast t == Dbl && isPolar (elemAt g n)) . pairs
+    any (\(n,AB t b) => not b && cast t == Dbl && isPolar (elemAt g n)) . fromAL
 
-  isCarbonyl : (Fin k, AromBond b) -> Bool
+  isCarbonyl : (Node g, AromBond b) -> Bool
   isCarbonyl (n, AB t b) =
-    not b && cast t == Single && doubleBondHetero (neighboursAsAL g n)
+    not b && cast t == Single && doubleBondHetero (neighboursAsAL n)
 
-  fluorineSpecial : List (Fin k) -> Nat
+  fluorineSpecial : List (Node g) -> Nat
   fluorineSpecial [n] =
     case elemAt g n of
       S => 8 -- F-S
@@ -158,7 +157,7 @@ parameters {0 b,e,p,r,t,c,l : Type}
       _ => 1 -- F-hetero
   fluorineSpecial _  = 99
 
-  oxygenSpecial : HCount -> AssocList k (AromBond b) -> Nat
+  oxygenSpecial : HCount -> AssocList g.order (AromBond b) -> Nat
   oxygenSpecial h ns =
     case cast h.value + length ns of
       2 =>
@@ -175,13 +174,13 @@ parameters {0 b,e,p,r,t,c,l : Type}
         else    7
       _ => 0
 
-  nitrogenSpecial : HCount -> AssocList k (AromBond b) -> Nat
+  nitrogenSpecial : HCount -> AssocList g.order (AromBond b) -> Nat
   nitrogenSpecial h ns =
     case cast h.value + length ns of
       4 => 9
       3 =>
         if      nextToAromatic ns                  then 1
-        else if any isCarbonyl (pairs ns)          then 2
+        else if any isCarbonyl (fromAL ns)         then 2
         else if doubleBondHetero ns                then 10
         else if single (bondsWhere isPolar ns) > Z then 3
         else                                 4
@@ -192,7 +191,7 @@ parameters {0 b,e,p,r,t,c,l : Type}
       1 => 8
       _ => 0
 
-  carbonSpecial : HCount -> AssocList k (AromBond b) -> Nat
+  carbonSpecial : HCount -> AssocList g.order (AromBond b) -> Nat
   carbonSpecial h ns =
     case cast h.value + length ns of
       4 => if single (bondsWhere isPolar ns) > Z then 3 else 2
@@ -215,9 +214,9 @@ parameters {0 b,e,p,r,t,c,l : Type}
       _ => if numBonds (bondsWhere isPolar ns) > Z then 1 else 0
 
   hydrogenSpecial [n] =
-    let A a ns := adj g n
+    let A a ns := adj n
      in case cast @{ce} (elem a) of
-          C => case any isCarbonyl (pairs ns) of
+          C => case any isCarbonyl (fromAL ns) of
             True  => 51
             False => case numNeighbours a ns of
               4 => case formalOx n of
@@ -240,12 +239,12 @@ parameters {0 b,e,p,r,t,c,l : Type}
   subsel C h ns = carbonSpecial h ns
   subsel N h ns = nitrogenSpecial h ns
   subsel O h ns = oxygenSpecial h ns
-  subsel H h ns = hydrogenSpecial (keys ns)
-  subsel F h ns = fluorineSpecial (keys ns)
+  subsel H h ns = hydrogenSpecial (alNodes ns)
+  subsel F h ns = fluorineSpecial (alNodes ns)
   subsel _ h ns =
     if any AromBond.arom ns then 10 else numBonds $ bondsWhere isPolar ns
--- -- 
--- -- 
+-- --
+-- --
 
 weights =
   fromList
