@@ -15,24 +15,16 @@ import Derive.Prelude
 --------------------------------------------------------------------------------
 
 public export
-0 Nodes : Nat -> Type
-Nodes = List . Fin
-
-public export
-0 SnocNodes : Nat -> Type
-SnocNodes = SnocList . Fin
-
-public export
-data AttachPoint : (k : Nat) -> Type where
-  None   : AttachPoint k
-  Attach : (parent : Fin k) -> (node : Fin k) -> AttachPoint k
+data AttachPoint : (g : Graph e n) -> Type where
+  None   : AttachPoint g
+  Attach : (parent : Node g) -> (node : Node g) -> AttachPoint g
 
 %runElab deriveIndexed "AttachPoint" [Show,Eq]
 
 public export
-0 SubgraphType : Bool -> Nat -> Type -> Type -> Type
-SubgraphType True  k e n = Subgraph k e n
-SubgraphType False _ _ _ = ()
+0 SubgraphType : Bool -> (g : Graph e n) -> Type
+SubgraphType True  g = Subgraph g
+SubgraphType False _ = ()
 
 ||| A component is a part of a molecular graph that will be placed
 ||| as a single unit.
@@ -41,22 +33,22 @@ SubgraphType False _ _ _ = ()
 ||| comes with an attachement point: A node in another component
 ||| that will be placed before `c`.
 public export
-record Component (k : Nat) (e,n : Type) where
+record Component (g : Graph e n) where
   constructor C
-  attach   : AttachPoint k
-  nodes    : List (Fin k)
+  attach   : AttachPoint g
+  nodes    : Nodes g
   isRing   : Bool
-  subgraph : SubgraphType isRing k e n
+  subgraph : SubgraphType isRing g
 
 public export
-0 SnocComps : Nat -> Type -> Type -> Type
-SnocComps k e = SnocList . Component k e
+0 SnocComps : Graph e n -> Type
+SnocComps = SnocList . Component
 
 public export
-0 Comps : Nat -> Type -> Type -> Type
-Comps k e = List . Component k e
+0 Comps : Graph e n -> Type
+Comps = List . Component
 
-setAttach : (a,x : Fin k) -> Component k e n -> Component k e n
+setAttach : (a,x : Node g) -> Component g -> Component g
 setAttach a x = {attach := Attach a x}
 
 --------------------------------------------------------------------------------
@@ -64,67 +56,62 @@ setAttach a x = {attach := Attach a x}
 --------------------------------------------------------------------------------
 
 -- A mapping from a node to the ring it belongs to (if any).
-0 RingMap : Nat -> Type -> Type -> Type
-RingMap k e n = IArray k (Maybe $ Component k e n)
+0 RingMap : Graph e n -> Type
+RingMap g = IArray g.order (Maybe $ Component g)
 
-%inline
-subnodes : Subgraph k e n -> List (Fin k)
-subnodes (G _ g) = fst <$> labels g
-
-children : IGraph k e n -> Visited k -> Component k e n -> List (Fin k, Fin k)
+children : (g : Graph e n) -> Visited g -> Component g -> List (Node g, Node g)
 children g v c =
-  nodes c >>= \a => (a,) <$> filter (flip unvisited v) (neighbours g a)
+  nodes c >>= \a => (a,) <$> filter (flip unvisited v) (neighbours a)
 
 --------------------------------------------------------------------------------
 -- Component Partition
 --------------------------------------------------------------------------------
 
-pairs : Subgraph k e n -> List (Nat, Maybe $ Component k e n)
+pairs : Subgraph g -> List (Nat, Maybe $ Component g)
 pairs g =
- let ns := subnodes g
+ let ns := labels g
      c  := Just (C None ns True g)
-  in map (\x => (finToNat x ,c)) ns
+  in map (\x => (cast x ,c)) ns
 
 -- Extracts the ring systems from a graph storing them in an array and
 -- returning the largest of them as the molecule's main component.
 -- Returns `Nothing` in case the molecule is acyclic.
-rings : {k : _} -> (g : IGraph k e n) -> Maybe (Component k e n, RingMap k e n)
+rings : (g : Graph e n) -> Maybe (Component g, RingMap g)
 rings g =
   case reverse $ sortBy (comparing order) (biconnectedComponents g) of
     []    => Nothing
-    r::rs => Just (C None (subnodes r) True r, fromPairs k Nothing (rs >>= pairs))
+    r::rs => Just (C None (labels r) True r, fromPairs _ Nothing (rs >>= pairs))
 
-parameters {k : Nat}
-           (g : IGraph k e n)
-           (m : RingMap k e n)
+parameters (g : Graph e n)
+           (m : RingMap g)
 
   -- `True` if the given node is not in a ring and has not yet been visited
-  nonVisitedInChain : Visited k -> Fin k -> Bool
-  nonVisitedInChain v n = isNothing (m `at` n) && unvisited n v
+  nonVisitedInChain : Visited g -> Node g -> Bool
+  nonVisitedInChain v n = isNothing (m `atN` n) && unvisited n v
 
   -- runner for `chain`
-  lcf : SnocNodes k -> Queue (SnocNodes k, Fin k) -> Visited k -> SnocNodes k
+  lcf : Sedon g -> Queue (Sedon g, Node g) -> Visited g -> Sedon g
   lcf sx q vis =
     case dequeue q of
       Nothing          => sx
       Just ((sy,y),q2) =>
        let ss := sy:<y
-           ns := filter (nonVisitedInChain vis) (neighbours g y)
+           ns := filter (nonVisitedInChain vis) (neighbours y)
            v2 := assert_smaller vis (visitAll ns vis)
         in lcf ss (enqueueAll q2 $ (ss,) <$> ns) v2
 
   -- computes the longest chain of atoms not in a ring
   -- from the given starting point
-  chain : Visited k -> Fin k -> SnocList (Fin k)
+  chain : Visited g -> Node g -> Sedon g
   chain vis x = lcf [<] (enqueue empty ([<], x)) (visit x vis)
 
-  nextComp : Visited k -> (a,x : Fin k) -> Component k e n
+  nextComp : Visited g -> (a,x : Node g) -> Component g
   nextComp v a x =
-    maybe (C (Attach a x) (chain v x <>> []) False ()) (setAttach a x) (at m x)
+    maybe (C (Attach a x) (chain v x <>> []) False ()) (setAttach a x) (atN m x)
 
   -- Iteratively computes the longest chains from the attachment
   -- points of already found components
-  chains : SnocComps k e n -> Queue (Fin k,Fin k) -> Visited k -> (Comps k e n)
+  chains : SnocComps g -> Queue (Node g, Node g) -> Visited g -> (Comps g)
   chains sx q vis =
     case dequeue q of
       Nothing         => sx <>> []
@@ -142,17 +129,18 @@ parameters {k : Nat}
 ||| components in the list are linked via an `AttachPoint` to
 ||| a parent component, which will be placed first.
 export
-components : {k : _} -> IGraph k e n -> List (Component k e n)
-components {k = Z}   g = []
-components {k = S x} g =
-  case rings g of
-    Just (c,m) =>
-     let vis := visitAll (nodes c) ini
-      in chains g m [<c] (fromList $ children g vis c) vis
-    Nothing     =>
-     let m      := fill (S x) Nothing
-         _ :< n := chain g m ini FZ | [<] => []
-         ns     := reverse $ chain g m ini n <>> []
-         c      := C None ns False ()
-         vis    := visitAll ns ini
-      in chains g m [<c] (fromList $ children g vis c) vis
+components : (g : Graph e n) -> List (Component g)
+components g =
+  case tryNode {g} 0 of
+    Nothing   => []
+    Just zero => case rings g of
+      Just (c,m) =>
+       let vis := visitAll (nodes c) ini
+        in chains g m [<c] (fromList $ children g vis c) vis
+      Nothing     =>
+       let m      := fill g.order Nothing
+           _ :< n := chain g m ini zero | [<] => []
+           ns     := reverse $ chain g m ini n <>> []
+           c      := C None ns False ()
+           vis    := visitAll ns ini
+        in chains g m [<c] (fromList $ children g vis c) vis

@@ -16,31 +16,31 @@ import Derive.Prelude
 -- Types and Ring Analysis
 --------------------------------------------------------------------------------
 
-0 Cycles : Nat -> Type
+0 Cycles : Graph e n -> Type
 Cycles = List . Cycle
 
 data BridgeType = Fused | Spiro | Brdg | Fresh | Partitioned
 
 %runElab derive "BridgeType" [Show,Eq,Ord]
 
-record Bridge (k : Nat) where
+record Bridge (g : Graph e n) where
   constructor B
-  cycle : Cycle k
-  start : Fin k
-  first : Fin k
-  rem   : Nodes k
-  end   : Fin k
+  cycle : Cycle g
+  start : Node g
+  first : Node g
+  rem   : Nodes g
+  end   : Node g
   type  : BridgeType
 
-natoms : Cycle k -> List (Cycle k) -> Nat
+natoms : Cycle g -> List (Cycle g) -> Nat
 natoms c = sum . map (numSharedNodes c)
 
 mostComplex :
-     SnocList (Cycle k)
-  -> List (Cycle k)
+     SnocList (Cycle g)
+  -> List (Cycle g)
   -> (atms, len : Nat)
-  -> Cycle k
-  -> (Cycle k, List (Cycle k))
+  -> Cycle g
+  -> (Cycle g, List (Cycle g))
 mostComplex sx []      atms len r = (r, sx <>> [])
 mostComplex sx (x::xs) atms len r =
  let n := natoms x (sx <>> (r::xs))
@@ -51,11 +51,11 @@ mostComplex sx (x::xs) atms len r =
          True  => mostComplex (sx:<x) xs atms len r
          False => mostComplex (sx:<r) xs n    x.ncycle.size x
 
-partOf : Bridge k -> Cycle k -> Bool
+partOf : Bridge g -> Cycle g -> Bool
 partOf b c = numSharedNodes b.cycle c > 0
 
 -- splits a cycle into non-empty segments of placed and unplaced nodes.
-toBridge : PlaceST s k => Cycle k -> F1 s (Maybe $ Bridge k)
+toBridge : PlaceST s g => Cycle g -> F1 s (Maybe $ Bridge g)
 toBridge c t =
   case break1 isPlaced c.nodes t of
     (u::us,[])  # t => Just (B c u u us u Fresh) # t -- all unplaced
@@ -65,13 +65,13 @@ toBridge c t =
          Just _          # t := nxt p2 ns2            t | _ # t => Just b # t
       in Just ({type := Partitioned} b) # t
   where
-    tpe : Fin k -> Fin k -> BridgeType
+    tpe : Node g -> Node g -> BridgeType
     tpe x y =
-     case mkEdge x y () of
+     case mkEdg x y of
        Just e  => if contains e c.edgeset then Fused else Brdg
        Nothing => Spiro
 
-    nxt : Fin k -> Nodes k -> F1 s (Maybe (Bridge k, Fin k, Nodes k))
+    nxt : Node g -> Nodes g -> F1 s (Maybe (Bridge g, Node g, Nodes g))
     nxt p ns = T1.do
       -- first, take placed prefix, then take until placed again
       (ps,u::x)    <- span1  isPlaced ns | (_,[]) => pure Nothing
@@ -79,7 +79,7 @@ toBridge c t =
       let p1 := List.last (p::ps)
       pure $ Just (B c p1 u us p2 $ tpe p1 p2, p2, rem)
 
-bridge : PlaceST s k => Cycles k -> F1 s (Maybe (Bridge k, Cycles k))
+bridge : PlaceST s g => Cycles g -> F1 s (Maybe (Bridge g, Cycles g))
 bridge cs = T1.do
   bs <- mapMaybe1 toBridge cs
   case sortBy (comparing type) bs of
@@ -90,21 +90,20 @@ bridge cs = T1.do
 -- Placing Rings
 --------------------------------------------------------------------------------
 
-parameters {k : _}
-           {0 e, n  : Type}
+parameters {0 e, n  : Type}
            {auto dg : DebugFlag}
            {auto ce : Cast n Elem}
            {auto ch : Cast n Hybridization}
-           (g : IGraph k e n)
-           {auto st : PlaceST s k}
+           (g : Graph e n)
+           {auto st : PlaceST s g}
 
-  ngon : Cycle k -> F1' s
+  ngon : Cycle g -> F1' s
   ngon c =
     let phi := fullSteps c.ncycle.size
         r   := ngonRadius BOND_LEN c.ncycle.size @{c.ncycle.prf}
      in polygonCorners g c.nodes origin zero phi (scaleTo r vone)
 
-  placeBridge : Cycles k -> Bridge k -> F1' s
+  placeBridge : Cycles g -> Bridge g -> F1' s
   placeBridge placed (B c _ _ _   _ Fresh) = ngon c
   placeBridge placed (B c x f rem y Spiro) = T1.do
     -- center of placed cycle(s)
@@ -144,20 +143,20 @@ parameters {k : _}
       True  => polygonCorners g ns c zero phi (px - c)
       False => polygonCorners g (reverse ns) c zero phi (py - c)
 
-  layoutSystem : (placed, unplaced : Cycles k) -> F1' s
+  layoutSystem : (placed, unplaced : Cycles g) -> F1' s
   layoutSystem ps us t =
    let Just (b,rs) # t := bridge us t | _ # t => () # t
        _           # t := placeBridge (filter (partOf b) ps) b t
     in layoutSystem (b.cycle::ps) (assert_smaller us rs) t
 
-  placeInitialRing : Subgraph k e n -> F1' s
+  placeInitialRing : Subgraph g -> F1' s
   placeInitialRing sg =
    let c::cs  := mcb $ componentCycles sg | [] => pure ()
        (r,rs) := mostComplex [<] cs (natoms c cs) (c.ncycle.size) c
     in ngon r >> layoutSystem [r] rs
 
   export
-  placeRing : AttachPoint k -> List (Fin k) -> Subgraph k e n -> F1' s
+  placeRing : AttachPoint g -> Nodes g -> Subgraph g -> F1' s
   placeRing None         ns sg = T1.do
     placeInitialRing sg
     _ <- traverse1 (placeNeighbours g) ns

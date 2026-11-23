@@ -2,6 +2,7 @@ module Geom.Interpolate
 
 import Geom
 import Data.Fin
+import Data.Graph.Indexed.Types
 
 %default total
 
@@ -36,6 +37,14 @@ Interpolation (Fin k) where
 
 export
 Interpolation (List $ Fin k) where
+  interpolate = show
+
+export
+Interpolation (Node g) where
+  interpolate = show
+
+export
+Interpolation (Nodes g) where
   interpolate = show
 
 export

@@ -14,43 +14,43 @@ import Geom.Gen2D.Types
 VECT_INI : MolVector
 VECT_INI = rotate (fromDegree 30) (V BOND_LEN 0)
 
-parameters {k : _}
-           {0 e, n  : Type}
+parameters {0 e, n  : Type}
            {auto dg : DebugFlag}
            {auto ce : Cast n Elem}
            {auto ch : Cast n Hybridization}
-           (g : IGraph k e n)
+           {g  : Graph e n}
+           (sg : Subgraph g)
 
-  pchain : PlaceST s k => AttachPoint k -> List (Fin k) -> F1' s
+  pchain : PlaceST s g => AttachPoint g -> Nodes g -> F1' s
   pchain _            []      = pure () -- will not happen
   pchain None         (x::xs) = place x origin >> placeChain g x xs VECT_INI
   pchain (Attach p _) (x::xs) = bondVector p x >>= placeChain g p (x::xs)
 
-  placeComp : PlaceST s k => Component k e n -> F1' s
+  placeComp : PlaceST s g => Component g -> F1' s
   placeComp (C a ns False _)  = pchain a ns >> for1_ ns (ignore1 . placeNeighbours g)
   placeComp (C a ns True  sg) = placeRing g a ns sg
 
-  coords : IGraph k e (MolPoint, n)
+  coords : Graph e (MolPoint, Node g)
   coords =
     run1 $ T1.do
-      st <- placeST k
+      st <- placeST g
       for1_ (components g) placeComp
       ps <- getPoints st
-      pure $ {graph $= mapWithIndex $ \x => map (ps `at` x,)} g
+      pure $ map (\x => (ps `atN` x, x)) sg
 
-0 CGraph : Nat -> Type -> Type -> Type
-CGraph k e n = Graph e (MolPoint,Fin k, n)
+0 CGraph : (g : Graph e n) -> Type
+CGraph g = Graph e (MolPoint,Node g)
 
-coordArray : {k : _} -> List (CGraph k e n) -> IArray k MolPoint
+coordArray : {g : Graph e n} -> List (CGraph g) -> IArray g.order MolPoint
 coordArray gs =
-  alloc k origin $ \m => T1.do
-    for1_ (gs >>= \(G _ h) => labels h) $ \(p,x,_) => set m x p
+  alloc g.order origin $ \m => T1.do
+    for1_ (gs >>= \h => labels h) $ \(p,x) => set m x.node p
     unsafeFreeze m
 
-adjust : {k : _} -> IGraph k e n -> List (CGraph k e n) -> IGraph k e (MolPoint,n)
+adjust : (g : Graph e n) -> List (CGraph g) -> Graph e (MolPoint,n)
 adjust g gs =
  let cs := coordArray gs
-  in mapWithCtxt (\x => (at cs x,) . label) g
+  in mapWithCtxt g (\x => (at cs x,) . label)
 
 Cast n e => Cast (a,n) e where cast = cast . snd
 
@@ -64,15 +64,14 @@ GetPoint (MolPoint,a) where
 
 export
 coordinates :
-     {k : _}
-  -> {0 e, n  : Type}
+     {0 e, n  : Type}
   -> {auto dg : DebugFlag}
   -> {auto ce : Cast n Elem}
   -> {auto ch : Cast n Hybridization}
-  -> (g : IGraph k e n)
-  -> IGraph k e (MolPoint, n)
+  -> (g : Graph e n)
+  -> Graph e (MolPoint, n)
 coordinates g =
-     connectedComponents g            -- split into components
-  |> map (\(G _ y) => G _ $ coords y) -- place them individually
-  |> align                            -- align them in a grid
-  |> adjust g                         -- write coords to original graph
+     connectedComponents g  -- split into components
+  |> map (\y => coords y)   -- place them individually
+  |> align                  -- align them in a grid
+  |> (\x => adjust g x)     -- write coords to original graph
