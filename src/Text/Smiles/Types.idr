@@ -292,35 +292,35 @@ SmilesGraph = Graph SmilesBond SmilesAtom
 --------------------------------------------------------------------------------
 
 public export
-data BStereo : Nat -> Type where
-  ImpH : BStereo n
-  Bnd  : Fin n -> BStereo n
+data BStereo : (g : Graph e n) -> Type where
+  ImpH : BStereo g
+  Bnd  : Node g -> BStereo g
 
 %runElab deriveIndexed "BStereo" [Show,Eq,Ord]
 
 -- Used for sorting: A bound neighbour is either a
 -- parent, implicit H, ring bond, or branch bond
-data Tag : Nat -> Type where
-  Prnt   : Fin n -> Tag n            -- parent
-  Self   : Tag n                     -- implicit H
-  Rng    : RingIdx -> Fin n -> Tag n -- ring bond, sorted by ring index
-  Branch : Fin n -> Tag n            -- branch, sorted by node index
+data Tag : Graph e n -> Type where
+  Prnt   : Node g -> Tag g            -- parent
+  Self   : Tag g                      -- implicit H
+  Rng    : RingIdx -> Node g -> Tag g -- ring bond, sorted by ring index
+  Branch : Node g -> Tag g             -- branch, sorted by node index
 
 %runElab deriveIndexed "Tag" [Eq,Ord]
 
-tag : (me : Fin k) -> (Fin k, SmilesBond) -> Tag k
+tag : (me : Node g) -> (Node g, SmilesBond) -> Tag g
 tag me (it, sb) =
   case sb.seqtag of
     CHAIN    => if it > me then Branch it else Prnt it
     RING x y => if it > me then Rng x it else Rng y it
 
-bchiral : Tag k -> BStereo k
+bchiral : Tag g -> BStereo g
 bchiral (Prnt x)   = Bnd x
 bchiral Self       = ImpH
 bchiral (Rng _ x)  = Bnd x
 bchiral (Branch x) = Bnd x
 
-prfix : HCount -> List (Tag k) -> List (Tag k)
+prfix : HCount -> List (Tag g) -> List (Tag g)
 prfix h ts = if h == 1 then Self :: ts else ts
 
 ||| Returns the neighbours in the order encountered by the
@@ -328,7 +328,7 @@ prfix h ts = if h == 1 then Self :: ts else ts
 |||
 ||| Note: This is experimental and has not yet been tested.
 export
-stereoBonds : Cast n HCount => IGraph k SmilesBond n -> Fin k -> List (BStereo k)
+stereoBonds : Cast n HCount => (g : Graph SmilesBond n) -> Node g -> List (BStereo g)
 stereoBonds g me =
- let A a ns := adj g me
-  in map bchiral . sort . prfix (cast a) . map (tag me) $ pairs ns
+ let A a ns := adj me
+  in map bchiral . sort . prfix (cast a) . map (tag me) $ fromAL ns

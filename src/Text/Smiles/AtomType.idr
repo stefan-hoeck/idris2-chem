@@ -85,4 +85,4 @@ calcAT n (A (Bracket x) ns) =
 
 export %inline
 perceiveSmilesAtomTypes : SmilesGraph -> SmilesGraphAT
-perceiveSmilesAtomTypes (G o g) = G o $ mapWithCtxt calcAT g
+perceiveSmilesAtomTypes g = mapWithCtxt g calcAT

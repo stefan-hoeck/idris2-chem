@@ -106,7 +106,7 @@ ringBondMismatch r p =
   in B (Custom RingBondMismatch) bs
 
 toGraph : ST -> Either (BBErr SmilesErr) SmilesGraph
-toGraph (S n _ _ a b [])                  = Right $ G n (mkGraph (cast a) b)
+toGraph (S n _ _ a b [])                  = Right $ mkGraph (cast a) b
 toGraph (S _ _ _ _ _ (R _ x r _ b p ::_)) =
  let bs := BB p $ incLen (length "\{R r b}") p
   in Left $ B (Custom UnclosedRing) bs
@@ -352,7 +352,7 @@ parseSmiles = parseString smiles
 test : String -> IO ()
 test s =
   case parseSmiles Virtual s of
-    Right x => for_ x $ \(G _ g) => putStrLn (pretty interpolate interpolate g)
+    Right x => for_ x $ \g => putStrLn (pretty interpolate interpolate g)
     Left x  => putStrLn "\{x}"
 
 export
