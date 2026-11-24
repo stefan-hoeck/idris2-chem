@@ -170,8 +170,8 @@ molTarget g = toTarget (aromatize atomType g)
 |||
 ||| The mapping is returned as a `Vect` of nodes.
 export %inline
-substructureI :
+substructure :
      (q : Graph QueryBond QueryAtom)
   -> (t : Graph TargetBond TargetAtom)
   -> Maybe (Vect q.order $ Node t)
-substructureI = assert_total $ query matchBond matchAtom
+substructure = assert_total $ query matchBond matchAtom

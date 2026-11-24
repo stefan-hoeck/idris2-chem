@@ -15,8 +15,8 @@ readArom = map (aromatize atomType . perceiveSmilesAtomTypes) . readSmiles'
 testJPlogP : String -> Double -> Property
 testJPlogP s x =
   property1 $ case readArom s of
-    Left err      => failWith Nothing err
-    Right (G o g) => do
+    Left err => failWith Nothing err
+    Right g  => do
       footnoteShow (map (jpLogPContrib g) (nodes g))
       jpLogP g === Just x
 

@@ -29,7 +29,7 @@ match : (q,t : Either String Grph) -> Either String (Maybe (List Nat))
 match q t = do
   qg <- q
   tg <- t
-  pure $ Query.substructure (molQuery qg) (molTarget tg)
+  pure $ map (map cast . toList) $ substructure (molQuery qg) (molTarget tg)
 
 prop_bug : Property
 prop_bug = property1 $ match qgrph tgrph === Right Nothing

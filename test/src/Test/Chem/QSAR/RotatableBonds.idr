@@ -22,9 +22,9 @@ testRotBonds :
 testRotBonds s it ea n = property1 $ map rotBonds (readArom s) === Right n
   where
     rotBonds : Graph SmilesBond SmilesAtomAT -> Nat
-    rotBonds (G o g) =
+    rotBonds g =
       let rs := ringBonds g
-       in rotatableBondCount rs it ea g
+       in rotatableBondCount g rs it ea
 
 prop_bicycle : Property
 prop_bicycle = testRotBonds "CC2CCC(C1CCCCC1)CC2" True False 2

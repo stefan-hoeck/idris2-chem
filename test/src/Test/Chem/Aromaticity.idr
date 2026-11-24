@@ -30,7 +30,7 @@ readKekulee : String -> Either String (Graph SmilesBondOrder SmilesAtomAT)
 readKekulee = map (mapFst to1 . kekulize (const Dbl)) . readSMO
 
 triples : Graph e n -> List (Nat,Nat,e)
-triples (G o g) = (\(E x y l) => (finToNat x, finToNat y, l)) <$> edges g
+triples g = (\(LE x y l) => (cast x, cast y, l)) <$> edges g
 
 testArom : String -> List (Nat,Nat,SmilesBondOrder) -> Property
 testArom s ts = property1 $ map triples (readArom s) === Right ts

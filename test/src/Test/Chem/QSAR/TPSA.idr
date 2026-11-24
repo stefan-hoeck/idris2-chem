@@ -17,10 +17,7 @@ readArom : String -> Either String (Graph (AromBond SmilesBond) SmilesAtomAT)
 readArom = map (aromatize atomType . perceiveSmilesAtomTypes) . readSmiles'
 
 testTPSA : String -> Double -> Property
-testTPSA s n = property1 $ map tpsa_ (readArom s) === Right n
-  where
-    tpsa_ : Graph (AromBond SmilesBond) SmilesAtomAT -> Double
-    tpsa_ (G _ g) = tpsa g
+testTPSA s n = property1 $ map tpsa (readArom s) === Right n
 
 export
 props : Group

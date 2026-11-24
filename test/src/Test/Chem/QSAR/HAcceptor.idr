@@ -17,10 +17,7 @@ readArom : String -> Either String (Graph (AromBond SmilesBond) SmilesAtomAT)
 readArom = map (aromatize atomType . perceiveSmilesAtomTypes) . readSmiles'
 
 testAcceptors : String -> Nat -> Property
-testAcceptors s n = property1 $ map acceptors (readArom s) === Right n
-  where
-    acceptors : Graph (AromBond SmilesBond) SmilesAtomAT -> Nat
-    acceptors (G _ g) = hAcceptorCount g
+testAcceptors s n = property1 $ map hAcceptorCount (readArom s) === Right n
 
 export
 props : Group
