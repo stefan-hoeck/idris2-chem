@@ -328,7 +328,7 @@ prfix h ts = if h == 1 then Self :: ts else ts
 |||
 ||| Note: This is experimental and has not yet been tested.
 export
-stereoBonds : Cast n HCount => (g : Graph SmilesBond n) -> Node g -> List (BStereo g)
-stereoBonds g me =
+stereoBonds : Cast n HCount => {g : Graph SmilesBond n} -> Node g -> List (BStereo g)
+stereoBonds me =
  let A a ns := adj me
   in map bchiral . sort . prfix (cast a) . map (tag me) $ fromAL ns

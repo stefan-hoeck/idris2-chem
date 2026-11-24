@@ -19,6 +19,9 @@ Interpolation Nat where interpolate = show
 Interpolation (Fin n) where interpolate = show . S . finToNat
 
 %inline
+Interpolation (Node g) where interpolate = interpolate . node
+
+%inline
 Interpolation Radical where interpolate = dispRadical
 
 [IP_ISO] Interpolation Isotope where interpolate = dispIso

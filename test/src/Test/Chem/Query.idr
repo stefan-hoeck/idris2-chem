@@ -22,7 +22,7 @@ testQuery x y vs = property1 $ test === Right vs
     test = do
       g1 <- readMol x
       g2 <- readMol y
-      pure $ substructure (smilesQuery g1) (smilesTarget g2)
+      pure $ map (map cast . toList) $ substructure (smilesQuery g1) (smilesTarget g2)
 
 --------------------------------------------------------------------------------
 -- Chains

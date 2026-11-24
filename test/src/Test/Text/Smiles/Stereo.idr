@@ -1,8 +1,20 @@
 module Test.Text.Smiles.Stereo
 
+import Derive.Prelude
 import Test.Text.Smiles.Generators
 
 %default total
+%language ElabReflection
+
+data TStereo : Type where
+  I : TStereo
+  B : Nat -> TStereo
+
+%runElab derive "TStereo" [Show,Eq]
+
+Cast (BStereo g) TStereo where
+  cast ImpH    = I
+  cast (Bnd n) = B (cast n)
 
 Cast SmilesAtom HCount where
   cast (SubsetAtom elem arom) = 0
@@ -11,21 +23,19 @@ Cast SmilesAtom HCount where
 readSG : String -> SmilesGraph
 readSG = either (const $ G _ empty) id . readSmiles'
 
-sizedGraph : (k : Nat) -> Graph e n -> Either Nat (IGraph k e n)
-sizedGraph k (G f g) =
-  case hdecEq k f of
-    Just0 prf => Right $ rewrite prf in g
-    Nothing0  => Left f
+graphNode : String -> Nat -> Either Nat (DPair SmilesGraph Node)
+graphNode s n =
+  let g := readSG s
+   in maybe (Left g.order) (Right . MkDPair g) $ tryNode n
 
-graphErr : String -> (exp,found : Nat) -> String
-graphErr s x f =
-  "Invalid graph order for \{s}. Expected \{show x} but found \{show f}."
+graphErr : String -> (node,order : Nat) -> String
+graphErr s x o = "Invalid graph index \{show x} for order \{show o}. (SMILES: \{s})"
 
-testStereo : String -> (n : Nat) -> Fin n -> List (BStereo n) -> PropertyT ()
-testStereo s n x exp =
-  case sizedGraph n (readSG s) of
-    Left f  => failWith Nothing (graphErr s n f)
-    Right g => stereoBonds g x === exp
+testStereo : String -> Nat -> List TStereo -> PropertyT ()
+testStereo s x exp =
+  case graphNode s x of
+    Left o          => failWith Nothing (graphErr s x o)
+    Right (g ** nx) => map cast (stereoBonds nx) === exp
 
 -- TODO: Add tests for systems with two or more ring openings/closures
 --       at the stereo center
@@ -35,11 +45,11 @@ testStereo s n x exp =
 prop_stereo : Property
 prop_stereo =
   property1 $ Prelude.do
-    testStereo "N[C@](Br)(O)C" 5 1 [Bnd 0, Bnd 2, Bnd 3, Bnd 4]
-    testStereo "[C@@](C)(Br)(O)N" 5 0 [Bnd 1, Bnd 2, Bnd 3, Bnd 4]
-    testStereo "FC1C[C@](Br)(Cl)CCC1" 9 3 [Bnd 2, Bnd 4, Bnd 5, Bnd 6]
-    testStereo "[C@]1(Br)(Cl)CCCC(F)C1" 9 0 [Bnd 8, Bnd 1, Bnd 2, Bnd 3]
-    testStereo "N[C@H](O)C" 4 1 [Bnd 0, ImpH, Bnd 2, Bnd 3]
+    testStereo "N[C@](Br)(O)C" 1 [B 0, B 2, B 3, B 4]
+    testStereo "[C@@](C)(Br)(O)N" 0 [B 1, B 2, B 3, B 4]
+    testStereo "FC1C[C@](Br)(Cl)CCC1" 3 [B 2, B 4, B 5, B 6]
+    testStereo "[C@]1(Br)(Cl)CCCC(F)C1" 0 [B 8, B 1, B 2, B 3]
+    testStereo "N[C@H](O)C" 1 [B 0, I, B 2, B 3]
 
 export
 props : Group
