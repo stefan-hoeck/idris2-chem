@@ -11,7 +11,7 @@ printCycle : Cycle k -> Prog ()
 printCycle (C n _ _ _) = prntLn n
 
 act : SmilesGraph -> Prog ()
-act (G _ g) = traverse_ printCycle $ mcb (computeCrAndMCB g)
+act g = traverse_ printCycle $ mcb (computeCrAndMCB g)
 
 export
 cycles : List String -> Prog ()

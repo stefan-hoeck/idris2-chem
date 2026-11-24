@@ -7,14 +7,14 @@ import Data.Graph.Indexed.Query.DFS
 
 %default total
 
-printTree : Interpolation n => IGraph k e n -> Tree (Fin k) -> Prog ()
+printTree : Interpolation n => (g : Graph e n) -> Tree (Node g) -> Prog ()
 printTree g = putStrLn . prettyTree False . map pretty
   where
-    pretty : Fin k -> String
-    pretty x = "\{show x}: \{lab g x}"
+    pretty : Node g -> String
+    pretty x = "\{show x}: \{lab x}"
 
 act : SmilesGraph -> Prog ()
-act (G _ g) = traverse_ (printTree g) $ dff' g
+act g = traverse_ (printTree g) $ dff' g
 
 export
 trees : List String -> Prog ()

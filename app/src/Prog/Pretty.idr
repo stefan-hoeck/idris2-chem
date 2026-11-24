@@ -9,8 +9,8 @@ Interpolation SmilesAtomAT where
   interpolate a = a.type.name
 
 act : Interpolation e => Interpolation n => List String -> Graph e n -> Prog ()
-act [] (G _ g) = stdoutLn (pretty interpolate interpolate g)
-act _ _        = invalid
+act [] g = stdoutLn (pretty interpolate interpolate g)
+act _ _  = invalid
 
 kekulizeSmiles : SmilesGraph -> SmilesGraphAT
 kekulizeSmiles =
