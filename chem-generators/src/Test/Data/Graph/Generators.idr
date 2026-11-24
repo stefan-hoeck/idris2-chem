@@ -39,4 +39,4 @@ lgraph :
 lgraph nrn nre el nl = do
   ns <- list nrn nl
   es <- edges nre el
-  pure $ (G (length ns) $ mkGraphL ns es)
+  pure $ mkGraphL ns es

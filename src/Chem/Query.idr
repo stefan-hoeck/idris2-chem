@@ -150,40 +150,28 @@ smilesQuery = toQuery . aromatize atomType
 ||| Convert a SMILES graph to one used as a target in a substructure search.
 export
 smilesTarget : SmilesGraphAT -> TargetGraph
-smilesTarget sg = toTarget (aromatize atomType sg)
+smilesTarget g = toTarget (aromatize atomType g)
 
 ||| Convert a .mol-file graph to one used as a query in a substructure search.
 export
 molQuery : MolGraphAT -> QueryGraph
-molQuery sg = toQuery (aromatize atomType sg)
+molQuery g = toQuery (aromatize atomType g)
 
--- ||| Convert a .mol-file graph to one used as a target in a substructure search.
--- export
--- molTarget : MolGraphAT -> TargetGraph
--- molTarget sg =
---   let G o g := aromatize atomType sg
---    in G o $ toTarget g
---
--- --------------------------------------------------------------------------------
--- -- Query
--- --------------------------------------------------------------------------------
---
--- ||| Tries to find a mapping from the query graph to the target graph
--- |||
--- ||| TODO: Add support for a search limit to make this provably total!
--- export %inline
--- substructureI :
---      {q,t : Nat}
---   -> IGraph q QueryBond QueryAtom
---   -> IGraph t TargetBond TargetAtom
---   -> Maybe (Vect q $ Fin t)
--- substructureI = assert_total $ query matchBond matchAtom
---
--- ||| Tries to find a mapping from the query graph to the target graph.
--- |||
--- ||| The mapping is returned as a list of node indices. If you need stronger
--- ||| quarantees about the indices, consider using `substructureI` for
--- ||| order-indexed graphs.
--- export %inline
--- substructure : QueryGraph -> TargetGraph-> Maybe (List Nat)
--- substructure (G _ qg) (G _ tg) = map finToNat . toList <$> substructureI qg tg
+||| Convert a .mol-file graph to one used as a target in a substructure search.
+export
+molTarget : MolGraphAT -> TargetGraph
+molTarget g = toTarget (aromatize atomType g)
+
+--------------------------------------------------------------------------------
+-- Query
+--------------------------------------------------------------------------------
+
+||| Tries to find a mapping from the query graph to the target graph
+|||
+||| The mapping is returned as a `Vect` of nodes.
+export %inline
+substructureI :
+     (q : Graph QueryBond QueryAtom)
+  -> (t : Graph TargetBond TargetAtom)
+  -> Maybe (Vect q.order $ Node t)
+substructureI = assert_total $ query matchBond matchAtom
