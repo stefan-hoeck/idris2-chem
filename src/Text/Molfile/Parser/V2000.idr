@@ -129,7 +129,7 @@ parameters {auto sk : CSTCK q}
   -- processes a atom property in the V2000 properties block
   prop :
        (ByteString -> Either ErrPair a)
-    -> (a -> MolAtom -> MolAtom)
+    -> (a -> QAtom -> QAtom)
     -> F1 q CST
   prop rd adj = read1 sk.mgraph >>= nx Prop2 . act
     where
