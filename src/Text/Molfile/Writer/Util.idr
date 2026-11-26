@@ -8,13 +8,6 @@ import Text.Molfile.Types
 
 %default total
 
-||| Isotope pretty printer.
-export
-dispIso : Isotope -> String
-dispIso (MkI H (Just 2)) = "D"
-dispIso (MkI H (Just 3)) = "T"
-dispIso (MkI e _)        = symbol e
-
 ||| Radical pretty printer
 export
 dispRadical : Radical -> String
@@ -44,7 +37,7 @@ public export
 GroupMap = SortedMap Nat (String, SnocList Nat)
 
 export
-appendLbl : Fin k -> Adj k b (MolAtom' x y z) -> GroupMap -> GroupMap
+appendLbl : Fin k -> Adj k b (MolAtom' a x y z) -> GroupMap -> GroupMap
 appendLbl x a m =
   case a.label.label of
     Nothing      => m

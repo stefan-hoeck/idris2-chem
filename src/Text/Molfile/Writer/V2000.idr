@@ -21,8 +21,6 @@ Interpolation (Fin n) where interpolate = show . S . finToNat
 %inline
 Interpolation Radical where interpolate = dispRadical
 
-[IP_ISO] Interpolation Isotope where interpolate = dispIso
-
 fill : Interpolation a => Builder q => Nat -> a -> F1' q
 fill n = putLeftPadded n ' ' . interpolate
 
@@ -51,10 +49,10 @@ prependNonEmpty : String -> List String -> List String
 prependNonEmpty "" = id
 prependNonEmpty s  = (s::)
 
-adjProps : Fin k -> Adj k b (MolAtom' h t c) -> Props -> Props
+adjProps : Cast a AtomSymbol => Fin k -> Adj k b (MolAtom' a h t c) -> Props -> Props
 adjProps n adj@(A a _) p =
   let ns := pl 4 n
-      i  := maybe "" (\m => ns ++ pl 4 m) a.elem.mass
+      i  := maybe "" (\m => ns ++ pl 4 m) (massAS $ cast a.elem)
       c  := if a.charge == 0 then "" else ns ++ pl 4 a.charge
       r  := if a.radical == NoRadical then "" else ns ++ pl 4 a.radical
 
@@ -99,8 +97,9 @@ parameters {auto b : Builder q}
   bondRem = putTextLn "  0  0  0"
 
   -- xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
-  atom : Atom Isotope Charge Coordinates Radical h t c l -> F1' q
-  atom (MkAtom a c p _ _ _ _ _) = coords p >> fill @{IP_ISO} 4 a >> atomRem
+  atom : Cast a AtomSymbol => Atom a Charge Coordinates Radical h t c l -> F1' q
+  atom (MkAtom a c p _ _ _ _ _) =
+    coords p >> fill 4 (cast {to = AtomSymbol} a) >> atomRem
 
   -- 111222tttsssxxxrrrccc
   bond : Edge k MolBond -> F1' q
@@ -110,7 +109,7 @@ parameters {auto b : Builder q}
    fill 3 y >> fill 3 x >> fill 3 t >> fill 3 s >> bondRem
 
   export
-  putMol2000 : List (Edge k MolBond) -> MolGraph' h t c -> F1' q
+  putMol2000 : Cast a AtomSymbol => List (Edge k MolBond) -> MolGraph' a h t c -> F1' q
   putMol2000 es (G o g) = T1.do
     counts o (length es)
     traverse1_ (atom . label) g.graph

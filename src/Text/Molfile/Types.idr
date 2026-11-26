@@ -74,11 +74,15 @@ Interpolation ChiralFlag where
 ||| Ast    -> Asterisk
 ||| RSharp -> R# (RGroupLabel)
 public export
-data AtomSymbol = L | A | Q | Ast | LP | RSharp | El Elem
+data AtomSymbol = L | A | Q | Ast | LP | RSharp | El Isotope
 
 export
 Interpolation AtomSymbol where
-  interpolate (El x) = symbol x
+  interpolate (El x) =
+    case x of
+      MkI H (Just 2) => "D"
+      MkI H (Just 3) => "T"
+      MkI e _        => symbol e
   interpolate L      = "L"
   interpolate A      = "A"
   interpolate Q      = "Q"
@@ -86,11 +90,18 @@ Interpolation AtomSymbol where
   interpolate LP     = "LP"
   interpolate RSharp = "R#"
 
-%runElab derive "AtomSymbol" [Show,Eq,Finite]
+%runElab derive "AtomSymbol" [Show,Eq]
 
 public export %inline
-Cast Elem AtomSymbol where cast = El
+Cast Elem AtomSymbol where cast = El . cast
 
+public export %inline
+Cast Isotope AtomSymbol where cast = El
+
+export
+massAS : AtomSymbol -> Maybe MassNr
+massAS (El i) = i.mass
+massAS _      = Nothing
 
 ------------------------------
 -- StereoParity
@@ -257,23 +268,26 @@ record AtomGroup where
 ||| which are `()` for freshly loaded `MolAtom`s but more specific after
 ||| atom type perception.
 public export
-0 MolAtom' : (h,t,c : Type) -> Type
-MolAtom' h t c = Atom Isotope Charge Coordinates Radical h t c (Maybe AtomGroup)
+0 MolAtom' : (a,h,t,c : Type) -> Type
+MolAtom' a h t c = Atom a Charge Coordinates Radical h t c (Maybe AtomGroup)
 
 ||| Regular atom loaded from a .mol file.
 |||
-||| Note: .mol files support additional atom symbols
-||| (for instance, for queries), but for real-world molecules,
-||| this is the type to use.
+||| See also `QAtom`
 public export
 0 MolAtom : Type
-MolAtom = MolAtom' () () ()
+MolAtom = MolAtom' Isotope () () ()
 
 ||| .mol-file atom with perceived atom type and computed
 ||| implicit hydrogen count
 public export
 0 MolAtomAT : Type
-MolAtomAT = MolAtom' HCount AtomType ()
+MolAtomAT = MolAtom' Isotope HCount AtomType ()
+
+||| Query atom loaded from a .mol file.
+public export
+0 QAtom : Type
+QAtom = MolAtom' AtomSymbol () () ()
 
 public export
 Cast Elem MolAtom where
@@ -374,41 +388,45 @@ data SGroupType = SUP | Other
 %runElab derive "SGroupType" [Show,Eq,Finite]
 
 public export
-0 MolGraph' : (h,t,c : Type) -> Type
-MolGraph' h t c = Graph MolBond (MolAtom' h t c)
+0 MolGraph' : (a,h,t,c : Type) -> Type
+MolGraph' a h t c = Graph MolBond (MolAtom' a h t c)
 
 public export
 0 MolGraph : Type
-MolGraph = MolGraph' () () ()
+MolGraph = MolGraph' Isotope () () ()
 
 ||| .mol-file graph with perceived atom types and computed
 ||| implicit hydrogen counts
 public export
 0 MolGraphAT : Type
-MolGraphAT = MolGraph' HCount AtomType ()
+MolGraphAT = MolGraph' Isotope HCount AtomType ()
 
 public export
-record Molfile' (h,t,c : Type) where
+record Molfile' (a,h,t,c : Type) where
   constructor MkMolfile
   name    : MolLine
   info    : MolLine
   comment : MolLine
-  graph   : MolGraph' h t c
+  graph   : MolGraph' a h t c
   dat     : List StructureData
 
 %runElab derive "Molfile'" [Show,Eq]
 
 export %inline
-emptyMolFile : Molfile' h t c
+emptyMolFile : Molfile' a h t c
 emptyMolFile = MkMolfile "" "" "" (G 0 empty) []
 
 public export
 0 Molfile : Type
-Molfile = Molfile' () () ()
+Molfile = Molfile' Isotope () () ()
 
 public export
 0 MolfileAT : Type
-MolfileAT = Molfile' HCount AtomType ()
+MolfileAT = Molfile' Isotope HCount AtomType ()
+
+public export
+0 QMolfile : Type
+QMolfile = Molfile' AtomSymbol () () ()
 
 --------------------------------------------------------------------------------
 --          Error
