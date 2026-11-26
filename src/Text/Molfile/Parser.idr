@@ -18,6 +18,9 @@ import public Text.Molfile.Parser.Stack
 -- Parser
 --------------------------------------------------------------------------------
 
+dispIso : Isotope -> String
+dispIso = interpolate . El
+
 ctabTrans : Lex1 q CSz CSTCK
 ctabTrans =
   lex1
@@ -110,31 +113,3 @@ parameters {auto has : Has (ParseError MolErr) es}
   export %inline
   readSDF : String -> ChemRes es (List Molfile)
   readSDF = readSDFFrom Virtual
-
-
-test : String -> IO ()
-test s =
-  case readMol {es = [ParseError MolErr]} s of
-    Left (Here x) => putStrLn (interpolate x)
-    Right (MkMolfile _ _ _  (G s _) _) => putStrLn "\{show s} atoms parsed"
-
-v3 : String
-v3 =
-  """
-
-
-
-  00000999 V3000
-  M  V30 BEGIN CTAB
-  M  V30 COUNTS 1 0 1 0 0
-  M  V30 BEGIN ATOM
-  M  V30 1 H 0 0 0 0
-  M  V30 END ATOM
-  M  V30 BEGIN BOND
-  M  V30 END BOND
-  M  V30 BEGIN SGROUP
-  M  V30 1 SUP 0 LABEL=a0 ATOMS=(1 1)
-  M  V30 END SGROUP
-  M  V30 END CTAB
-  M  END
-  """

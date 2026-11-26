@@ -16,6 +16,7 @@ import Text.Molfile.Writer.V3000
 --------------------------------------------------------------------------------
 
 parameters {default V2000 version : MolVersion}
+           {auto cst              : Cast a AtomSymbol}
 
   ||| Writes a molecular graph plus header line in mol format to the
   ||| given string builder.
@@ -24,7 +25,7 @@ parameters {default V2000 version : MolVersion}
   ||| very large (more than 999 atoms or bonds), in which case V3000 *has*
   ||| to be used.
   export
-  putMol : Builder q => (n,i,ct : MolLine) -> MolGraph' h t c -> F1' q
+  putMol : Builder q => (n,i,ct : MolLine) -> MolGraph' a h t c -> F1' q
   putMol n i c (G 0 _) = pure ()
   putMol n i c g       =
    let es := edges g.graph
@@ -37,7 +38,7 @@ parameters {default V2000 version : MolVersion}
          putTextLn "M  END"
 
   export
-  putSDF : Builder q => Molfile' h t c -> F1' q
+  putSDF : Builder q => Molfile' a h t c -> F1' q
   putSDF (MkMolfile n i c g ds) = T1.do
     putMol n i c g
     traverse1_ writeStructureData ds
@@ -49,13 +50,13 @@ parameters {default V2000 version : MolVersion}
   ||| very large (more than 999 atoms or bonds), in which case V3000 *has*
   ||| to be used.
   export %inline
-  writeMolfile : Molfile' h t c -> String
+  writeMolfile : Molfile' a h t c -> String
   writeMolfile (MkMolfile n i c g _) = withBuilder $ putMol n i c g
 
   export %inline
-  writeSDFile : Molfile' h t c -> String
+  writeSDFile : Molfile' a h t c -> String
   writeSDFile m = withBuilder $ putSDF m
 
   export %inline
-  writeSDF : List (Molfile' h t c) -> String
+  writeSDF : List (Molfile' a h t c) -> String
   writeSDF ms = withBuilder $ traverse1_ putSDF ms
