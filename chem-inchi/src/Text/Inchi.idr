@@ -22,7 +22,7 @@ genInchi mol =
     pure res
 
 export %inline
-genInchiForMol : (n, i, ct : MolLine) -> MolGraph' h t c -> String
+genInchiForMol : (n, i, ct : MolLine) -> MolGraph' Isotope h t c -> String
 genInchiForMol n i c g = genInchi $ withBuilder $ putMol n i c g
 
 toMolBond : SmilesBondOrder -> MolBond
