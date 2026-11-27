@@ -458,3 +458,10 @@ Interpolation MolErr where
     MEntries      => ".mol file: More than one entry"
     MAbbr         => "abbreviation"
     MSym x        => "atom symbol: \{x}"
+
+export
+toMolAtom : MolAtom' AtomSymbol h t c -> Either MolErr (MolAtom' Isotope h t c)
+toMolAtom x =
+  case x.elem of
+    El i => Right $ {elem := i} x
+    as   => Left (MSym as)
