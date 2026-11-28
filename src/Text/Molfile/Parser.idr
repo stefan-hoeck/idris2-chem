@@ -65,7 +65,7 @@ ctabTrans =
 ctabErr : Arr32 CSz (CSTCK q -> F1 q (BBErr MolErr))
 ctabErr = arr32 CSz (unexpected []) []
 
-ctabEOI : CST -> CSTCK q -> F1 q (Either (BBErr MolErr) (List Molfile))
+ctabEOI : CST -> CSTCK q -> F1 q (Either (BBErr MolErr) (List QMolfile))
 ctabEOI st sk =
   case st == H1 || st == CDone of
     False => case st == EndMol of
@@ -76,10 +76,17 @@ ctabEOI st sk =
 ||| A parser for CTab file formats. Can read V2000 and V3000 mol
 ||| and SD files. Suitable for streaming large amounts of data.
 public export
-ctab : P1 q (BBErr MolErr) (List Molfile)
+ctab : P1 q (BBErr MolErr) (List QMolfile)
 ctab = P H1 init ctabTrans snocChunk ctabErr ctabEOI
 
 parameters {auto has : Has (ParseError MolErr) es}
+
+  export
+  toMolfile : Origin -> String -> QMolfile -> ChemRes es Molfile
+  toMolfile o s (MkMolfile n i c g d) =
+    case traverseEither toMolAtom g of
+      Left x  => Left (inject $ toParseError o s (B (Custom x) NoBounds))
+      Right h => Right (MkMolfile n i c h d)
 
   ||| Reads a single `Molfile` entry from a string.
   |||
@@ -88,14 +95,24 @@ parameters {auto has : Has (ParseError MolErr) es}
   ||| Accepts strings that end with an option SD block
   ||| and optional SD delimiter (`"$$$$"`).
   export
-  readMolFrom : Origin -> String -> ChemRes es Molfile
-  readMolFrom o s =
+  readQueryFrom : Origin -> String -> ChemRes es QMolfile
+  readQueryFrom o s =
     case parseString ctab o s of
       Left x    => Left $ inject x
       Right []  => Right (MkMolfile "" "" "" (G 0 empty) [])
       Right [x] => Right x
       Right _   =>
         Left (inject $ toParseError o s (B (Custom MEntries) NoBounds))
+
+  ||| Reads a single `Molfile` entry from a string.
+  |||
+  ||| The entry can be either in V2000 or V3000 format or a mixture of both.
+  |||
+  ||| Accepts strings that end with an option SD block
+  ||| and optional SD delimiter (`"$$$$"`).
+  export %inline
+  readMolFrom : Origin -> String -> ChemRes es Molfile
+  readMolFrom o s = readQueryFrom o s >>= toMolfile o s
 
   ||| Convenience alias for `readMolFrom Virtual`.
   export %inline
@@ -106,8 +123,20 @@ parameters {auto has : Has (ParseError MolErr) es}
   |||
   ||| The entries can be either in V2000 or V3000 format or a mixture of both.
   export %inline
+  readQSDFFrom : Origin -> String -> ChemRes es (List QMolfile)
+  readQSDFFrom o = mapFst inject . parseString ctab o
+
+  ||| Convenience alias for `readSDFFrom Virtual`.
+  export %inline
+  readQSDF : String -> ChemRes es (List QMolfile)
+  readQSDF = readQSDFFrom Virtual
+
+  ||| Reads a list of SD entries from a string.
+  |||
+  ||| The entries can be either in V2000 or V3000 format or a mixture of both.
+  export %inline
   readSDFFrom : Origin -> String -> ChemRes es (List Molfile)
-  readSDFFrom o = mapFst inject . parseString ctab o
+  readSDFFrom o s = readQSDFFrom o s >>= traverse (toMolfile o s)
 
   ||| Convenience alias for `readSDFFrom Virtual`.
   export %inline

@@ -149,9 +149,10 @@ uedge x bs =
     Just n  => Right n
     Nothing => Left (bs, MNode $ nat bs)
 
-export %inline
-setMass : MassNr -> Isotope -> Isotope
-setMass v = {mass := Just v}
+export
+setMass : MassNr -> AtomSymbol -> AtomSymbol
+setMass m (El i) = El $ {mass := Just m} i
+setMass _ x      = x
 
 export %inline
 groupLbl : SortedMap Nat String -> AtomGroup -> AtomGroup
@@ -254,7 +255,7 @@ parameters {auto sk : CSTCK q}
 
   ||| Modifies the current atom in the mol graph
   export
-  modAtom : (MolAtom -> MolAtom) -> F1' q
+  modAtom : (QAtom -> QAtom) -> F1' q
   modAtom f = T1.do
     mg <- read1 sk.mgraph
     x  <- read1 mg.atom
@@ -315,7 +316,7 @@ parameters {auto sk : CSTCK q}
 ||| Sets the isotope of the current atom
 export
 setIso : CST -> Isotope -> Step1 q CSz CSTCK
-setIso x i = \_,t => let _ # t := modAtom {elem := i} t in x # t
+setIso x i = \_,t => let _ # t := modAtom {elem := El i} t in x # t
 
 --------------------------------------------------------------------------------
 -- Structure Data

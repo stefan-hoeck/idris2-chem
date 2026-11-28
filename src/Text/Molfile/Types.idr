@@ -290,7 +290,7 @@ public export
 QAtom = MolAtom' AtomSymbol () () ()
 
 public export
-Cast Elem MolAtom where
+Cast Elem a => Cast Elem (MolAtom' a () () ()) where
   cast el = MkAtom (cast el) 0 [0,0,0] NoRadical () () () Nothing
 
 --------------------------------------------------------------------------------
@@ -442,6 +442,7 @@ data MolErr : Type where
   MEntries    : MolErr
   MAbbr       : MolErr
   MNode       : Nat -> MolErr
+  MSym        : AtomSymbol -> MolErr
 
 %runElab derive "MolErr" [Show,Eq]
 
@@ -456,3 +457,11 @@ Interpolation MolErr where
     MNode       x => "node: \{show x}"
     MEntries      => ".mol file: More than one entry"
     MAbbr         => "abbreviation"
+    MSym x        => "atom symbol: \{x}"
+
+export
+toMolAtom : MolAtom' AtomSymbol h t c -> Either MolErr (MolAtom' Isotope h t c)
+toMolAtom x =
+  case x.elem of
+    El i => Right $ {elem := i} x
+    as   => Left (MSym as)

@@ -39,7 +39,7 @@ record MGraph (q : Type) where
   atom    : Ref q (Fin $ S atoms)
   indices : Ref q (SortedMap Nat $ Fin (S atoms))
   bond    : Ref q (Maybe $ Edge (S atoms) MolBond)
-  graph   : MArray q (S atoms) (Adj (S atoms) MolBond MolAtom)
+  graph   : MArray q (S atoms) (Adj (S atoms) MolBond QAtom)
 
 export
 mgraph : (atoms : Nat) -> F1 q (MGraph q)
@@ -68,7 +68,7 @@ record CSTCK (q : Type) where
 
   -- graphs
   mgraph      : Ref q (MGraph q)
-  stack_      : Ref q (SnocList Molfile)
+  stack_      : Ref q (SnocList QMolfile)
   groups      : Ref q (SortedMap Nat String)
   count       : Ref q Nat
   isEmpty     : Ref q Bool
