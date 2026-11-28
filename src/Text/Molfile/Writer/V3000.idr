@@ -30,7 +30,7 @@ parameters {auto b : Builder q}
   rad NoRadical = pure ()
   rad r         = putText " RAD=\{dispRadical r}"
 
-  mass : AtomSymbol -> F1' q
+  mass : SciFiSym -> F1' q
   mass (El $ MkI H (Just 2)) = linebreak
   mass (El $ MkI H (Just 3)) = linebreak
   mass (El $ MkI _ (Just m)) = putTextLn " MASS=\{show m.value}"
@@ -56,10 +56,10 @@ parameters {auto b : Builder q}
     putShowSep na >> putShowSep nb >> putShow ng >>
     putTextLn " 0 0"
 
-  atomV3 : Cast a AtomSymbol => Fin k -> Adj k MolBond (MolAtom' a h t c) -> F1' q
+  atomV3 : Cast a SciFiSym => Fin k -> Adj k MolBond (MolAtom' a h t c) -> F1' q
   atomV3 n (A (MkAtom a c pos r _ _ _ l) _) =
     mv30 >> putShowSep (S $ finToNat n) >>
-    putText (interpolate $ cast {to = AtomSymbol} a) >>
+    putText (interpolate $ cast {to = SciFiSym} a) >>
     coordsV3 pos >> chrg c >> rad r >> mass (cast a)
 
   cfg : BondStereo -> F1' q
@@ -82,7 +82,7 @@ parameters {auto b : Builder q}
     mv30 >> putShow n >> putText " SUP 0 LABEL=\"\{l}\" ATOMS=" >> nats (x<>>[])
 
   export
-  putMol3000 : Cast a AtomSymbol => List (Edge k MolBond) -> MolGraph' a h t c -> F1' q
+  putMol3000 : Cast a SciFiSym => List (Edge k MolBond) -> MolGraph' a h t c -> F1' q
   putMol3000 es (G o g) = T1.do
     let gs := kvList $ foldrKV appendLbl empty g.graph
     putTextLn "00000999 V3000"
