@@ -69,37 +69,63 @@ Interpolation ChiralFlag where
 --------------------------------------------------------------------------------
 
 ------------------------------
--- AtomSymbol
+-- SciFiSym
 
-||| Ast    -> Asterisk
-||| RSharp -> R# (RGroupLabel)
+||| Query atom symbols as used in SciFinder
 public export
-data AtomSymbol = L | A | Q | Ast | LP | RSharp | El Isotope
+data SciFiSym : Type where
+  ||| Regular isotope
+  El : Isotope -> SciFiSym
+
+  ||| Any halogen
+  X  : SciFiSym
+
+  ||| Any metal
+  M  : SciFiSym
+
+  ||| Any atom except H
+  A  : SciFiSym
+
+  ||| Any atom except C or H
+  Q  : SciFiSym
+
+  ||| Any carbon chain
+  Ak : SciFiSym
+
+  ||| Any cycle
+  Cy : SciFiSym
+
+  ||| Any carbocycle
+  Cb : SciFiSym
+
+  ||| Any heterocycle
+  Hy : SciFiSym
+
+%runElab derive "SciFiSym" [Show,Eq]
 
 export
-Interpolation AtomSymbol where
+Interpolation SciFiSym where
   interpolate (El x) =
     case x of
       MkI H (Just 2) => "D"
       MkI H (Just 3) => "T"
       MkI e _        => symbol e
-  interpolate L      = "L"
-  interpolate A      = "A"
-  interpolate Q      = "Q"
-  interpolate Ast    = "*"
-  interpolate LP     = "LP"
-  interpolate RSharp = "R#"
-
-%runElab derive "AtomSymbol" [Show,Eq]
+  interpolate x      = show x
 
 public export %inline
-Cast Elem AtomSymbol where cast = El . cast
+Cast Elem SciFiSym where cast = El . cast
 
 public export %inline
-Cast Isotope AtomSymbol where cast = El
+Cast Isotope SciFiSym where cast = El
+
+public export %inline
+Cast AromElem SciFiSym where cast = cast . elem
+
+public export %inline
+Cast AromIsotope SciFiSym where cast = cast . cast {to = Isotope}
 
 export
-massAS : AtomSymbol -> Maybe MassNr
+massAS : SciFiSym -> Maybe MassNr
 massAS (El i) = i.mass
 massAS _      = Nothing
 
@@ -287,7 +313,7 @@ MolAtomAT = MolAtom' Isotope HCount AtomType ()
 ||| Query atom loaded from a .mol file.
 public export
 0 QAtom : Type
-QAtom = MolAtom' AtomSymbol () () ()
+QAtom = MolAtom' SciFiSym () () ()
 
 public export
 Cast Elem a => Cast Elem (MolAtom' a () () ()) where
@@ -402,6 +428,10 @@ public export
 MolGraphAT = MolGraph' Isotope HCount AtomType ()
 
 public export
+0 QMolGraphAT : Type
+QMolGraphAT = MolGraph' SciFiSym HCount AtomType ()
+
+public export
 record Molfile' (a,h,t,c : Type) where
   constructor MkMolfile
   name    : MolLine
@@ -426,7 +456,7 @@ MolfileAT = Molfile' Isotope HCount AtomType ()
 
 public export
 0 QMolfile : Type
-QMolfile = Molfile' AtomSymbol () () ()
+QMolfile = Molfile' SciFiSym () () ()
 
 --------------------------------------------------------------------------------
 --          Error
@@ -442,7 +472,7 @@ data MolErr : Type where
   MEntries    : MolErr
   MAbbr       : MolErr
   MNode       : Nat -> MolErr
-  MSym        : AtomSymbol -> MolErr
+  MSym        : SciFiSym -> MolErr
 
 %runElab derive "MolErr" [Show,Eq]
 
@@ -460,7 +490,7 @@ Interpolation MolErr where
     MSym x        => "atom symbol: \{x}"
 
 export
-toMolAtom : MolAtom' AtomSymbol h t c -> Either MolErr (MolAtom' Isotope h t c)
+toMolAtom : MolAtom' SciFiSym h t c -> Either MolErr (MolAtom' Isotope h t c)
 toMolAtom x =
   case x.elem of
     El i => Right $ {elem := i} x

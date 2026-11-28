@@ -70,10 +70,18 @@ record ExplicitH where
 ||| hydrogens bound to an atom.
 public export
 0 QueryAtom : Type
-QueryAtom = Atom Isotope Charge () () ExplicitH () () ()
+QueryAtom = Atom SciFiSym Charge () () ExplicitH () () ()
 
-matchIso : Isotope -> Isotope -> Bool
-matchIso x y = x.elem == y.elem && (x.mass == Nothing || x.mass == y.mass)
+matchIso : SciFiSym -> Isotope -> Bool
+matchIso (El x) i = x.elem == i.elem && (x.mass == Nothing || x.mass == i.mass)
+matchIso X      i = isHalogen i.elem
+matchIso M      i = isMetal i.elem
+matchIso A      i = i.elem /= H
+matchIso Q      i = i.elem /= C && i.elem /= H
+matchIso Ak     i = False -- TODO
+matchIso Cy     i = False -- TODO
+matchIso Cb     i = False -- TODO
+matchIso Hy     i = False -- TODO
 
 ||| Default matcher for atoms in a substructure search
 export
@@ -100,6 +108,16 @@ TargetGraph = Graph TargetBond TargetAtom
 isH : Cast e Isotope => Cast c Charge => Atom e c p r h t ch l -> Bool
 isH v = MkI H Nothing == cast v.elem && 0 == cast {to = Charge} v.charge
 
+Cast SciFiSym Isotope where
+  cast (El i) = i
+  cast X      = cast Elem.F
+  cast Q      = cast Elem.O
+  cast M      = cast Elem.Fe
+  cast _      = cast Elem.C
+
+Cast SciFiSym Elem where
+  cast = elem . cast {to = Isotope}
+
 -- remove explicit hydrogens from a query graph
 removeHs : {k : _} -> IGraph k QueryBond QueryAtom -> QueryGraph
 removeHs g = snd <$> subgraphL g (filter (not . isH . lab g) (nodes g))
@@ -117,7 +135,7 @@ parameters {0 e,c,p,r,h,t,ch,l,b : Type}
   explicitHs : AssocList k (AromBond b) -> Nat
   explicitHs ns = count (\(x,_) => isH $ lab g x) (pairs ns)
 
-  qadj : Adj k (AromBond b) Atm -> Adj k QueryBond QueryAtom
+  qadj : Cast e SciFiSym => Adj k (AromBond b) Atm -> Adj k QueryBond QueryAtom
   qadj (A lbl bs) =
     let bs2  := map qbond bs
         eh   := explicitHs bs
@@ -134,42 +152,39 @@ parameters {0 e,c,p,r,h,t,ch,l,b : Type}
   ||| Convert an aromatized molecular graph to a target graph to be
   ||| used in a subgraph query.
   export %inline
-  toTarget : Cast h HCount => IGraph k TargetBond TargetAtom
-  toTarget = mapAdj tadj g
+  toTarget : Cast h HCount => Graph TargetBond TargetAtom
+  toTarget = G _ $ mapAdj tadj g
 
   ||| Convert an aromatized molecular graph to a query graph to be
   ||| used in a subgraph query.
   export %inline
-  toQuery : Graph QueryBond QueryAtom
+  toQuery : Cast e SciFiSym => Graph QueryBond QueryAtom
   toQuery = removeHs $ mapAdj qadj g
 
 ||| Convert a SMILES graph to one used as a query in a substructure search.
 export
 smilesQuery : SmilesGraphAT -> QueryGraph
-smilesQuery sg =
-  let G o g := aromatize atomType sg
-   in toQuery g
+smilesQuery sg = let G o g := aromatize atomType sg in toQuery g
 
 ||| Convert a SMILES graph to one used as a target in a substructure search.
 export
 smilesTarget : SmilesGraphAT -> TargetGraph
-smilesTarget sg =
-  let G o g := aromatize atomType sg
-   in G o $ toTarget g
+smilesTarget sg = let G o g := aromatize atomType sg in toTarget g
 
 ||| Convert a .mol-file graph to one used as a query in a substructure search.
 export
 molQuery : MolGraphAT -> QueryGraph
-molQuery sg =
-  let G o g := aromatize atomType sg
-   in toQuery g
+molQuery sg = let G o g := aromatize atomType sg in toQuery g
+
+||| Convert a .mol-file graph to one used as a query in a substructure search.
+export
+qmolQuery : QMolGraphAT -> QueryGraph
+qmolQuery sg = let G o g := aromatize atomType sg in toQuery g
 
 ||| Convert a .mol-file graph to one used as a target in a substructure search.
 export
 molTarget : MolGraphAT -> TargetGraph
-molTarget sg =
-  let G o g := aromatize atomType sg
-   in G o $ toTarget g
+molTarget sg = let G o g := aromatize atomType sg in toTarget g
 
 --------------------------------------------------------------------------------
 -- Query

@@ -49,7 +49,7 @@ prependNonEmpty : String -> List String -> List String
 prependNonEmpty "" = id
 prependNonEmpty s  = (s::)
 
-adjProps : Cast a AtomSymbol => Fin k -> Adj k b (MolAtom' a h t c) -> Props -> Props
+adjProps : Cast a SciFiSym => Fin k -> Adj k b (MolAtom' a h t c) -> Props -> Props
 adjProps n adj@(A a _) p =
   let ns := pl 4 n
       i  := maybe "" (\m => ns ++ pl 4 m) (massAS $ cast a.elem)
@@ -97,9 +97,9 @@ parameters {auto b : Builder q}
   bondRem = putTextLn "  0  0  0"
 
   -- xxxxx.xxxxyyyyy.yyyyzzzzz.zzzz aaaddcccssshhhbbbvvvHHHrrriiimmmnnneee
-  atom : Cast a AtomSymbol => Atom a Charge Coordinates Radical h t c l -> F1' q
+  atom : Cast a SciFiSym => Atom a Charge Coordinates Radical h t c l -> F1' q
   atom (MkAtom a c p _ _ _ _ _) =
-    coords p >> fill 4 (cast {to = AtomSymbol} a) >> atomRem
+    coords p >> fill 4 (cast {to = SciFiSym} a) >> atomRem
 
   -- 111222tttsssxxxrrrccc
   bond : Edge k MolBond -> F1' q
@@ -109,7 +109,7 @@ parameters {auto b : Builder q}
    fill 3 y >> fill 3 x >> fill 3 t >> fill 3 s >> bondRem
 
   export
-  putMol2000 : Cast a AtomSymbol => List (Edge k MolBond) -> MolGraph' a h t c -> F1' q
+  putMol2000 : Cast a SciFiSym => List (Edge k MolBond) -> MolGraph' a h t c -> F1' q
   putMol2000 es (G o g) = T1.do
     counts o (length es)
     traverse1_ (atom . label) g.graph

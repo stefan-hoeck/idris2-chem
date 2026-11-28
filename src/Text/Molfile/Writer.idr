@@ -16,7 +16,7 @@ import Text.Molfile.Writer.V3000
 --------------------------------------------------------------------------------
 
 parameters {default V2000 version : MolVersion}
-           {auto cst              : Cast a AtomSymbol}
+           {auto cst              : Cast a SciFiSym}
 
   ||| Writes a molecular graph plus header line in mol format to the
   ||| given string builder.

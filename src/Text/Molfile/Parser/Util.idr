@@ -150,7 +150,7 @@ uedge x bs =
     Nothing => Left (bs, MNode $ nat bs)
 
 export
-setMass : MassNr -> AtomSymbol -> AtomSymbol
+setMass : MassNr -> SciFiSym -> SciFiSym
 setMass m (El i) = El $ {mass := Just m} i
 setMass _ x      = x
 
