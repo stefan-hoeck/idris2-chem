@@ -18,8 +18,10 @@ import Text.Molfile.Parser.Stack
 ||| In addition to the regular element symbols, this includes "D" and "T"
 ||| for deuterium and tritium.
 export
-isos : List Isotope
-isos = MkI H (Just 2) :: MkI H (Just 3) :: map (`MkI` Nothing) values
+symbols : List SciFiSym
+symbols =
+  [X,M,A,Q,Ak,Cy,Cb,Hy] ++
+  (map El $ MkI H (Just 2) :: MkI H (Just 3) :: map (`MkI` Nothing) values)
 
 ||| Converts the given byte string to a string, removing any trailing
 ||| end of line characters (`'\n'` and `'\r'`).
@@ -315,8 +317,8 @@ parameters {auto sk : CSTCK q}
 
 ||| Sets the isotope of the current atom
 export
-setIso : CST -> Isotope -> Step1 q CSz CSTCK
-setIso x i = \_,t => let _ # t := modAtom {elem := El i} t in x # t
+setSym : CST -> SciFiSym -> Step1 q CSz CSTCK
+setSym x s = \_,t => let _ # t := modAtom {elem := s} t in x # t
 
 --------------------------------------------------------------------------------
 -- Structure Data

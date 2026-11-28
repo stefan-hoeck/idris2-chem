@@ -18,9 +18,6 @@ import public Text.Molfile.Parser.Stack
 -- Parser
 --------------------------------------------------------------------------------
 
-dispIso : Isotope -> String
-dispIso = interpolate . El
-
 ctabTrans : Lex1 q CSz CSTCK
 ctabTrans =
   lex1
@@ -34,7 +31,7 @@ ctabTrans =
 
     -- V2000
     , E Coords2  $ spaced [bytes coordinatesV2 coordsV2]
-    , E Sym2     $ dfa $ valsN (fill 4 . (" "++) . dispIso) (setIso Chrg2) isos
+    , E Sym2     $ dfa $ valsN (fill 4 . (" "++) . interpolate) (setSym Chrg2) symbols
     , E Chrg2    $ dfa [step zeroes atomV2, line 2 (sdigits 5) chargeV2]
     , E Bnd2     $ dfa [line 0 (sdigits 6) bond]
     , E Prop2    $ dfa prop2
@@ -48,7 +45,7 @@ ctabTrans =
     -- Atoms V3000
     , E Atom3      $ dfa [step' mv30 Index3]
     , E Index3     $ spaced [bytes (plus digit) indexV3]
-    , E Sym3       $ spaced (vals dispIso (setIso Coords3) isos)
+    , E Sym3       $ spaced (vals interpolate (setSym Coords3) symbols)
     , E Coords3    $ spaced [bytes coordinatesV3 coordsV3]
     , E AAMap      $ dfa [step' (plus ' ' >> plus digit) Prop3]
     , E Prop3      $ spaced prop3
@@ -95,14 +92,19 @@ parameters {auto has : Has (ParseError MolErr) es}
   ||| Accepts strings that end with an option SD block
   ||| and optional SD delimiter (`"$$$$"`).
   export
-  readQueryFrom : Origin -> String -> ChemRes es QMolfile
-  readQueryFrom o s =
+  readQMolFrom : Origin -> String -> ChemRes es QMolfile
+  readQMolFrom o s =
     case parseString ctab o s of
       Left x    => Left $ inject x
       Right []  => Right (MkMolfile "" "" "" (G 0 empty) [])
       Right [x] => Right x
       Right _   =>
         Left (inject $ toParseError o s (B (Custom MEntries) NoBounds))
+
+  ||| Convenience alias for `readMolFrom Virtual`.
+  export %inline
+  readQMol : String -> ChemRes es QMolfile
+  readQMol = readQMolFrom Virtual
 
   ||| Reads a single `Molfile` entry from a string.
   |||
@@ -112,7 +114,7 @@ parameters {auto has : Has (ParseError MolErr) es}
   ||| and optional SD delimiter (`"$$$$"`).
   export %inline
   readMolFrom : Origin -> String -> ChemRes es Molfile
-  readMolFrom o s = readQueryFrom o s >>= toMolfile o s
+  readMolFrom o s = readQMolFrom o s >>= toMolfile o s
 
   ||| Convenience alias for `readMolFrom Virtual`.
   export %inline
