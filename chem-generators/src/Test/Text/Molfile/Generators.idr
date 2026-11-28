@@ -9,6 +9,14 @@ import Data.Vect
 %default total
 
 export
+sciFiSym : Gen SciFiSym
+sciFiSym =
+  frequency
+    [ (1, element [X,M,A,Q,Ak,Cy,Cb,Hy])
+    , (5, map El isotope)
+    ]
+
+export
 molLine : Gen MolLine
 molLine = MkMolLine <$> string (linear 0 80) printableAscii
 
@@ -57,6 +65,11 @@ export
 atom : Gen (Maybe AtomGroup) -> Gen MolAtom
 atom nr =
   [| MkAtom isotope charge coords radical u u u nr |]
+
+export
+qatom : Gen (Maybe AtomGroup) -> Gen QAtom
+qatom nr =
+  [| MkAtom sciFiSym charge coords radical u u u nr |]
 
 export
 simpleAtom : Gen MolAtom
@@ -120,8 +133,23 @@ molFileGS gs = do
   |]
 
 export
+qmolFileGS : List AtomGroup -> Gen QMolfile
+qmolFileGS gs = do
+  [| MkMolfile
+       molLine
+       molLine
+       molLine
+       (lgraph (linear 1 30) (linear 0 30) bond (qatom $ group gs))
+       (pure [])
+  |]
+
+export
 molFile : Gen Molfile
 molFile = groups >>= molFileGS
+
+export
+qmolFile : Gen QMolfile
+qmolFile = groups >>= qmolFileGS
 
 export
 sdFileGS : List AtomGroup -> Gen Molfile

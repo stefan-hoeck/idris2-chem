@@ -28,6 +28,17 @@ prop_readRoundTrip = property $ do
     Left (Here x) => failWith Nothing "\{x}"
     Right res     => m === res
 
+prop_readRoundTripQ : Property
+prop_readRoundTripQ = property $ do
+  m <- forAll qmolFile
+  let s := writeMolfile m
+
+  footnote "Encoded:\n\{s}"
+
+  case readQMol {es = [ParseError MolErr]} s of
+    Left (Here x) => failWith Nothing "\{x}"
+    Right res     => m === res
+
 prop_readRoundTrip3000 : Property
 prop_readRoundTrip3000 = property $ do
   m <- forAll molFile
@@ -36,6 +47,17 @@ prop_readRoundTrip3000 = property $ do
   footnote "Encoded:\n\{s}"
 
   case readMol {es = [ParseError MolErr]} s of
+    Left (Here x) => failWith Nothing "\{x}"
+    Right res     => m === res
+
+prop_readRoundTripQ3000 : Property
+prop_readRoundTripQ3000 = property $ do
+  m <- forAll qmolFile
+  let s := writeMolfile {version = V3000} m
+
+  footnote "Encoded:\n\{s}"
+
+  case readQMol {es = [ParseError MolErr]} s of
     Left (Here x) => failWith Nothing "\{x}"
     Right res     => m === res
 
@@ -66,7 +88,9 @@ props : Group
 props = MkGroup "Molfile Properties"
   [ ("prop_sg1",   propRead sg1)
   , ("prop_readRoundTrip", prop_readRoundTrip)
+  , ("prop_readRoundTripQ", prop_readRoundTripQ)
   , ("prop_readRoundTrip3000", prop_readRoundTrip3000)
+  , ("prop_readRoundTripQ3000", prop_readRoundTripQ3000)
   , ("prop_sdfRoundTrip", prop_sdfRoundTrip)
   , ("prop_sdfRoundTrip3000", prop_sdfRoundTrip3000)
   ]
