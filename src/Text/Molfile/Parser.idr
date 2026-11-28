@@ -86,7 +86,7 @@ parameters {auto has : Has (ParseError MolErr) es}
   toMolfile o s (MkMolfile n i c g d) =
     case traverseEither toMolAtom g of
       Left x  => Left (inject $ toParseError o s (B (Custom x) NoBounds))
-      Right h => Right (MkMolfile n ic h d)
+      Right h => Right (MkMolfile n i c h d)
 
   ||| Reads a single `Molfile` entry from a string.
   |||
